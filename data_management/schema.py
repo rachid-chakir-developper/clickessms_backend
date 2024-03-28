@@ -4,7 +4,7 @@ from graphql_jwt.decorators import login_required
 
 from django.apps import apps
 
-from data_management.models import DataModel, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency
+from data_management.models import DataModel, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason
 
 class DataType(DjangoObjectType):
     class Meta:
@@ -29,6 +29,11 @@ class UndesirableEventSeriousTypeType(DjangoObjectType):
 class UndesirableEventFrequencyType(DjangoObjectType):
     class Meta:
         model = UndesirableEventFrequency
+        fields = "__all__"
+
+class MeetingReasonType(DjangoObjectType):
+    class Meta:
+        model = MeetingReason
         fields = "__all__"
 
 class DataQuery(graphene.ObjectType):

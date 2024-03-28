@@ -30,3 +30,7 @@ class UndesirableEventSeriousType(DataModel):
 class UndesirableEventFrequency(DataModel):
 	def __str__(self):
 		return str(self.id)
+
+class MeetingReason(DataModel):
+	def __str__(self):
+		return str(self.id)
