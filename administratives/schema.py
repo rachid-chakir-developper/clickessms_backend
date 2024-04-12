@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from administratives.models import Call, CallBeneficiary, Letter, LetterBeneficiary, Meeting, ParticipantMeetingItem,  BeneficiaryMeetingItem
+from administratives.models import Call, Caller, CallBeneficiary, Letter, LetterBeneficiary, Meeting, ParticipantMeetingItem,  BeneficiaryMeetingItem, MeetingReport, MeetingReportItem
 from data_management.models import MeetingReason
 from medias.models import Folder, File
 from human_ressources.models import Employee, Beneficiary
@@ -16,14 +16,22 @@ class CallBeneficiaryType(DjangoObjectType):
         model = CallBeneficiary
         fields = "__all__"
 
+class CallerType(DjangoObjectType):
+    class Meta:
+        model = Caller
+        fields = "__all__"
+
 class CallType(DjangoObjectType):
     class Meta:
         model = Call
         fields = "__all__"
     image = graphene.String()
+    caller = graphene.Field(CallerType)
     beneficiaries = graphene.List(CallBeneficiaryType)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
+    def resolve_caller(instance, info, **kwargs):
+        return instance.caller_set.all().first()
     def resolve_beneficiaries( instance, info, **kwargs ):
         return instance.callbeneficiary_set.all()
 
@@ -71,6 +79,19 @@ class BeneficiaryMeetingItemType(DjangoObjectType):
         model = BeneficiaryMeetingItem
         fields = "__all__"
 
+class MeetingReportItemType(DjangoObjectType):
+    class Meta:
+        model = MeetingReportItem
+        fields = "__all__"
+
+class MeetingReportType(DjangoObjectType):
+    class Meta:
+        model = MeetingReport
+        fields = "__all__"
+    meeting_report_items = graphene.List(MeetingReportItemType)
+    def resolve_meeting_report_items( instance, info, **kwargs ):
+        return instance.meetingreportitem_set.all()
+
 class MeetingType(DjangoObjectType):
     class Meta:
         model = Meeting
@@ -91,6 +112,19 @@ class MeetingFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
 
+class CallerInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    name = graphene.String(required=False)
+    phone = graphene.String(required=False)
+    caller_type = graphene.String(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+    partner_id = graphene.Int(name="partner", required=False)
+    supplier_id = graphene.Int(name="supplier", required=False)
+    client_id = graphene.Int(name="client", required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
+    phone_number_id = graphene.Int(name="phoneNumber", required=False)
+
 class CallInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -103,6 +137,7 @@ class CallInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     employee_id = graphene.Int(name="employee", required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
+    caller = CallerInput(required=False)
 
 class LetterInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -132,6 +167,13 @@ class MeetingInput(graphene.InputObjectType):
     reasons = graphene.List(graphene.Int, required=False)
     other_reasons = graphene.String(required=False)
 
+class MeetingReportItemInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    report = graphene.String(required=False)
+    decision = graphene.String(required=False)
+    points_to_review = graphene.String(required=False)
+    meeting_report_id = graphene.Int(name="meetingReport", required=False)
+    
 class AdministrativesQuery(graphene.ObjectType):
     calls = graphene.Field(CallNodeType, call_filter= CallFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     call = graphene.Field(CallType, id = graphene.ID())
@@ -139,6 +181,7 @@ class AdministrativesQuery(graphene.ObjectType):
     letter = graphene.Field(LetterType, id = graphene.ID())
     meetings = graphene.Field(MeetingNodeType, meeting_filter= MeetingFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     meeting = graphene.Field(MeetingType, id = graphene.ID())
+    meeting_report = graphene.Field(MeetingReportType, id = graphene.ID(required=False), id_meeting = graphene.Int(required=False))
     def resolve_calls(root, info, call_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         total_count = 0
@@ -228,6 +271,14 @@ class AdministrativesQuery(graphene.ObjectType):
             meeting = None
         return meeting
 
+    def resolve_meeting_report(root, info, id=None, id_meeting=None):
+        # We can easily optimize query count in the resolve method
+        try:
+            meeting_report = MeetingReport.objects.get(pk=id) if id else MeetingReport.objects.get(meeting__id=id_meeting)
+        except Meeting.DoesNotExist:
+            meeting_report = None
+        return meeting_report
+
 #************************************************************************
 
 class CreateCall(graphene.Mutation):
@@ -240,6 +291,7 @@ class CreateCall(graphene.Mutation):
     def mutate(root, info, image=None, call_data=None):
         creator = info.context.user
         beneficiary_ids = call_data.pop("beneficiaries")
+        caller_data = call_data.pop("caller")
         call = Call(**call_data)
         call.creator = creator
         if info.context.FILES:
@@ -253,6 +305,8 @@ class CreateCall(graphene.Mutation):
                 image_file.save()
                 call.image = image_file
         call.save()
+        if call_data:
+            call.setCaller(caller_data=caller_data, creator=creator)
         folder = Folder.objects.create(name=str(call.id)+'_'+call.title,creator=creator)
         call.folder = folder
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
@@ -279,8 +333,11 @@ class UpdateCall(graphene.Mutation):
     def mutate(root, info, id, image=None, call_data=None):
         creator = info.context.user
         beneficiary_ids = call_data.pop("beneficiaries")
+        caller_data = call_data.pop("caller")
         Call.objects.filter(pk=id).update(**call_data)
         call = Call.objects.get(pk=id)
+        if call_data:
+            call.setCaller(caller_data=caller_data, creator=creator)
         if not call.folder or call.folder is None:
             folder = Folder.objects.create(name=str(call.id)+'_'+call.title,creator=creator)
             Call.objects.filter(pk=id).update(folder=folder)
@@ -618,7 +675,58 @@ class DeleteMeeting(graphene.Mutation):
         else:
             message = "Vous n'êtes pas un Superuser."
         return DeleteMeeting(deleted=deleted, success=success, message=message, id=id)
-        
+
+#************************************************************************
+
+class CreateMeetingReportItem(graphene.Mutation):
+    class Arguments:
+        meeting_report_item_data = MeetingReportItemInput(required=True)
+
+    meeting_report_item = graphene.Field(MeetingReportItemType)
+
+    def mutate(root, info, meeting_report_item_data=None):
+        creator = info.context.user
+        meeting_report_item = MeetingReportItem(**meeting_report_item_data)
+        meeting_report_item.creator = creator
+        meeting_report_item.save()
+        return CreateMeetingReportItem(meeting_report_item=meeting_report_item)
+
+class UpdateMeetingReportItem(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        meeting_report_item_data = MeetingReportItemInput(required=True)
+
+    meeting_report_item = graphene.Field(MeetingReportItemType)
+
+    def mutate(root, info, id, meeting_report_item_data=None):
+        MeetingReportItem.objects.filter(pk=id).update(**meeting_report_item_data)
+        meeting_report_item = MeetingReportItem.objects.get(pk=id)
+        return UpdateMeetingReportItem(meeting_report_item=meeting_report_item)
+
+class DeleteMeetingReportItem(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    meeting_report_item = graphene.Field(MeetingReportItemType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            meeting_report_item = MeetingReportItem.objects.get(pk=id)
+            meeting_report_item.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteMeetingReportItem(deleted=deleted, success=success, message=message, id=id)
+
 #*************************************************************************#
 
 class AdministrativesMutation(graphene.ObjectType):

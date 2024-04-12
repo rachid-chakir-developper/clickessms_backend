@@ -1,6 +1,7 @@
 from django.db import models
 from datetime import datetime
 import random
+from works.models import STATUS
 
 # Create your models here.
 class UndesirableEvent(models.Model):
@@ -30,6 +31,7 @@ class UndesirableEvent(models.Model):
 	is_active = models.BooleanField(default=True, null=True)
 	other_notified_persons = models.CharField(max_length=255, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
 	normal_types = models.ManyToManyField('data_management.UndesirableEventNormalType', related_name='normal_type_undesirable_events')
 	serious_types = models.ManyToManyField('data_management.UndesirableEventSeriousType', related_name='serious_type_undesirable_events')
 	frequency = models.ForeignKey('data_management.UndesirableEventFrequency', on_delete=models.SET_NULL, related_name='frequency_undesirable_events', null=True)
@@ -66,6 +68,28 @@ class UndesirableEvent(models.Model):
 	    
 	def __str__(self):
 		return self.title
+
+# Create your models here.
+class UndesirableEventEstablishment(models.Model):
+	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True)
+	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='undesirable_event_establishment', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_establishment_former', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
+
+# Create your models here.
+class UndesirableEventEstablishmentService(models.Model):
+	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True)
+	establishment_service = models.ForeignKey('companies.EstablishmentService', on_delete=models.SET_NULL, related_name='undesirable_event_establishment_service', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_establishment_service_former', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
 
 # Create your models here.
 class UndesirableEventEmployee(models.Model):

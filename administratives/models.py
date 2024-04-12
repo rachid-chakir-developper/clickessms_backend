@@ -1,6 +1,7 @@
 from django.db import models
 from datetime import datetime
 import random
+from data_management.models import PhoneNumber, HomeAddress
 
 # Create your models here.
 class Call(models.Model):
@@ -48,9 +49,42 @@ class Call(models.Model):
 	        number = f'{number_prefix}{number_suffix}'
 
 	    return number
-	    
+
+	def setCaller(self, caller_data=None, creator=None):
+		if self.id and Caller.objects.filter(call__id=self.id).exists():
+			Caller.objects.filter(call__id=self.id).delete()
+		caller = Caller(**caller_data)
+		caller.call = self
+		caller.creator = creator
+		print(f'*************{caller_data}')
+		if caller_data.caller_type == 'PhoneNumber' and ('phone_number_id' not in caller_data or caller_data.phone_number_id is None):
+			phone_number = PhoneNumber.objects.filter(phone=caller_data.phone).first()
+			phone_number = phone_number if phone_number else PhoneNumber.objects.create(phone=caller_data.phone)
+			caller.phone_number = phone_number
+		caller.save()
+		self.save()
 	def __str__(self):
 		return self.title
+
+# Create your models here.
+class Caller(models.Model):
+	name = models.CharField(max_length=255, null=True)
+	phone = models.CharField(max_length=255, null=True)
+	caller_type = models.CharField(max_length=255, null=True)
+	call = models.ForeignKey(Call, on_delete=models.SET_NULL, null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='call_employee_callers', null=True)
+	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='call_beneficiary_callers', null=True)
+	partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, related_name='call_partner_callers', null=True)
+	supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='call_supplier_callers', null=True)
+	client = models.ForeignKey('sales.Client', on_delete=models.SET_NULL, related_name='call_client_callers', null=True)
+	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='call_establishment_callers', null=True)
+	phone_number = models.ForeignKey('data_management.PhoneNumber', on_delete=models.SET_NULL, related_name='call_phone_number_callers', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='call_caller_former', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
 
 # Create your models here.
 class CallBeneficiary(models.Model):
@@ -182,12 +216,10 @@ class MeetingReport(models.Model):
 
 # Create your models here.
 class MeetingReportItem(models.Model):
-	number = models.CharField(max_length=255, null=True)
-	name = models.CharField(max_length=255, null=True)
-	comment = models.TextField(default='', null=True)
-	description = models.TextField(default='', null=True)
-	observation = models.TextField(default='', null=True)
 	meeting_report = models.ForeignKey(MeetingReport, on_delete=models.SET_NULL, null=True)
+	report = models.CharField(max_length=255, null=True)
+	decision = models.TextField(default='', null=True)
+	points_to_review = models.TextField(default='', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

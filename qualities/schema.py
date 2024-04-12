@@ -6,14 +6,25 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from qualities.models import UndesirableEvent, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson
+from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEstablishmentService, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson
 from data_management.models import UndesirableEventNormalType, UndesirableEventSeriousType
 from medias.models import Folder, File
+from companies.models import Establishment, EstablishmentService
 from human_ressources.models import Employee, Beneficiary
 
 class UndesirableEventEmployeeType(DjangoObjectType):
     class Meta:
         model = UndesirableEventEmployee
+        fields = "__all__"
+
+class UndesirableEventEstablishmentType(DjangoObjectType):
+    class Meta:
+        model = UndesirableEventEstablishment
+        fields = "__all__"
+
+class UndesirableEventEstablishmentServiceType(DjangoObjectType):
+    class Meta:
+        model = UndesirableEventEstablishmentService
         fields = "__all__"
 
 class UndesirableEventBeneficiaryType(DjangoObjectType):
@@ -31,11 +42,17 @@ class UndesirableEventType(DjangoObjectType):
         model = UndesirableEvent
         fields = "__all__"
     image = graphene.String()
+    establishments = graphene.List(UndesirableEventEstablishmentType)
+    establishment_services = graphene.List(UndesirableEventEstablishmentServiceType)
     employees = graphene.List(UndesirableEventEmployeeType)
     beneficiaries = graphene.List(UndesirableEventBeneficiaryType)
     notified_persons = graphene.List(UndesirableEventNotifiedPersonType)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
+    def resolve_establishments( instance, info, **kwargs ):
+        return instance.undesirableeventestablishment_set.all()
+    def resolve_establishment_services( instance, info, **kwargs ):
+        return instance.undesirableeventestablishmentservice_set.all()
     def resolve_employees( instance, info, **kwargs ):
         return instance.undesirableeventemployee_set.all()
     def resolve_beneficiaries( instance, info, **kwargs ):
@@ -68,10 +85,13 @@ class UndesirableEventInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     other_notified_persons = graphene.String(required=False)
+    status = graphene.String(required=False)
     normal_types = graphene.List(graphene.Int, required=False)
     serious_types = graphene.List(graphene.Int, required=False)
     frequency_id = graphene.Int(name="frequency", required=False)
     employee_id = graphene.Int(name="employee", required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    establishment_services = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
     notified_persons = graphene.List(graphene.Int, required=False)
@@ -120,6 +140,8 @@ class CreateUndesirableEvent(graphene.Mutation):
 
     def mutate(root, info, image=None, undesirable_event_data=None):
         creator = info.context.user
+        establishment_ids = undesirable_event_data.pop("establishments")
+        establishment_service_ids = undesirable_event_data.pop("establishment_services")
         beneficiary_ids = undesirable_event_data.pop("beneficiaries")
         employee_ids = undesirable_event_data.pop("employees")
         notified_person_ids = undesirable_event_data.pop("notified_persons")
@@ -149,6 +171,28 @@ class CreateUndesirableEvent(graphene.Mutation):
         if serious_type_ids and serious_type_ids is not None:
             serious_types = UndesirableEventSeriousType.objects.filter(id__in=serious_type_ids)
             undesirable_event.serious_types.set(serious_types)
+
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                undesirable_event_establishment = UndesirableEventEstablishment.objects.get(establishment__id=establishment.id, undesirable_event__id=undesirable_event.id)
+            except UndesirableEventEstablishment.DoesNotExist:
+                UndesirableEventEstablishment.objects.create(
+                        undesirable_event=undesirable_event,
+                        establishment=establishment,
+                        creator=creator
+                    )
+
+        establishment_services = EstablishmentService.objects.filter(id__in=establishment_service_ids)
+        for establishment_service in establishment_services:
+            try:
+                undesirable_event_establishment_service = UndesirableEventEstablishmentService.objects.get(establishment_service__id=establishment_service.id, undesirable_event__id=undesirable_event.id)
+            except UndesirableEventEstablishmentService.DoesNotExist:
+                UndesirableEventEstablishmentService.objects.create(
+                        undesirable_event=undesirable_event,
+                        establishment_service=establishment_service,
+                        creator=creator
+                    )
 
         employees = Employee.objects.filter(id__in=employee_ids)
         for employee in employees:
@@ -193,6 +237,8 @@ class UpdateUndesirableEvent(graphene.Mutation):
 
     def mutate(root, info, id, image=None, undesirable_event_data=None):
         creator = info.context.user
+        establishment_ids = undesirable_event_data.pop("establishments")
+        establishment_service_ids = undesirable_event_data.pop("establishment_services")
         beneficiary_ids = undesirable_event_data.pop("beneficiaries")
         employee_ids = undesirable_event_data.pop("employees")
         notified_person_ids = undesirable_event_data.pop("notified_persons")
@@ -228,6 +274,30 @@ class UpdateUndesirableEvent(graphene.Mutation):
         if serious_type_ids and serious_type_ids is not None:
             serious_types = UndesirableEventSeriousType.objects.filter(id__in=serious_type_ids)
             undesirable_event.serious_types.set(serious_types)
+
+        UndesirableEventEstablishment.objects.filter(undesirable_event=undesirable_event).exclude(establishment__id__in=establishment_ids).delete()
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                undesirable_event_establishment = UndesirableEventEstablishment.objects.get(establishment__id=establishment.id, undesirable_event__id=undesirable_event.id)
+            except UndesirableEventEstablishment.DoesNotExist:
+                UndesirableEventEstablishment.objects.create(
+                        undesirable_event=undesirable_event,
+                        establishment=establishment,
+                        creator=creator
+                    )
+
+        UndesirableEventEstablishmentService.objects.filter(undesirable_event=undesirable_event).exclude(establishment_service__id__in=establishment_service_ids).delete()
+        establishment_services = EstablishmentService.objects.filter(id__in=establishment_service_ids)
+        for establishment_service in establishment_services:
+            try:
+                undesirable_event_establishment_service = UndesirableEventEstablishmentService.objects.get(establishment_service__id=establishment_service.id, undesirable_event__id=undesirable_event.id)
+            except UndesirableEventEstablishmentService.DoesNotExist:
+                UndesirableEventEstablishmentService.objects.create(
+                        undesirable_event=undesirable_event,
+                        establishment_service=establishment_service,
+                        creator=creator
+                    )
 
         UndesirableEventEmployee.objects.filter(undesirable_event=undesirable_event).exclude(employee__id__in=employee_ids).delete()
         employees = Employee.objects.filter(id__in=employee_ids)
