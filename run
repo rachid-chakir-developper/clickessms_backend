@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -ex
+
+serve() {
+    source ./.venv/bin/activate
+    python ./manage.py runserver
+}
+
+install() {
+    source ./.venv/bin/activate
+    pip install -r requirements.txt
+}
+
+# runs the command passed as first argument, passing to it all other arguments
+cmd=$1
+shift
+$cmd $@

@@ -2,3 +2,5 @@
 
 /public
 /feedbacks/djangocalendar-412715-276727682242.json
+/.venv
+__pycache__
