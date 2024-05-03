@@ -81,17 +81,6 @@ class UndesirableEventEstablishment(models.Model):
 		return str(self.id)
 
 # Create your models here.
-class UndesirableEventEstablishmentService(models.Model):
-	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True)
-	establishment_service = models.ForeignKey('companies.EstablishmentService', on_delete=models.SET_NULL, related_name='undesirable_event_establishment_service', null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_establishment_service_former', null=True)
-	created_at = models.DateTimeField(auto_now_add=True, null=True)
-	updated_at = models.DateTimeField(auto_now=True, null=True)
-
-	def __str__(self):
-		return str(self.id)
-
-# Create your models here.
 class UndesirableEventEmployee(models.Model):
 	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='undesirable_event_employee', null=True)

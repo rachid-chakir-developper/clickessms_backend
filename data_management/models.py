@@ -36,6 +36,17 @@ class DataModel(models.Model):
 	class Meta:
 		abstract = True
 
+class HumanGender(DataModel):
+	def __str__(self):
+		return str(self.id)
+
+class AdmissionDocumentType(DataModel):
+	def __str__(self):
+		return str(self.id)
+
+class EstablishmentCategory(DataModel):
+	def __str__(self):
+		return str(self.id)
 
 class EstablishmentType(DataModel):
 	def __str__(self):

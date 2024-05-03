@@ -94,18 +94,34 @@ class EmployeeGroupItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
+    # Create your models here.
+class EmployeeContract(models.Model):
+    number = models.CharField(max_length=255, editable=False, null=True)
+    name = models.CharField(max_length=255, null=True)
+    starting_date_time = models.DateTimeField(null=True)
+    ending_date_time = models.DateTimeField(null=True)
+    started_at = models.DateTimeField(null=True)
+    finished_at = models.DateTimeField(null=True)
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_contracts', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='employee_contract_former', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
     def __str__(self):
         return str(self.id)
 
 # Create your models here.
 class Beneficiary(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)
-    first_name = models.CharField(max_length=255)
-    last_name = models.CharField(max_length=255)
+    gender = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    preferred_name = models.CharField(max_length=255, null=True)
+    first_name = models.CharField(max_length=255, null=True)
+    last_name = models.CharField(max_length=255, null=True)
     email = models.EmailField(blank=False, max_length=255, verbose_name="email")
     photo = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='beneficiary_photo', null=True)
     cover_image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='beneficiary_cover_image', null=True)
     birth_date = models.DateTimeField(null=True)
+    admission_date = models.DateTimeField(null=True)
     latitude = models.CharField(max_length=255, null=True)
     longitude = models.CharField(max_length=255, null=True)
     city = models.CharField(max_length=255, null=True)
@@ -132,6 +148,34 @@ class Beneficiary(models.Model):
 
     def __str__(self):
         return self.email
+
+# Create your models here.
+class BeneficiaryAdmissionDocument(models.Model):
+    beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True)
+    document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='beneficiary_admission_documents', null=True)
+    admission_document_type = models.ForeignKey('data_management.AdmissionDocumentType', on_delete=models.SET_NULL, null=True)
+    starting_date = models.DateTimeField(null=True)
+    ending_date = models.DateTimeField(null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+# Create your models here.
+class BeneficiaryEntry(models.Model):
+    beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True)
+    entry_date = models.DateTimeField(null=True)
+    release_date = models.DateTimeField(null=True)
+    establishments = models.ManyToManyField('companies.Establishment', related_name='establishments_beneficiary_entries')
+    internal_referents = models.ManyToManyField('human_ressources.Employee', related_name='referents_beneficiary_entries')
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.name
 
     # Create your models here.
 class BeneficiaryGroup(models.Model):

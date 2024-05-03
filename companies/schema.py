@@ -4,8 +4,9 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from companies.models import Company, Establishment, EstablishmentService
+from companies.models import Company, Establishment, EstablishmentManager
 from medias.models import File, Folder
+from human_ressources.models import Employee
 
 class CompanyType(DjangoObjectType):
     class Meta:
@@ -22,39 +23,30 @@ class CompanyNodeType(graphene.ObjectType):
     nodes = graphene.List(CompanyType)
     total_count = graphene.Int()
 
+class EstablishmentManagerType(DjangoObjectType):
+    class Meta:
+        model = EstablishmentManager
+        fields = "__all__"
+
 class EstablishmentType(DjangoObjectType):
     class Meta:
         model = Establishment
         fields = "__all__"
     logo = graphene.String()
     cover_image = graphene.String()
+    managers = graphene.List(EstablishmentManagerType)
     def resolve_logo( instance, info, **kwargs ):
         return instance.logo and info.context.build_absolute_uri(instance.logo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
+    def resolve_managers( instance, info, **kwargs ):
+        return instance.establishmentmanager_set.all()
 
 class EstablishmentNodeType(graphene.ObjectType):
     nodes = graphene.List(EstablishmentType)
     total_count = graphene.Int()
 
 class EstablishmentFilterInput(graphene.InputObjectType):
-    keyword = graphene.String(required=False)
-    starting_date_time = graphene.DateTime(required=False)
-    ending_date_time = graphene.DateTime(required=False)
-
-class EstablishmentServiceType(DjangoObjectType):
-    class Meta:
-        model = EstablishmentService
-        fields = "__all__"
-    image = graphene.String()
-    def resolve_image( instance, info, **kwargs ):
-        return instance.image and info.context.build_absolute_uri(instance.image.image.url)
-
-class EstablishmentServiceNodeType(graphene.ObjectType):
-    nodes = graphene.List(EstablishmentServiceType)
-    total_count = graphene.Int()
-
-class EstablishmentServiceFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
@@ -92,6 +84,8 @@ class EstablishmentInput(graphene.InputObjectType):
     number = graphene.String(required=False)
     name = graphene.String(required=True)
     siret = graphene.String(required=True)
+    finess = graphene.String(required=True)
+    ape_code = graphene.String(required=True)
     primary_color = graphene.String(required=False)
     secondary_color = graphene.String(required=False)
     text_color = graphene.String(required=False)
@@ -116,30 +110,18 @@ class EstablishmentInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
+    establishment_category_id = graphene.Int(name="establishmentCategory", required=False)
     establishment_type_id = graphene.Int(name="establishmentType", required=False)
     establishment_parent_id = graphene.Int(name="establishmentParent", required=False)
     establishment_childs = graphene.List(graphene.Int, required=False)
+    managers = graphene.List(graphene.Int, required=False)
 
-class EstablishmentServiceInput(graphene.InputObjectType):
-    id = graphene.ID(required=False)
-    number = graphene.String(required=False)
-    name = graphene.String(required=True)
-    siret = graphene.String(required=True)
-    establishment_service_type = graphene.String(required=True)
-    description = graphene.String(required=False)
-    observation = graphene.String(required=False)
-    is_active = graphene.Boolean(required=False)
-    establishment_id = graphene.Int(name="establishment", required=False)
-    establishment_service_parent_id = graphene.Int(name="establishmentServiceParent", required=False)
-    establishment_service_childs = graphene.List(graphene.Int, required=False)
 
 class CompanyQuery(graphene.ObjectType):
     companies = graphene.Field(CompanyNodeType, offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     company = graphene.Field(CompanyType, id = graphene.ID(required=False))
     establishments = graphene.Field(EstablishmentNodeType, establishment_filter= EstablishmentFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     establishment = graphene.Field(EstablishmentType, id = graphene.ID())
-    establishment_services = graphene.Field(EstablishmentServiceNodeType, establishment_service_filter= EstablishmentServiceFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
-    establishment_service = graphene.Field(EstablishmentServiceType, id = graphene.ID())
 
     def resolve_companies(root, info, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
@@ -193,36 +175,6 @@ class CompanyQuery(graphene.ObjectType):
         except Establishment.DoesNotExist:
             establishment = None
         return establishment
-
-    def resolve_establishment_services(root, info, establishment_service_filter=None, offset=None, limit=None, page=None):
-        # We can easily optimize query count in the resolve method
-        total_count = 0
-        establishment_services = EstablishmentService.objects.all()
-        if establishment_service_filter:
-            keyword = establishment_service_filter.get('keyword', '')
-            starting_date_time = establishment_service_filter.get('starting_date_time')
-            ending_date_time = establishment_service_filter.get('ending_date_time')
-            if keyword:
-                establishment_services = establishment_services.filter(Q(name__icontains=keyword) | Q(registration_number__icontains=keyword) | Q(driver_name__icontains=keyword))
-            if starting_date_time:
-                establishment_services = establishment_services.filter(created_at__gte=starting_date_time)
-            if ending_date_time:
-                establishment_services = establishment_services.filter(created_at__lte=ending_date_time)
-        establishment_services = establishment_services.order_by('-created_at')
-        total_count = establishment_services.count()
-        if page:
-            offset = limit * (page - 1)
-        if offset is not None and limit is not None:
-            establishment_services = establishment_services[offset:offset + limit]
-        return EstablishmentServiceNodeType(nodes=establishment_services, total_count=total_count)
-
-    def resolve_establishment_service(root, info, id):
-        # We can easily optimize query count in the resolve method
-        try:
-            establishment_service = EstablishmentService.objects.get(pk=id)
-        except EstablishmentService.DoesNotExist:
-            establishment_service = None
-        return establishment_service
 
 
 #************************************************************************
@@ -354,6 +306,7 @@ class CreateEstablishment(graphene.Mutation):
     def mutate(root, info, logo=None, cover_image=None,  establishment_data=None):
         creator = info.context.user
         establishment_childs_ids = establishment_data.pop("establishment_childs")
+        managers_ids = establishment_data.pop("managers")
         establishment_childs = Establishment.objects.filter(id__in=establishment_childs_ids)
         establishment = Establishment(**establishment_data)
         establishment.creator = creator
@@ -380,6 +333,18 @@ class CreateEstablishment(graphene.Mutation):
         folder = Folder.objects.create(name=str(establishment.id)+'_'+establishment.name,creator=creator)
         establishment.folder = folder
         establishment.establishment_childs.set(establishment_childs)
+
+        employees = Employee.objects.filter(id__in=managers_ids)
+        for employee in employees:
+            try:
+                establishment_manager = EstablishmentManager.objects.get(employee__id=employee.id, establishment__id=establishment.id)
+            except EstablishmentManager.DoesNotExist:
+                EstablishmentManager.objects.create(
+                        establishment=establishment,
+                        employee=employee,
+                        creator=creator
+                    )
+
         establishment.save()
         return CreateEstablishment(establishment=establishment)
 
@@ -395,6 +360,7 @@ class UpdateEstablishment(graphene.Mutation):
     def mutate(root, info, id, logo=None, cover_image=None,  establishment_data=None):
         creator = info.context.user
         establishment_childs_ids = establishment_data.pop("establishment_childs")
+        managers_ids = establishment_data.pop("managers")
         establishment_childs = Establishment.objects.filter(id__in=establishment_childs_ids)
         Establishment.objects.filter(pk=id).update(**establishment_data)
         establishment = Establishment.objects.get(pk=id)
@@ -428,6 +394,18 @@ class UpdateEstablishment(graphene.Mutation):
                 establishment.cover_image = cover_image_file
             establishment.save()
         establishment.establishment_childs.set(establishment_childs)
+
+        EstablishmentManager.objects.filter(establishment=establishment).exclude(employee__id__in=managers_ids).delete()
+        employees = Employee.objects.filter(id__in=managers_ids)
+        for employee in employees:
+            try:
+                establishment_manager = EstablishmentManager.objects.get(employee__id=employee.id, establishment__id=establishment.id)
+            except EstablishmentManager.DoesNotExist:
+                EstablishmentManager.objects.create(
+                        establishment=establishment,
+                        employee=employee,
+                        creator=creator
+                    )
         establishment = Establishment.objects.get(pk=id)
         return UpdateEstablishment(establishment=establishment)
         
@@ -480,125 +458,7 @@ class DeleteEstablishment(graphene.Mutation):
         else:
             message = "Vous n'êtes pas un Superuser."
         return DeleteEstablishment(deleted=deleted, success=success, message=message, id=id)
-        
-#*************************************************************************#
-#************************************************************************
 
-class CreateEstablishmentService(graphene.Mutation):
-    class Arguments:
-        establishment_service_data = EstablishmentServiceInput(required=True)
-        image = Upload(required=False)
-
-    establishment_service = graphene.Field(EstablishmentServiceType)
-
-    def mutate(root, info, image=None, establishment_service_data=None):
-        creator = info.context.user
-        establishment_service_childs_ids = establishment_service_data.pop("establishment_service_childs")
-        establishment_service_childs = EstablishmentService.objects.filter(id__in=establishment_service_childs_ids)
-        establishment_service = EstablishmentService(**establishment_service_data)
-        establishment_service.creator = creator
-        if info.context.FILES:
-            # file1 = info.context.FILES['1']
-            if image and isinstance(image, UploadedFile):
-                image_file = establishment_service.image
-                if not image_file:
-                    image_file = File()
-                    image_file.creator = creator
-                image_file.image = image
-                image_file.save()
-                establishment_service.image = image_file
-        establishment_service.save()
-        folder = Folder.objects.create(name=str(establishment_service.id)+'_'+establishment_service.name,creator=creator)
-        establishment_service.folder = folder
-        establishment_service.establishment_service_childs.set(establishment_service_childs)
-        establishment_service.save()
-        return CreateEstablishmentService(establishment_service=establishment_service)
-
-class UpdateEstablishmentService(graphene.Mutation):
-    class Arguments:
-        id = graphene.ID()
-        establishment_service_data = EstablishmentServiceInput(required=True)
-        image = Upload(required=False)
-        cover_image = Upload(required=False)
-
-    establishment_service = graphene.Field(EstablishmentServiceType)
-
-    def mutate(root, info, id, image=None, cover_image=None,  establishment_service_data=None):
-        creator = info.context.user
-        establishment_service_childs_ids = establishment_service_data.pop("establishment_service_childs")
-        establishment_service_childs = EstablishmentService.objects.filter(id__in=establishment_service_childs_ids)
-        EstablishmentService.objects.filter(pk=id).update(**establishment_service_data)
-        establishment_service = EstablishmentService.objects.get(pk=id)
-        if not establishment_service.folder or establishment_service.folder is None:
-            folder = Folder.objects.create(name=str(establishment_service.id)+'_'+establishment_service.name,creator=creator)
-            EstablishmentService.objects.filter(pk=id).update(folder=folder)
-        if not image and establishment_service.image:
-            image_file = establishment_service.image
-            image_file.delete()
-        if info.context.FILES:
-            # file1 = info.context.FILES['1']
-            if image and isinstance(image, UploadedFile):
-                image_file = establishment_service.image
-                if not image_file:
-                    image_file = File()
-                    image_file.creator = creator
-                image_file.image = image
-                image_file.save()
-                establishment_service.image = image_file
-            establishment_service.save()
-        establishment_service.establishment_service_childs.set(establishment_service_childs)
-        establishment_service = EstablishmentService.objects.get(pk=id)
-        return UpdateEstablishmentService(establishment_service=establishment_service)
-        
-class UpdateEstablishmentServiceState(graphene.Mutation):
-    class Arguments:
-        id = graphene.ID()
-
-    establishment_service = graphene.Field(EstablishmentServiceType)
-    done = graphene.Boolean()
-    success = graphene.Boolean()
-    message = graphene.String()
-
-    def mutate(root, info, id, establishment_service_fields=None):
-        creator = info.context.user
-        done = True
-        success = True
-        establishment_service = None
-        message = ''
-        try:
-            establishment_service = EstablishmentService.objects.get(pk=id)
-            EstablishmentService.objects.filter(pk=id).update(is_active=not establishment_service.is_active)
-            establishment_service.refresh_from_db()
-        except Exception as e:
-            done = False
-            success = False
-            establishment_service=None
-            message = "Une erreur s'est produite."
-        return UpdateEstablishmentServiceState(done=done, success=success, message=message,establishment_service=establishment_service)
-
-class DeleteEstablishmentService(graphene.Mutation):
-    class Arguments:
-        id = graphene.ID()
-
-    establishment_service = graphene.Field(EstablishmentServiceType)
-    id = graphene.ID()
-    deleted = graphene.Boolean()
-    success = graphene.Boolean()
-    message = graphene.String()
-
-    def mutate(root, info, id):
-        deleted = False
-        success = False
-        message = ''
-        current_user = info.context.user
-        if current_user.is_superuser:
-            establishment_service = EstablishmentService.objects.get(pk=id)
-            establishment_service.delete()
-            deleted = True
-            success = True
-        else:
-            message = "Vous n'êtes pas un Superuser."
-        return DeleteEstablishmentService(deleted=deleted, success=success, message=message, id=id)
         
 #*************************************************************************#
 
@@ -611,8 +471,3 @@ class CompanyMutation(graphene.ObjectType):
     update_establishment = UpdateEstablishment.Field()
     update_establishment_state = UpdateEstablishmentState.Field()
     delete_establishment = DeleteEstablishment.Field()
-
-    create_establishment_service = CreateEstablishmentService.Field()
-    update_establishment_service = UpdateEstablishmentService.Field()
-    update_establishment_service_state = UpdateEstablishmentServiceState.Field()
-    delete_establishment_service = DeleteEstablishmentService.Field()

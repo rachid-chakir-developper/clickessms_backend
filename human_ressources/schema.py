@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, Beneficiary, BeneficiaryGroup, BeneficiaryGroupItem
+from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
 
 class EmployeeType(DjangoObjectType):
@@ -55,16 +55,35 @@ class EmployeeGroupFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
 
+class BeneficiaryAdmissionDocumentType(DjangoObjectType):
+    class Meta:
+        model = BeneficiaryAdmissionDocument
+        fields = "__all__"
+    document = graphene.String()
+    def resolve_document( instance, info, **kwargs ):
+        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
+
+class BeneficiaryEntryType(DjangoObjectType):
+    class Meta:
+        model = BeneficiaryEntry
+        fields = "__all__"
+
 class BeneficiaryType(DjangoObjectType):
     class Meta:
         model = Beneficiary
         fields = "__all__"
     photo = graphene.String()
     cover_image = graphene.String()
+    beneficiary_admission_documents = graphene.List(BeneficiaryAdmissionDocumentType)
+    beneficiary_entries = graphene.List(BeneficiaryEntryType)
     def resolve_photo( instance, info, **kwargs ):
         return instance.photo and info.context.build_absolute_uri(instance.photo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
+    def resolve_beneficiary_admission_documents( instance, info, **kwargs ):
+        return instance.beneficiaryadmissiondocument_set.all()
+    def resolve_beneficiary_entries( instance, info, **kwargs ):
+        return instance.beneficiaryentry_set.all()
 
 class BeneficiaryNodeType(graphene.ObjectType):
     nodes = graphene.List(BeneficiaryType)
@@ -139,13 +158,31 @@ class EmployeeGroupInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     employees = graphene.List(graphene.Int, required=False)
 
+class BeneficiaryAdmissionDocumentInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    document = Upload(required=False)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+    admission_document_type_id = graphene.Int(name="admissionDocumentType", required=False)
+
+class BeneficiaryEntryInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    entry_date = graphene.DateTime(required=False)
+    release_date = graphene.DateTime(required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    internal_referents = graphene.List(graphene.Int, required=False)
+
 class BeneficiaryInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     first_name = graphene.String(required=True)
+    preferred_name = graphene.String(required=True)
     last_name = graphene.String(required=True)
     email = graphene.String(required=True)
     birth_date = graphene.DateTime(required=False)
+    admission_date = graphene.DateTime(required=False)
     latitude = graphene.String(required=False)
     longitude = graphene.String(required=False)
     city = graphene.String(required=False)
@@ -163,6 +200,9 @@ class BeneficiaryInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    gender_id = graphene.Int(name="gender", required=False)
+    beneficiary_admission_documents = graphene.List(BeneficiaryAdmissionDocumentInput, required=False)
+    beneficiary_entries = graphene.List(BeneficiaryEntryInput, required=False)
 
 class BeneficiaryGroupInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -582,6 +622,8 @@ class CreateBeneficiary(graphene.Mutation):
 
     def mutate(root, info, photo=None, cover_image=None,  beneficiary_data=None):
         creator = info.context.user
+        beneficiary_admission_documents = beneficiary_data.pop("beneficiary_admission_documents")
+        beneficiary_entries = beneficiary_data.pop("beneficiary_entries")
         beneficiary = Beneficiary(**beneficiary_data)
         beneficiary.creator = creator
         beneficiary.company = creator.company
@@ -608,6 +650,27 @@ class CreateBeneficiary(graphene.Mutation):
         folder = Folder.objects.create(name=str(beneficiary.id)+'_'+beneficiary.first_name+'-'+beneficiary.last_name,creator=creator)
         beneficiary.folder = folder
         beneficiary.save()
+        for item in beneficiary_admission_documents:
+            document = item.pop("document")
+            beneficiary_admission_document = BeneficiaryAdmissionDocument(**item)
+            beneficiary_admission_document.beneficiary = beneficiary
+            if document and isinstance(document, UploadedFile):
+                document_file = beneficiary_admission_document.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                beneficiary_admission_document.document = document_file
+            beneficiary_admission_document.save()
+        for item in beneficiary_entries:
+            establishment_ids = item.pop("establishments")
+            internal_referent_ids = item.pop("internal_referents")
+            beneficiary_entry = BeneficiaryEntry(**item)
+            beneficiary_entry.beneficiary = beneficiary
+            beneficiary_entry.save()
+            beneficiary_entry.establishments.set(establishment_ids)
+            beneficiary_entry.internal_referents.set(internal_referent_ids)
         return CreateBeneficiary(beneficiary=beneficiary)
 
 class UpdateBeneficiary(graphene.Mutation):
@@ -621,6 +684,8 @@ class UpdateBeneficiary(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None,  beneficiary_data=None):
         creator = info.context.user
+        beneficiary_admission_documents = beneficiary_data.pop("beneficiary_admission_documents")
+        beneficiary_entries = beneficiary_data.pop("beneficiary_entries")
         Beneficiary.objects.filter(pk=id).update(**beneficiary_data)
         beneficiary = Beneficiary.objects.get(pk=id)
         if not beneficiary.folder or beneficiary.folder is None:
@@ -653,6 +718,44 @@ class UpdateBeneficiary(graphene.Mutation):
                 beneficiary.cover_image = cover_image_file
             beneficiary.save()
         beneficiary = Beneficiary.objects.get(pk=id)
+        beneficiary_admission_document_ids = [item.id for item in beneficiary_admission_documents if item.id is not None]
+        BeneficiaryAdmissionDocument.objects.filter(beneficiary=beneficiary).exclude(id__in=beneficiary_admission_document_ids).delete()
+        for item in beneficiary_admission_documents:
+            document = item.pop("document")
+            if id in item or 'id' in item:
+                BeneficiaryAdmissionDocument.objects.filter(pk=item.id).update(**item)
+                beneficiary_admission_document = BeneficiaryAdmissionDocument.objects.get(pk=item.id)
+            else:
+                beneficiary_admission_document = BeneficiaryAdmissionDocument(**item)
+                beneficiary_admission_document.beneficiary = beneficiary
+                beneficiary_admission_document.save()
+            if not document and beneficiary_admission_document.document:
+                document_file = beneficiary_admission_document.document
+                document_file.delete()
+            if document and isinstance(document, UploadedFile):
+                document_file = beneficiary_admission_document.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                beneficiary_admission_document.document = document_file
+                beneficiary_admission_document.save()
+        beneficiary_entry_ids = [item.id for item in beneficiary_entries if item.id is not None]
+        BeneficiaryEntry.objects.filter(beneficiary=beneficiary).exclude(id__in=beneficiary_entry_ids).delete()
+        for item in beneficiary_entries:
+            establishment_ids = item.pop("establishments")
+            internal_referent_ids = item.pop("internal_referents")
+            if id in item or 'id' in item:
+                BeneficiaryEntry.objects.filter(pk=item.id).update(**item)
+                beneficiary_entry = BeneficiaryEntry.objects.get(pk=item.id)
+            else:
+                beneficiary_entry = BeneficiaryEntry(**item)
+                beneficiary_entry.beneficiary = beneficiary
+                beneficiary_entry.save()
+            beneficiary_entry.establishments.set(establishment_ids)
+            beneficiary_entry.internal_referents.set(internal_referent_ids)
+
         return UpdateBeneficiary(beneficiary=beneficiary)
 
 class UpdateBeneficiaryState(graphene.Mutation):

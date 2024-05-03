@@ -73,6 +73,8 @@ class Establishment(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)
     name = models.CharField(max_length=255, default='Etablissement sans nom')
     siret = models.CharField(max_length=255, null=True)
+    finess = models.CharField(max_length=255, null=True)
+    ape_code = models.CharField(max_length=255, null=True)
     logo = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='establishment_logo', null=True)
     cover_image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='establishment_cover_image', null=True)
     primary_color = models.TextField(default='#ffffff', null=True)
@@ -101,6 +103,7 @@ class Establishment(models.Model):
     is_active = models.BooleanField(default=True, null=True)
     establishment_parent = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='establishment_childs', null=True)
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+    establishment_category = models.ForeignKey('data_management.EstablishmentCategory', on_delete=models.SET_NULL, null=True)
     establishment_type = models.ForeignKey('data_management.EstablishmentType', on_delete=models.SET_NULL, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='establishment_creator', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -135,51 +138,13 @@ class Establishment(models.Model):
     def __str__(self):
         return self.name
 
-class EstablishmentService(models.Model):
-    SERVICE_TYPES = [
-        ("PRIMARY", "Primaire"),
-        ("SECONDARY", "Sécondaire"),
-    ]
-    number = models.CharField(max_length=255)
-    name = models.CharField(max_length=255, default='Service sans nom')
-    siret = models.CharField(max_length=255, null=True)
-    image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='establishment_service_image', null=True)
-    establishment_service_type = models.CharField(max_length=50, choices=SERVICE_TYPES, default= "PRIMARY", null=True)
-    description = models.TextField(default='', null=True)
-    observation = models.TextField(default='', null=True)
-    is_active = models.BooleanField(null=True)
-    establishment_service_parent = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='establishment_service_childs', null=True)
-    establishment = models.ForeignKey(Establishment, on_delete=models.SET_NULL, related_name='establishment_services', null=True)
-    folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
-    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='service_creator', null=True)
+# Create your models here.
+class EstablishmentManager(models.Model):
+    establishment = models.ForeignKey(Establishment, on_delete=models.SET_NULL, null=True)
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='establishment_manager', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='establishment_manager_former', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
-    
-    def save(self, *args, **kwargs):
-        # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
-        if not self.number:
-            self.number = self.generate_unique_number()
-
-        super(EstablishmentService, self).save(*args, **kwargs)
-
-    def generate_unique_number(self):
-        # Implémentez la logique de génération du numéro unique ici
-        # Vous pouvez utiliser des combinaisons de date, heure, etc.
-        # par exemple, en utilisant la fonction strftime de l'objet datetime
-        # pour générer une chaîne basée sur la date et l'heure actuelles.
-
-        # Exemple : Utilisation de la date et de l'heure actuelles
-        current_time = datetime.now()
-        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-        number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
-        number = f'{number_prefix}{number_suffix}'
-
-        # Vérifier s'il est unique dans la base de données
-        while EstablishmentService.objects.filter(number=number).exists():
-            number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-            number = f'{number_prefix}{number_suffix}'
-
-        return number
 
     def __str__(self):
-        return self.name
+        return str(self.id)
