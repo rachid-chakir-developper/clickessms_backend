@@ -23,6 +23,7 @@ from loan_management.schema import LoansQuery, LoansMutation
 from activities.schema import ActivitiesQuery, ActivitiesMutation
 from qualities.schema import QualitiesQuery, QualitiesMutation
 from administratives.schema import AdministrativesQuery, AdministrativesMutation
+from finance.schema import FinanceQuery, FinanceMutation
 
 class ObtainJSONWebToken(mutations.ObtainJSONWebToken):
     user = graphene.Field(UserType)
@@ -56,7 +57,7 @@ class Query(MeQuery, UserQuery, MediasQuery, DataQuery, SearchQuery, DashboardQu
     CompanyQuery, HumanRessourcesQuery, StocksQuery,
     VehiclesQuery, PartnershipsQuery, PurchasesQuery, SalesQuery, WorksQuery,
     CommentsQuery, NotificationsQuery, ChatQuery, LoansQuery, ActivitiesQuery,
-    QualitiesQuery, AdministrativesQuery,
+    QualitiesQuery, AdministrativesQuery, FinanceQuery,
     graphene.ObjectType):
     pass
 
@@ -64,7 +65,7 @@ class Mutation(AuthMutation, UserMutation, MediasMutation, DataMutation,
     CompanyMutation, HumanRessourcesMutation, StocksMutation,
     VehiclesMutation, PartnershipsMutation, PurchasesMutation, SalesMutation, WorksMutation,
     CommentsMutation, NotificationsMutation, ChatMutation, LoansMutation, ActivitiesMutation,
-    QualitiesMutation, AdministrativesMutation,
+    QualitiesMutation, AdministrativesMutation, FinanceMutation,
     graphene.ObjectType):
    pass
 

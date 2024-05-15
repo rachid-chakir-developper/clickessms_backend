@@ -5,7 +5,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from feedbacks.models import Comment, Signature
+from feedbacks.models import Comment, Signature, StatusChange
 from works.models import Task, TaskStep
 from medias.models import File
 from feedbacks.broadcaster import broadcastCommentAdded, broadcastCommentDeleted
@@ -28,6 +28,11 @@ class SignatureType(DjangoObjectType):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
     def resolve_satisfaction( instance, info, **kwargs ):
         return "MEDIUM" if instance.satisfaction == '' else instance.satisfaction
+
+class StatusChangeType(DjangoObjectType):
+    class Meta:
+        model = StatusChange
+        fields = "__all__"
 
 class CommentNodeType(graphene.ObjectType):
     nodes = graphene.List(CommentType)

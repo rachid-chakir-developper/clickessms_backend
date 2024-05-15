@@ -1,5 +1,7 @@
 from django.db import models
 
+from works.models import STATUS
+
 # Create your models here.
 class Comment(models.Model):
 	text = models.TextField(default='', null=True)
@@ -8,6 +10,9 @@ class Comment(models.Model):
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return self.text
 
 # Create your models here.
 class Signature(models.Model):
@@ -29,3 +34,15 @@ class Signature(models.Model):
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+	
+	def __str__(self):
+		return self.base64_encoded
+
+class StatusChange(models.Model):
+    undesirable_event = models.ForeignKey('qualities.UndesirableEvent', on_delete=models.CASCADE, related_name='status_changes')
+    status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+    def __str__(self):
+    	return self.status

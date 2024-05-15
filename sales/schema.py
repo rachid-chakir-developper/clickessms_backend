@@ -55,7 +55,7 @@ class ClientInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
-
+    
 class SalesQuery(graphene.ObjectType):
     clients = graphene.Field(ClientNodeType, client_filter= ClientFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     client = graphene.Field(ClientType, id = graphene.ID())
@@ -220,6 +220,9 @@ class DeleteClient(graphene.Mutation):
         else:
             message = "Vous n'êtes pas un Superuser."
         return DeleteClient(deleted=deleted, success=success, message=message, id=id)
+
+
+#*************************************************************************#
 
 class SalesMutation(graphene.ObjectType):
     create_client = CreateClient.Field()

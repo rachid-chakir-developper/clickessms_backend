@@ -68,7 +68,8 @@ INSTALLED_APPS = [
     'loan_management',
     'activities',
     'qualities',
-    'administratives'
+    'administratives',
+    'finance'
 ]
 
 MIDDLEWARE = [
