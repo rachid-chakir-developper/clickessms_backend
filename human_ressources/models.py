@@ -98,6 +98,7 @@ class EmployeeGroupItem(models.Model):
 class EmployeeContract(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)
     name = models.CharField(max_length=255, null=True)
+    document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='employee_contrat_doucument', null=True)
     starting_date_time = models.DateTimeField(null=True)
     ending_date_time = models.DateTimeField(null=True)
     started_at = models.DateTimeField(null=True)
@@ -154,6 +155,7 @@ class BeneficiaryAdmissionDocument(models.Model):
     beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True)
     document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='beneficiary_admission_documents', null=True)
     admission_document_type = models.ForeignKey('data_management.AdmissionDocumentType', on_delete=models.SET_NULL, null=True)
+    financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True)
     starting_date = models.DateTimeField(null=True)
     ending_date = models.DateTimeField(null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)

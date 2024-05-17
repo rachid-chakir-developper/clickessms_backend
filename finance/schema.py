@@ -42,6 +42,8 @@ class DecisionDocumentItemInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     price = graphene.Float(required=False)
     endowment = graphene.Float(required=False)
+    occupancy_rate = graphene.Float(required=False)
+    theoretical_number_unit_work = graphene.Float(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
@@ -56,6 +58,7 @@ class DecisionDocumentInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
+    financier_id = graphene.Int(name="financier", required=False)
     decision_document_items = graphene.List(DecisionDocumentItemInput, required=False)
 
 class FinanceQuery(graphene.ObjectType):
@@ -102,7 +105,7 @@ class CreateDecisionDocument(graphene.Mutation):
 
     def mutate(root, info, document=None, decision_document_data=None):
         creator = info.context.user
-        decision_document_items = task_data.pop("decision_document_items")
+        decision_document_items = decision_document_data.pop("decision_document_items")
         decision_document = DecisionDocument(**decision_document_data)
         decision_document.creator = creator
         if info.context.FILES:
@@ -135,7 +138,7 @@ class UpdateDecisionDocument(graphene.Mutation):
 
     def mutate(root, info, id, document=None, decision_document_data=None):
         creator = info.context.user
-        decision_document_items = task_data.pop("decision_document_items")
+        decision_document_items = decision_document_data.pop("decision_document_items")
         DecisionDocument.objects.filter(pk=id).update(**decision_document_data)
         decision_document = DecisionDocument.objects.get(pk=id)
         if not decision_document.folder or decision_document.folder is None:

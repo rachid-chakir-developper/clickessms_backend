@@ -1,10 +1,28 @@
 from django.db import models
 from datetime import datetime
 import random
-from works.models import STATUS
-
 # Create your models here.
 class UndesirableEvent(models.Model):
+	STATUS = [
+	    ("NEW", "À traiter"),
+	    ("ACCEPTED", "Accepté"),
+	    ("REFUSED", "Refusé"),
+	    ("STARTED", "En cours"),
+	    ("FINISHED", "Terminée"),
+	    ("PENDING", "En attente"),
+	    ("CANCELED", "Annulée"),
+	    ("ARCHIVED", "Archivée")
+	]
+	STATUS_All = {
+	    "NEW" : "NEW",
+	    "ACCEPTED" : "ACCEPTED",
+	    "REFUSED" : "REFUSED",
+	    "STARTED" : "STARTED",
+	    "FINISHED" : "FINISHED",
+	    "PENDING" : "PENDING",
+	    "CANCELED" : "CANCELED",
+	    "ARCHIVED" : "ARCHIVED"
+	}
 	UDESIRABLE_EVENT_TYPES = [
         ("NORMAL", "EVENEMENT INDESIRABLE (EI) - Normal"),
         ("SERIOUS", "EVENEMENT INDESIRABLE GRAVE (EIG) - Grave"),

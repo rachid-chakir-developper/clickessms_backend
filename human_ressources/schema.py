@@ -6,8 +6,16 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
+from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
+
+class EmployeeContractType(DjangoObjectType):
+    class Meta:
+        model = EmployeeContract
+        fields = "__all__"
+    document = graphene.String()
+    def resolve_document( instance, info, **kwargs ):
+        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
 
 class EmployeeType(DjangoObjectType):
     class Meta:
@@ -165,6 +173,7 @@ class BeneficiaryAdmissionDocumentInput(graphene.InputObjectType):
     ending_date = graphene.DateTime(required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
     admission_document_type_id = graphene.Int(name="admissionDocumentType", required=False)
+    financier_id = graphene.Int(name="financier", required=False)
 
 class BeneficiaryEntryInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
