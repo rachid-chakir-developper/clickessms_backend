@@ -88,6 +88,7 @@ class CreateMaterial(graphene.Mutation):
         creator = info.context.user
         material = Material(**material_data)
         material.creator = creator
+        material.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):

@@ -139,6 +139,7 @@ class CreateUndesirableEvent(graphene.Mutation):
         serious_type_ids = undesirable_event_data.pop("serious_types")
         undesirable_event = UndesirableEvent(**undesirable_event_data)
         undesirable_event.creator = creator
+        undesirable_event.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -151,7 +152,7 @@ class CreateUndesirableEvent(graphene.Mutation):
                 undesirable_event.image = image_file
         undesirable_event.save()
         if not undesirable_event.employee:
-            undesirable_event.employee = creator.employee
+            undesirable_event.employee = creator.getEmployeeInCompany()
         folder = Folder.objects.create(name=str(undesirable_event.id)+'_'+undesirable_event.title,creator=creator)
         undesirable_event.folder = folder
         if normal_type_ids and normal_type_ids is not None:
@@ -242,7 +243,7 @@ class UpdateUndesirableEvent(graphene.Mutation):
                 undesirable_event.image = image_file
             undesirable_event.save()
         if not undesirable_event.employee:
-            undesirable_event.employee = creator.employee
+            undesirable_event.employee = creator.getEmployeeInCompany()
             undesirable_event.save()
 
         if normal_type_ids and normal_type_ids is not None:

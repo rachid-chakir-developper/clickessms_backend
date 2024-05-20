@@ -25,7 +25,9 @@ class Vehicle(models.Model):
 	is_active = models.BooleanField(default=True, null=True)
 	driver = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='vehicle_driver', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_vehicles', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
     

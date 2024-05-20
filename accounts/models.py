@@ -21,13 +21,52 @@ class User(AbstractUser):
     current_latitude = models.CharField(max_length=255, null=True)
     current_longitude = models.CharField(max_length=255, null=True)
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_admins', null=True)
+    current_company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='current_company_users', null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_user', null=True)
     creator = models.ForeignKey('self', on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     USERNAME_FIELD = "username"
     EMAIL_FIELD = "email"
+
+    def addCompany(self, company):
+        if not self.managed_companies.filter(company=company).exists():
+            UserCompany.objects.create(user=self, company=company)
+            return True
+        return False
+
+    def removeCompany(self, company):
+        user_company = self.managed_companies.filter(company=company).first()
+        if user_company:
+            user_company.delete()
+            return True
+        return False
+
+    def getEmployeeInCompany(self, company=None):
+        company = company or self.current_company
+        user_company = self.managed_companies.filter(company=company).first()
+        return user_company.employee if user_company else None
+
+    def setEmployeeForCompany(self, employee_id, company=None):
+        from human_ressources.models import Employee
+        company = company or self.current_company or self.company
+        employee = Employee.objects.get(id=employee_id)
+        user_company, created = self.managed_companies.get_or_create(company=company)
+        user_company.employee = employee
+        user_company.save()
+
+class UserCompany(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='managed_companies', null=True)
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, null=True)
+    company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.company.name}"
 
 # Create your models here.
 class Device(models.Model):

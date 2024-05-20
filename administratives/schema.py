@@ -294,6 +294,7 @@ class CreateCall(graphene.Mutation):
         caller_data = call_data.pop("caller")
         call = Call(**call_data)
         call.creator = creator
+        call.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -435,6 +436,7 @@ class CreateLetter(graphene.Mutation):
         beneficiary_ids = letter_data.pop("beneficiaries")
         letter = Letter(**letter_data)
         letter.creator = creator
+        letter.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -572,11 +574,12 @@ class CreateMeeting(graphene.Mutation):
         reason_ids = meeting_data.pop("reasons")
         meeting = Meeting(**meeting_data)
         meeting.creator = creator
+        meeting.company = creator.current_company if creator.current_company is not None else creator.company
         meeting.save()
         folder = Folder.objects.create(name=str(meeting.id)+'_'+meeting.title,creator=creator)
         meeting.folder = folder
         if not meeting.employee:
-            meeting.employee = creator.employee
+            meeting.employee = creator.getEmployeeInCompany()
         if reason_ids and reason_ids is not None:
             reasons = MeetingReason.objects.filter(id__in=reason_ids)
             meeting.reasons.set(reasons)
@@ -621,7 +624,7 @@ class UpdateMeeting(graphene.Mutation):
             folder = Folder.objects.create(name=str(meeting.id)+'_'+meeting.title,creator=creator)
             Meeting.objects.filter(pk=id).update(folder=folder)
         if not meeting.employee:
-            meeting.employee = creator.employee
+            meeting.employee = creator.getEmployeeInCompany()
             meeting.save()
 
         if reason_ids and reason_ids is not None:

@@ -101,6 +101,7 @@ class CreateSupplier(graphene.Mutation):
         creator = info.context.user
         supplier = Supplier(**supplier_data)
         supplier.creator = creator
+        supplier.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if photo and isinstance(photo, UploadedFile):

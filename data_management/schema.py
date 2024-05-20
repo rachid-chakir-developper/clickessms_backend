@@ -107,6 +107,7 @@ class CreateData(graphene.Mutation):
         creator = info.context.user
         data = apps.get_model('data_management', typeData)(**otherFields)
         data.creator = creator
+        data.company = creator.current_company if creator.current_company is not None else creator.company
         data.save()
         data.__class__ = DataModel
         return CreateData(data=data)

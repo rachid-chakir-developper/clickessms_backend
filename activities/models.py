@@ -14,7 +14,9 @@ class Event(models.Model):
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_events', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_events', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
     
@@ -71,7 +73,9 @@ class BeneficiaryAbsence(models.Model):
 	observation = models.TextField(default='', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_beneficiary_absences', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_beneficiary_absences', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='beneficiary_absence_former', null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 

@@ -94,6 +94,7 @@ class CreateVehicle(graphene.Mutation):
         creator = info.context.user
         vehicle = Vehicle(**vehicle_data)
         vehicle.creator = creator
+        vehicle.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):

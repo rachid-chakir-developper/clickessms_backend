@@ -178,6 +178,7 @@ class CreatePartner(graphene.Mutation):
         creator = info.context.user
         partner = Partner(**partner_data)
         partner.creator = creator
+        partner.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if photo and isinstance(photo, UploadedFile):
@@ -312,6 +313,7 @@ class CreateFinancier(graphene.Mutation):
         creator = info.context.user
         financier = Financier(**financier_data)
         financier.creator = creator
+        financier.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if photo and isinstance(photo, UploadedFile):

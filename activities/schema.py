@@ -162,6 +162,7 @@ class CreateEvent(graphene.Mutation):
         beneficiary_ids = event_data.pop("beneficiaries")
         event = Event(**event_data)
         event.creator = creator
+        event.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -174,7 +175,7 @@ class CreateEvent(graphene.Mutation):
                 event.image = image_file
         event.save()
         if not event.employee:
-            event.employee = creator.employee
+            event.employee = creator.getEmployeeInCompany()
         folder = Folder.objects.create(name=str(event.id)+'_'+event.title,creator=creator)
         event.folder = folder
         if reason_ids and reason_ids is not None:
@@ -224,7 +225,7 @@ class UpdateEvent(graphene.Mutation):
                 event.image = image_file
             event.save()
         if not event.employee:
-            event.employee = creator.employee
+            event.employee = creator.getEmployeeInCompany()
             event.save()
         EventBeneficiary.objects.filter(event=event).exclude(beneficiary__id__in=beneficiary_ids).delete()
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
@@ -304,11 +305,12 @@ class CreateBeneficiaryAbsence(graphene.Mutation):
         reason_ids = beneficiary_absence_data.pop("reasons")
         beneficiary_absence = BeneficiaryAbsence(**beneficiary_absence_data)
         beneficiary_absence.creator = creator
+        beneficiary_absence.company = creator.current_company if creator.current_company is not None else creator.company
         folder = Folder.objects.create(name=str(beneficiary_absence.id)+'_'+beneficiary_absence.title,creator=creator)
         beneficiary_absence.folder = folder
         beneficiary_absence.save()
         if not beneficiary_absence.employee:
-            beneficiary_absence.employee = creator.employee
+            beneficiary_absence.employee = creator.getEmployeeInCompany()
         if reason_ids and reason_ids is not None:
             reasons = AbsenceReason.objects.filter(id__in=reason_ids)
             beneficiary_absence.reasons.set(reasons)
@@ -342,7 +344,7 @@ class UpdateBeneficiaryAbsence(graphene.Mutation):
             folder = Folder.objects.create(name=str(beneficiary_absence.id)+'_'+beneficiary_absence.title,creator=creator)
             BeneficiaryAbsence.objects.filter(pk=id).update(folder=folder)
         if not beneficiary_absence.employee:
-            beneficiary_absence.employee = creator.employee
+            beneficiary_absence.employee = creator.getEmployeeInCompany()
             beneficiary_absence.save()
 
         if reason_ids and reason_ids is not None:

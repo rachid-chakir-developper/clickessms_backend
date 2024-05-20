@@ -170,6 +170,7 @@ class CreateFile(graphene.Mutation):
         creator = info.context.user
         file = File(**file_data)
         file.creator = creator
+        file.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file_upload = info.context.FILES['1']
             file.file = file_upload

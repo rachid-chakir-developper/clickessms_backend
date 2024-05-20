@@ -108,6 +108,7 @@ class CreateDecisionDocument(graphene.Mutation):
         decision_document_items = decision_document_data.pop("decision_document_items")
         decision_document = DecisionDocument(**decision_document_data)
         decision_document.creator = creator
+        decision_document.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if document and isinstance(document, UploadedFile):

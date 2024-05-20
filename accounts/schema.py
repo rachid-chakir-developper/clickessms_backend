@@ -10,9 +10,17 @@ from django.contrib.auth.models import Group, Permission
 
 from django.db.models import Q
 
-from accounts.models import User, Device
+from accounts.models import User, UserCompany, Device
 from medias.models import File
+
+from human_ressources.schema import EmployeeType
+
 from accounts.broadcaster import broadcastUserUpdated, broadcastUserCurrentLocalisationAsked
+
+class UserCompanyType(DjangoObjectType):
+    class Meta:
+        model = UserCompany
+        fields = "__all__"
 
 class UserType(DjangoObjectType):
     class Meta:
@@ -25,6 +33,8 @@ class UserType(DjangoObjectType):
     archived = graphene.Boolean()
     verified = graphene.Boolean()
     secondary_email = graphene.String()
+    employee = graphene.Field(EmployeeType)
+    companies = graphene.List(UserCompanyType)
     def resolve_pk(instance, info):
         return instance.pk
     def resolve_photo( instance, info, **kwargs ):
@@ -37,6 +47,11 @@ class UserType(DjangoObjectType):
         return instance.status.verified
     def resolve_secondary_email(instance, info):
         return instance.status.secondary_email
+    def resolve_employee(instance, info):
+        user = info.context.user
+        return instance.getEmployeeInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.employee
+    def resolve_companies(instance, info):
+        return instance.managed_companies.all()
 
 class UserNodeType(graphene.ObjectType):
     nodes = graphene.List(UserType)
@@ -94,6 +109,7 @@ class UserQuery(graphene.ObjectType):
     current_user = graphene.Field(UserType)
     basic_infos = graphene.Field(UserType, id = graphene.ID(required=False))
     groups = graphene.List(GroupType)
+    user_companies = graphene.List(UserCompanyType)
     group = graphene.Field(GroupType, id = graphene.ID())
     permissions = graphene.List(PermissionType)
     permission = graphene.Field(PermissionType, id = graphene.ID())
@@ -154,6 +170,10 @@ class UserQuery(graphene.ObjectType):
             user = None
         return user
 
+
+    def resolve_user_companies(root, info):
+        # We can easily optimize query count in the resolve method
+        return UserCompany.objects.all()
     def resolve_current_user(self, info):
         user = info.context.user
         if user.is_authenticated:
@@ -203,6 +223,9 @@ class CreateUser(graphene.Mutation):
 
     def mutate(root, info, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
+        employee_id = user_data.pop("employee_id")
+        # company_id = user_data.pop("company_id")
+
         password1 = user_data.username if 'username' in user_data else 'password1'
         password2 = user_data.username if 'username' in user_data else 'password2'
         if password1 in user_data:
@@ -215,6 +238,7 @@ class CreateUser(graphene.Mutation):
         user.creator = creator
         user.company = creator.company
         user.save()
+        user.setEmployeeForCompany(employee_id=employee_id)
         if user_groups is not None:
             groups = Group.objects.filter(id__in=user_groups)
             user.groups.set(groups)
@@ -260,6 +284,8 @@ class UpdateUser(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
+        employee_id = user_data.pop("employee_id")
+        # company_id = user_data.pop("company_id")
         password1 = None
         password2 = None
         if password1 in user_data:
@@ -270,6 +296,7 @@ class UpdateUser(graphene.Mutation):
             raise ValueError("Les mots de passe ne correspondent pas")
         User.objects.filter(pk=id).update(**user_data)
         user = User.objects.get(pk=id)
+        user.setEmployeeForCompany(employee_id=employee_id)
         if user.status.verified is False:
             user.status.verified = True
             user.status.save(update_fields=["verified"])

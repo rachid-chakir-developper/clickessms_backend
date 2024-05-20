@@ -54,6 +54,7 @@ class File(models.Model):
 	image = models.ImageField(upload_to=file_directory_path, null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_files', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

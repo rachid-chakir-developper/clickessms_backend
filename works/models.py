@@ -94,7 +94,9 @@ class Task(models.Model):
 	client_signature = models.ForeignKey('feedbacks.Signature', on_delete=models.CASCADE, related_name='task_client_signature', null=True)
 	employee_signature = models.ForeignKey('feedbacks.Signature', on_delete=models.CASCADE, related_name='task_employee_signature', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_tasks', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 

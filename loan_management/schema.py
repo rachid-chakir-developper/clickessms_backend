@@ -112,6 +112,7 @@ class CreateTheObject(graphene.Mutation):
         creator = info.context.user
         the_object = TheObject(**the_object_data)
         the_object.creator = creator
+        the_object.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):

@@ -224,7 +224,7 @@ class UpdateCompany(graphene.Mutation):
 
     def mutate(root, info, id=None, logo=None, cover_image=None, company_data=None):
         creator = info.context.user
-        company = creator.company
+        company = creator.current_company if creator.current_company is not None else creator.company
         if not company:
             company = Company(**company_data)
             company.creator = creator
@@ -310,6 +310,7 @@ class CreateEstablishment(graphene.Mutation):
         establishment_childs = Establishment.objects.filter(id__in=establishment_childs_ids)
         establishment = Establishment(**establishment_data)
         establishment.creator = creator
+        establishment.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if logo and isinstance(logo, UploadedFile):

@@ -7,6 +7,7 @@ class PhoneNumber(models.Model):
 	name = models.CharField(default='Sans nom', max_length=255, null=True)
 	phone = models.CharField(max_length=255)
 	description = models.TextField(default='', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_phone_numbers', null=True)
 	creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
 	def __str__(self):
@@ -18,6 +19,7 @@ class HomeAddress(models.Model):
 	name = models.CharField(default='Sans nom', max_length=255, null=True)
 	address = models.TextField(default='', null=True)
 	description = models.TextField(default='', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_home_addresses', null=True)
 	creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
 	def __str__(self):
@@ -28,6 +30,7 @@ class DataModel(models.Model):
 	id = models.AutoField(primary_key=True)
 	name = models.CharField(max_length=255)
 	description = models.TextField(default='', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
 	creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
 	def __str__(self):

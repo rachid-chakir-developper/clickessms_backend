@@ -25,6 +25,7 @@ class Notification(models.Model):
 	is_read = models.BooleanField(default=False, null=True)
 	is_seen = models.BooleanField(default=False, null=True)
 	task = models.ForeignKey('works.Task', on_delete=models.SET_NULL, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_notifications', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 

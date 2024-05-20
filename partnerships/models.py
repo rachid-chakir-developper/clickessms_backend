@@ -33,8 +33,10 @@ class Partner(models.Model):
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='partner_former', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_partners', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='partner_former', null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
     
@@ -99,8 +101,10 @@ class Financier(models.Model):
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='financier_former', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_financiers', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='financier_former', null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
     

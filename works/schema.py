@@ -286,6 +286,7 @@ class CreateTask(graphene.Mutation):
         task_checklist = task_data.pop("task_checklist")
         task = Task(**task_data)
         task.creator = creator
+        task.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):

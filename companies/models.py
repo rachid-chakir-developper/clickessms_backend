@@ -34,6 +34,7 @@ class Company(models.Model):
     is_active = models.BooleanField(default=True, null=True)
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='company_creator', null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
     
@@ -105,7 +106,9 @@ class Establishment(models.Model):
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     establishment_category = models.ForeignKey('data_management.EstablishmentCategory', on_delete=models.SET_NULL, null=True)
     establishment_type = models.ForeignKey('data_management.EstablishmentType', on_delete=models.SET_NULL, null=True)
+    company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_establishments', null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='establishment_creator', null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
     

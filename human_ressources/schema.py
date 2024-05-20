@@ -363,7 +363,7 @@ class CreateEmployee(graphene.Mutation):
         creator = info.context.user
         employee = Employee(**employee_data)
         employee.creator = creator
-        employee.company = creator.company
+        employee.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if photo and isinstance(photo, UploadedFile):
@@ -498,6 +498,7 @@ class CreateEmployeeGroup(graphene.Mutation):
         employee_ids = employee_group_data.pop("employees")
         employee_group = EmployeeGroup(**employee_group_data)
         employee_group.creator = creator
+        employee_group.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -635,7 +636,7 @@ class CreateBeneficiary(graphene.Mutation):
         beneficiary_entries = beneficiary_data.pop("beneficiary_entries")
         beneficiary = Beneficiary(**beneficiary_data)
         beneficiary.creator = creator
-        beneficiary.company = creator.company
+        beneficiary.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if photo and isinstance(photo, UploadedFile):
@@ -831,6 +832,7 @@ class CreateBeneficiaryGroup(graphene.Mutation):
         beneficiary_ids = beneficiary_group_data.pop("beneficiaries")
         beneficiary_group = BeneficiaryGroup(**beneficiary_group_data)
         beneficiary_group.creator = creator
+        beneficiary_group.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):

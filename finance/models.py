@@ -14,7 +14,9 @@ class DecisionDocument(models.Model):
 	is_active = models.BooleanField(default=True, null=True)
 	financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_decision_documents', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
     

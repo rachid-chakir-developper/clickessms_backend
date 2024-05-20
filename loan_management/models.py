@@ -10,9 +10,10 @@ class TheObject(models.Model):
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	client = models.ForeignKey('sales.Client', on_delete=models.SET_NULL, related_name='the_object_client', null=True)
 	partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, related_name='the_object_partner', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_the_objects', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 
