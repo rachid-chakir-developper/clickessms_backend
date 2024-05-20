@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='device',
             name='token',
-            field=models.TextField(max_length=255, unique=True),
+            field=models.TextField(max_length=255),
         ),
     ]

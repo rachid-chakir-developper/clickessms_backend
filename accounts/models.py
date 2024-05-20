@@ -70,7 +70,7 @@ class UserCompany(models.Model):
 
 # Create your models here.
 class Device(models.Model):
-    token = models.TextField(unique=True, max_length=255)
+    token = models.TextField(max_length=255)
     platform = models.CharField(max_length=255, null=True)
     name = models.CharField(max_length=255, default='Device sans nom', null=True)
     description = models.TextField(default='', null=True)
@@ -79,6 +79,7 @@ class Device(models.Model):
     is_active = models.BooleanField(default=True, null=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='device_user', null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
     def __str__(self):

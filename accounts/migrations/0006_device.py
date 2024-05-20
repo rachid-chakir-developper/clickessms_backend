@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
             name='Device',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('token', models.TextField(max_length=255, unique=True)),
+                ('token', models.TextField(max_length=255)),
                 ('platform', models.CharField(max_length=255, null=True)),
                 ('name', models.CharField(default='Device sans nom', max_length=255, null=True)),
                 ('description', models.TextField(default='', null=True)),
