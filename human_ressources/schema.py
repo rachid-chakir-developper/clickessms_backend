@@ -17,6 +17,15 @@ class EmployeeContractType(DjangoObjectType):
     def resolve_document( instance, info, **kwargs ):
         return instance.document and info.context.build_absolute_uri(instance.document.file.url)
 
+class EmployeeContractNodeType(graphene.ObjectType):
+    nodes = graphene.List(EmployeeContractType)
+    total_count = graphene.Int()
+
+class EmployeeContractFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+
 class EmployeeType(DjangoObjectType):
     class Meta:
         model = Employee
@@ -166,6 +175,19 @@ class EmployeeGroupInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     employees = graphene.List(graphene.Int, required=False)
 
+class EmployeeContractInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    name = graphene.String(required=True)
+    position = graphene.String(required=False)
+    salary = graphene.Float(required=True)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    started_at = graphene.DateTime(required=False)
+    ended_at = graphene.DateTime(required=False)
+    contrat_type_id = graphene.Int(name="contratType", required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+
 class BeneficiaryAdmissionDocumentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     document = Upload(required=False)
@@ -225,6 +247,8 @@ class BeneficiaryGroupInput(graphene.InputObjectType):
 class HumanRessourcesQuery(graphene.ObjectType):
     employees = graphene.Field(EmployeeNodeType, employee_filter= EmployeeFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     employee = graphene.Field(EmployeeType, id = graphene.ID())
+    employee_contracts = graphene.Field(EmployeeContractNodeType, employee_contract_filter= EmployeeContractFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    employee_contract = graphene.Field(EmployeeContractType, id = graphene.ID())
     employee_groups = graphene.Field(EmployeeGroupNodeType, employee_group_filter= EmployeeGroupFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     employee_group = graphene.Field(EmployeeGroupType, id = graphene.ID())
     beneficiaries = graphene.Field(BeneficiaryNodeType, beneficiary_filter= BeneficiaryFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -233,8 +257,10 @@ class HumanRessourcesQuery(graphene.ObjectType):
     beneficiary_group = graphene.Field(BeneficiaryGroupType, id = graphene.ID())
     def resolve_employees(root, info, employee_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        employees = Employee.objects.filter(company__id=id_company) if id_company else Employee.objects.all()
+        employees = Employee.objects.filter(company__id=id_company) if id_company else Employee.objects.filter(company=company)
         if employee_filter:
             keyword = employee_filter.get('keyword', '')
             starting_date_time = employee_filter.get('starting_date_time')
@@ -261,10 +287,44 @@ class HumanRessourcesQuery(graphene.ObjectType):
             employee = None
         return employee
 
+    def resolve_employee_contracts(root, info, employee_contract_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        total_count = 0
+        employee_contracts = EmployeeContract.objects.filter(employee__company=company)
+        if employee_contract_filter:
+            keyword = employee_contract_filter.get('keyword', '')
+            starting_date_time = employee_contract_filter.get('starting_date_time')
+            ending_date_time = employee_contract_filter.get('ending_date_time')
+            if keyword:
+                employee_contracts = employee_contracts.filter(Q(title__icontains=keyword))
+            if starting_date_time:
+                employee_contracts = employee_contracts.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                employee_contracts = employee_contracts.filter(created_at__lte=ending_date_time)
+        employee_contracts = employee_contracts.order_by('-created_at')
+        total_count = employee_contracts.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            employee_contracts = employee_contracts[offset:offset + limit]
+        return EmployeeContractNodeType(nodes=employee_contracts, total_count=total_count)
+
+    def resolve_employee_contract(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            employee_contract = EmployeeContract.objects.get(pk=id)
+        except EmployeeContract.DoesNotExist:
+            employee_contract = None
+        return employee_contract
+
     def resolve_employee_groups(root, info, employee_group_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        employee_groups = EmployeeGroup.objects.all()
+        employee_groups = EmployeeGroup.objects.filter(company=company)
         if employee_group_filter:
             keyword = employee_group_filter.get('keyword', '')
             starting_date_time = employee_group_filter.get('starting_date_time')
@@ -293,8 +353,10 @@ class HumanRessourcesQuery(graphene.ObjectType):
 
     def resolve_beneficiaries(root, info, beneficiary_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        beneficiaries = Beneficiary.objects.filter(company__id=id_company) if id_company else Beneficiary.objects.all()
+        beneficiaries = Beneficiary.objects.filter(company__id=id_company) if id_company else Beneficiary.objects.filter(company=company)
         if beneficiary_filter:
             keyword = beneficiary_filter.get('keyword', '')
             starting_date_time = beneficiary_filter.get('starting_date_time')
@@ -323,8 +385,10 @@ class HumanRessourcesQuery(graphene.ObjectType):
 
     def resolve_beneficiary_groups(root, info, beneficiary_group_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        beneficiary_groups = BeneficiaryGroup.objects.all()
+        beneficiary_groups = BeneficiaryGroup.objects.filter(company=company)
         if beneficiary_group_filter:
             keyword = beneficiary_group_filter.get('keyword', '')
             starting_date_time = beneficiary_group_filter.get('starting_date_time')
@@ -485,6 +549,92 @@ class DeleteEmployee(graphene.Mutation):
         return DeleteEmployee(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
+
+#**************************************************************************************************************
+
+class CreateEmployeeContract(graphene.Mutation):
+    class Arguments:
+        employee_contract_data = EmployeeContractInput(required=True)
+        document = Upload(required=False)
+
+    employee_contract = graphene.Field(EmployeeContractType)
+
+    def mutate(root, info, document=None, employee_contract_data=None):
+        creator = info.context.user
+        employee_contract = EmployeeContract(**employee_contract_data)
+        employee_contract.creator = creator
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = employee_contract.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                employee_contract.document = document_file
+        employee_contract.save()
+        folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.name,creator=creator)
+        employee_contract.folder = folder
+        employee_contract.save()
+        return CreateEmployeeContract(employee_contract=employee_contract)
+
+class UpdateEmployeeContract(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        employee_contract_data = EmployeeContractInput(required=True)
+        document = Upload(required=False)
+
+    employee_contract = graphene.Field(EmployeeContractType)
+
+    def mutate(root, info, id, document=None, employee_contract_data=None):
+        creator = info.context.user
+        EmployeeContract.objects.filter(pk=id).update(**employee_contract_data)
+        employee_contract = EmployeeContract.objects.get(pk=id)
+        if not employee_contract.folder or employee_contract.folder is None:
+            folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.name,creator=creator)
+            EmployeeContract.objects.filter(pk=id).update(folder=folder)
+        if not document and employee_contract.document:
+            document_file = employee_contract.document
+            document_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = employee_contract.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                employee_contract.document = document_file
+            employee_contract.save()
+        return UpdateEmployeeContract(employee_contract=employee_contract)
+
+class DeleteEmployeeContract(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    employee_contract = graphene.Field(EmployeeContractType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            employee_contract = EmployeeContract.objects.get(pk=id)
+            employee_contract.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteEmployeeContract(deleted=deleted, success=success, message=message, id=id)
+
+#***********************************************************************************************
 
 class CreateEmployeeGroup(graphene.Mutation):
     class Arguments:
@@ -961,6 +1111,10 @@ class HumanRessourcesMutation(graphene.ObjectType):
     update_employee = UpdateEmployee.Field()
     update_employee_state = UpdateEmployeeState.Field()
     delete_employee = DeleteEmployee.Field()
+    
+    create_employee_contract = CreateEmployeeContract.Field()
+    update_employee_contract = UpdateEmployeeContract.Field()
+    delete_employee_contract = DeleteEmployeeContract.Field()
 
     create_employee_group = CreateEmployeeGroup.Field()
     update_employee_group = UpdateEmployeeGroup.Field()

@@ -66,8 +66,10 @@ class FinanceQuery(graphene.ObjectType):
     decision_document = graphene.Field(DecisionDocumentType, id = graphene.ID())
     def resolve_decision_documents(root, info, decision_document_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        decision_documents = DecisionDocument.objects.all()
+        decision_documents = DecisionDocument.objects.filter(company=company)
         if decision_document_filter:
             keyword = decision_document_filter.get('keyword', '')
             starting_date_time = decision_document_filter.get('starting_date_time')

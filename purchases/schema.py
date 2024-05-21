@@ -61,8 +61,10 @@ class PurchasesQuery(graphene.ObjectType):
     supplier = graphene.Field(SupplierType, id = graphene.ID())
     def resolve_suppliers(root, info, supplier_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        suppliers = Supplier.objects.filter(company__id=id_company) if id_company else Supplier.objects.all()
+        suppliers = Supplier.objects.filter(company__id=id_company) if id_company else Supplier.objects.filter(company=company)
         if supplier_filter:
             keyword = supplier_filter.get('keyword', '')
             starting_date_time = supplier_filter.get('starting_date_time')

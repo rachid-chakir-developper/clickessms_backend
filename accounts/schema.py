@@ -116,8 +116,10 @@ class UserQuery(graphene.ObjectType):
     devices = graphene.List(DeviceType)
     def resolve_users(root, info, user_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        users = User.objects.filter(company__id=id_company) if id_company else User.objects.all()
+        users = User.objects.filter(company__id=id_company) if id_company else User.objects.filter(company=company)
         if user_filter:
             keyword = user_filter.get('keyword', '')
             starting_date_time = user_filter.get('starting_date_time')
@@ -141,8 +143,9 @@ class UserQuery(graphene.ObjectType):
     def resolve_contacts(root, info, user_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        users = User.objects.filter(~Q(id=user.id), company__id=id_company) if id_company else User.objects.filter(~Q(id=user.id))
+        users = User.objects.filter(~Q(id=user.id), company__id=id_company) if id_company else User.objects.filter(~Q(id=user.id), company=company)
         if user_filter:
             keyword = user_filter.get('keyword', '')
             starting_date_time = user_filter.get('starting_date_time')
@@ -223,7 +226,7 @@ class CreateUser(graphene.Mutation):
 
     def mutate(root, info, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
-        employee_id = user_data.pop("employee_id")
+        employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
         # company_id = user_data.pop("company_id")
 
         password1 = user_data.username if 'username' in user_data else 'password1'
@@ -238,7 +241,8 @@ class CreateUser(graphene.Mutation):
         user.creator = creator
         user.company = creator.company
         user.save()
-        user.setEmployeeForCompany(employee_id=employee_id)
+        if employee_id:
+            user.setEmployeeForCompany(employee_id=employee_id)
         if user_groups is not None:
             groups = Group.objects.filter(id__in=user_groups)
             user.groups.set(groups)
@@ -284,7 +288,7 @@ class UpdateUser(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
-        employee_id = user_data.pop("employee_id")
+        employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
         # company_id = user_data.pop("company_id")
         password1 = None
         password2 = None
@@ -296,7 +300,8 @@ class UpdateUser(graphene.Mutation):
             raise ValueError("Les mots de passe ne correspondent pas")
         User.objects.filter(pk=id).update(**user_data)
         user = User.objects.get(pk=id)
-        user.setEmployeeForCompany(employee_id=employee_id)
+        if employee_id:
+            user.setEmployeeForCompany(employee_id=employee_id)
         if user.status.verified is False:
             user.status.verified = True
             user.status.save(update_fields=["verified"])

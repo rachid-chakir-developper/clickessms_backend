@@ -174,8 +174,10 @@ class WorksQuery(graphene.ObjectType):
 
     def resolve_tasks(root, info, task_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        tasks = Task.objects.all()
+        tasks = Task.objects.filter(company=company)
         if task_filter:
             keyword = task_filter.get('keyword', '')
             starting_date_time = task_filter.get('starting_date_time')

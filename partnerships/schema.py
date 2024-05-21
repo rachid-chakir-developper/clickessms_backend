@@ -109,8 +109,10 @@ class PartnershipsQuery(graphene.ObjectType):
     financier = graphene.Field(FinancierType, id = graphene.ID())
     def resolve_partners(root, info, partner_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        partners = Partner.objects.filter(company__id=id_company) if id_company else Partner.objects.all()
+        partners = Partner.objects.filter(company__id=id_company) if id_company else Partner.objects.filter(company=company)
         if partner_filter:
             keyword = partner_filter.get('keyword', '')
             starting_date_time = partner_filter.get('starting_date_time')
@@ -138,8 +140,10 @@ class PartnershipsQuery(graphene.ObjectType):
         return partner
     def resolve_financiers(root, info, financier_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        financiers = Financier.objects.filter(company__id=id_company) if id_company else Financier.objects.all()
+        financiers = Financier.objects.filter(company__id=id_company) if id_company else Financier.objects.filter(company=company)
         if financier_filter:
             keyword = financier_filter.get('keyword', '')
             starting_date_time = financier_filter.get('starting_date_time')

@@ -63,8 +63,10 @@ class LoansQuery(graphene.ObjectType):
 
     def resolve_the_objects(root, info, the_object_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        the_objects = TheObject.objects.all()
+        the_objects = TheObject.objects.filter(company=company)
         if the_object_filter:
             keyword = the_object_filter.get('keyword', '')
             recovery_date = the_object_filter.get('recovery_date')

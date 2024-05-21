@@ -4,7 +4,7 @@ from graphql_jwt.decorators import login_required
 
 from django.apps import apps
 
-from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason
+from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, EmployeeContractType
 
         
 class HumanGenderType(DjangoObjectType):
@@ -77,14 +77,21 @@ class MeetingReasonType(DjangoObjectType):
     class Meta:
         model = MeetingReason
         fields = "__all__"
+        
+class EmployeeContractTypeType(DjangoObjectType):
+    class Meta:
+        model = EmployeeContractType
+        fields = "__all__"
 
 class DataQuery(graphene.ObjectType):
     datas = graphene.List(DataType, typeData = graphene.String())
     data = graphene.Field(DataType, typeData = graphene.String(), id = graphene.ID())
     
     def resolve_datas(root, info, typeData):
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         # We can easily optimize query count in the resolve method
-        datas = apps.get_model('data_management', typeData).objects.all()
+        datas = apps.get_model('data_management', typeData).objects.filter(company=company)
         for data in datas:
             data.__class__ = DataModel
         return datas

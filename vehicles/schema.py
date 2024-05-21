@@ -53,8 +53,10 @@ class VehiclesQuery(graphene.ObjectType):
     vehicle = graphene.Field(VehicleType, id = graphene.ID())
     def resolve_vehicles(root, info, vehicle_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        vehicles = Vehicle.objects.all()
+        vehicles = Vehicle.objects.filter(company=company)
         if vehicle_filter:
             keyword = vehicle_filter.get('keyword', '')
             starting_date_time = vehicle_filter.get('starting_date_time')

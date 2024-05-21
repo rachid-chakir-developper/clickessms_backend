@@ -92,8 +92,10 @@ class QualitiesQuery(graphene.ObjectType):
     undesirable_event = graphene.Field(UndesirableEventType, id = graphene.ID())
     def resolve_undesirable_events(root, info, undesirable_event_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        undesirable_events = UndesirableEvent.objects.all()
+        undesirable_events = UndesirableEvent.objects.filter(company=company)
         if undesirable_event_filter:
             keyword = undesirable_event_filter.get('keyword', '')
             starting_date_time = undesirable_event_filter.get('starting_date_time')

@@ -149,7 +149,9 @@ class CompanyQuery(graphene.ObjectType):
     def resolve_establishments(root, info, establishment_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         total_count = 0
-        establishments = Establishment.objects.all()
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        establishments = Establishment.objects.filter(company=company)
         if establishment_filter:
             keyword = establishment_filter.get('keyword', '')
             starting_date_time = establishment_filter.get('starting_date_time')

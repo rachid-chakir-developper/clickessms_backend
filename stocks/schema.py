@@ -47,8 +47,10 @@ class StocksQuery(graphene.ObjectType):
 
     def resolve_materials(root, info, material_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        materials = Material.objects.all()
+        materials = Material.objects.filter(company=company)
         if material_filter:
             keyword = material_filter.get('keyword', '')
             starting_date_time = material_filter.get('starting_date_time')

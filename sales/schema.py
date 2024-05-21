@@ -61,8 +61,10 @@ class SalesQuery(graphene.ObjectType):
     client = graphene.Field(ClientType, id = graphene.ID())
     def resolve_clients(root, info, client_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        clients = Client.objects.filter(company__id=id_company) if id_company else Client.objects.all()
+        clients = Client.objects.filter(company__id=id_company) if id_company else Client.objects.filter(company=company)
         if client_filter:
             keyword = client_filter.get('keyword', '')
             starting_date_time = client_filter.get('starting_date_time')

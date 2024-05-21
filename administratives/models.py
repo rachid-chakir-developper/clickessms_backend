@@ -59,7 +59,6 @@ class Call(models.Model):
 		caller.call = self
 		caller.creator = creator
 		caller.company = creator.current_company if creator.current_company is not None else creator.company
-		print(f'*************{caller_data}')
 		if caller_data.caller_type == 'PhoneNumber' and ('phone_number_id' not in caller_data or caller_data.phone_number_id is None):
 			phone_number = PhoneNumber.objects.filter(phone=caller_data.phone).first()
 			phone_number = phone_number if phone_number else PhoneNumber.objects.create(phone=caller_data.phone)

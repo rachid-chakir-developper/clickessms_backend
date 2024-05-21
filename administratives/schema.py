@@ -184,8 +184,10 @@ class AdministrativesQuery(graphene.ObjectType):
     meeting_report = graphene.Field(MeetingReportType, id = graphene.ID(required=False), id_meeting = graphene.Int(required=False))
     def resolve_calls(root, info, call_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        calls = Call.objects.all()
+        calls = Call.objects.filter(company=company)
         if call_filter:
             keyword = call_filter.get('keyword', '')
             starting_date_time = call_filter.get('starting_date_time')
@@ -213,8 +215,10 @@ class AdministrativesQuery(graphene.ObjectType):
         return call
     def resolve_letters(root, info, letter_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        letters = Letter.objects.all()
+        letters = Letter.objects.filter(company=company)
         if letter_filter:
             keyword = letter_filter.get('keyword', '')
             starting_date_time = letter_filter.get('starting_date_time')
@@ -243,8 +247,10 @@ class AdministrativesQuery(graphene.ObjectType):
 
     def resolve_meetings(root, info, meeting_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        meetings = Meeting.objects.all()
+        meetings = Meeting.objects.filter(company=company)
         if meeting_filter:
             keyword = meeting_filter.get('keyword', '')
             starting_date_time = meeting_filter.get('starting_date_time')

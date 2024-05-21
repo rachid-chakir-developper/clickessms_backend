@@ -90,8 +90,10 @@ class ActivitiesQuery(graphene.ObjectType):
     beneficiary_absence = graphene.Field(BeneficiaryAbsenceType, id = graphene.ID())
     def resolve_events(root, info, event_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        events = Event.objects.all()
+        events = Event.objects.filter(company=company)
         if event_filter:
             keyword = event_filter.get('keyword', '')
             starting_date_time = event_filter.get('starting_date_time')
@@ -120,8 +122,10 @@ class ActivitiesQuery(graphene.ObjectType):
 
     def resolve_beneficiary_absences(root, info, beneficiary_absence_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        beneficiary_absences = BeneficiaryAbsence.objects.all()
+        beneficiary_absences = BeneficiaryAbsence.objects.filter(company=company)
         if beneficiary_absence_filter:
             keyword = beneficiary_absence_filter.get('keyword', '')
             starting_date_time = beneficiary_absence_filter.get('starting_date_time')
@@ -178,9 +182,6 @@ class CreateEvent(graphene.Mutation):
             event.employee = creator.getEmployeeInCompany()
         folder = Folder.objects.create(name=str(event.id)+'_'+event.title,creator=creator)
         event.folder = folder
-        if reason_ids and reason_ids is not None:
-            reasons = AbsenceReason.objects.filter(id__in=reason_ids)
-            user.reasons.set(reasons)
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:
             try:
