@@ -178,14 +178,17 @@ class EmployeeGroupInput(graphene.InputObjectType):
 class EmployeeContractInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
-    name = graphene.String(required=True)
+    title = graphene.String(required=True)
     position = graphene.String(required=False)
     salary = graphene.Float(required=True)
     starting_date = graphene.DateTime(required=False)
     ending_date = graphene.DateTime(required=False)
     started_at = graphene.DateTime(required=False)
     ended_at = graphene.DateTime(required=False)
-    contrat_type_id = graphene.Int(name="contratType", required=False)
+    is_active = graphene.Boolean(required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    contract_type_id = graphene.Int(name="contractType", required=False)
     employee_id = graphene.Int(name="employee", required=False)
 
 class BeneficiaryAdmissionDocumentInput(graphene.InputObjectType):
@@ -574,7 +577,7 @@ class CreateEmployeeContract(graphene.Mutation):
                 document_file.save()
                 employee_contract.document = document_file
         employee_contract.save()
-        folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.name,creator=creator)
+        folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.title,creator=creator)
         employee_contract.folder = folder
         employee_contract.save()
         return CreateEmployeeContract(employee_contract=employee_contract)
@@ -592,7 +595,7 @@ class UpdateEmployeeContract(graphene.Mutation):
         EmployeeContract.objects.filter(pk=id).update(**employee_contract_data)
         employee_contract = EmployeeContract.objects.get(pk=id)
         if not employee_contract.folder or employee_contract.folder is None:
-            folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.name,creator=creator)
+            folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.title,creator=creator)
             EmployeeContract.objects.filter(pk=id).update(folder=folder)
         if not document and employee_contract.document:
             document_file = employee_contract.document
