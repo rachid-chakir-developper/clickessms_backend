@@ -71,6 +71,11 @@ class Company(models.Model):
 # Create your models here.
 
 class Establishment(models.Model):
+    MEASUREMENT_ACTIVITY_UNITS = [
+        ("DAY", "Jour"),#
+        ("HOUR", "Heure"),#
+        ("MONTH", "Mois")#
+    ]
     number = models.CharField(max_length=255, editable=False, null=True)
     name = models.CharField(max_length=255, default='Etablissement sans nom')
     siret = models.CharField(max_length=255, null=True)
@@ -83,6 +88,7 @@ class Establishment(models.Model):
     text_color = models.TextField(default='#333333', null=True)
     opening_date = models.DateTimeField(null=True)
     closing_date = models.DateTimeField(null=True)
+    measurement_activity_unit = models.CharField(max_length=50, choices=MEASUREMENT_ACTIVITY_UNITS, default= "DAY")
     latitude = models.CharField(max_length=255, null=True)
     longitude = models.CharField(max_length=255, null=True)
     city = models.CharField(max_length=255, null=True)
@@ -146,6 +152,20 @@ class EstablishmentManager(models.Model):
     establishment = models.ForeignKey(Establishment, on_delete=models.SET_NULL, null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='establishment_manager', null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='establishment_manager_former', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return str(self.id)
+
+# Create your models here.
+class ActivityAuthorization(models.Model):
+    establishment = models.ForeignKey(Establishment, on_delete=models.SET_NULL, null=True)
+    starting_date_time = models.DateTimeField(null=True)
+    ending_date_time = models.DateTimeField(null=True)
+    capacity = models.FloatField(null=True)
+    is_active = models.BooleanField(default=True, null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='activity_authorization_former', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

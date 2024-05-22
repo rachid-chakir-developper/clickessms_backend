@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount
+from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance
 from medias.models import Folder, File
 
 class DecisionDocumentItemType(DjangoObjectType):
@@ -47,6 +47,23 @@ class BankAccountNodeType(graphene.ObjectType):
     total_count = graphene.Int()
 
 class BankAccountFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+
+class BalanceType(DjangoObjectType):
+    class Meta:
+        model = Balance
+        fields = "__all__"
+    document = graphene.String()
+    def resolve_document( instance, info, **kwargs ):
+        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
+
+class BalanceNodeType(graphene.ObjectType):
+    nodes = graphene.List(BalanceType)
+    total_count = graphene.Int()
+
+class BalanceFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
@@ -94,11 +111,22 @@ class BankAccountInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
 
+class BalanceInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    name = graphene.String(required=False)
+    date = graphene.DateTime(required=False)
+    amount = graphene.Float(required=False)
+    bank_account_id = graphene.Int(name="bankAccount", required=False)
+    
+
 class FinanceQuery(graphene.ObjectType):
     decision_documents = graphene.Field(DecisionDocumentNodeType, decision_document_filter= DecisionDocumentFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     decision_document = graphene.Field(DecisionDocumentType, id = graphene.ID())
     bank_accounts = graphene.Field(BankAccountNodeType, bank_account_filter= BankAccountFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     bank_account = graphene.Field(BankAccountType, id = graphene.ID())
+    balances = graphene.Field(BalanceNodeType, balance_filter= BalanceFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    balance = graphene.Field(BalanceType, id = graphene.ID())
     def resolve_decision_documents(root, info, decision_document_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -162,6 +190,38 @@ class FinanceQuery(graphene.ObjectType):
         except BankAccount.DoesNotExist:
             bank_account = None
         return bank_account
+
+    def resolve_balances(root, info, balance_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        total_count = 0
+        balances = Balance.objects.filter(bank_account__company=company)
+        if balance_filter:
+            keyword = balance_filter.get('keyword', '')
+            starting_date_time = balance_filter.get('starting_date_time')
+            ending_date_time = balance_filter.get('ending_date_time')
+            if keyword:
+                balances = balances.filter(Q(name__icontains=keyword) | Q(registration_number__icontains=keyword) | Q(driver_name__icontains=keyword))
+            if starting_date_time:
+                balances = balances.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                balances = balances.filter(created_at__lte=ending_date_time)
+        balances = balances.order_by('-created_at')
+        total_count = balances.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            balances = balances[offset:offset + limit]
+        return BalanceNodeType(nodes=balances, total_count=total_count)
+
+    def resolve_balance(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            balance = Balance.objects.get(pk=id)
+        except Balance.DoesNotExist:
+            balance = None
+        return balance
 
 #************************************************************************
 
@@ -407,6 +467,93 @@ class DeleteBankAccount(graphene.Mutation):
 
 #*************************************************************************#
 
+#************************************************************************
+
+class CreateBalance(graphene.Mutation):
+    class Arguments:
+        balance_data = BalanceInput(required=True)
+        document = Upload(required=False)
+
+    balance = graphene.Field(BalanceType)
+
+    def mutate(root, info, document=None, balance_data=None):
+        creator = info.context.user
+        balance = Balance(**balance_data)
+        balance.creator = creator
+        balance.company = creator.current_company if creator.current_company is not None else creator.company
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = balance.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                balance.document = document_file
+        balance.save()
+        folder = Folder.objects.create(name=str(balance.id)+'_'+balance.name,creator=creator)
+        balance.folder = folder
+        balance.save()
+        return CreateBalance(balance=balance)
+
+class UpdateBalance(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        balance_data = BalanceInput(required=True)
+        document = Upload(required=False)
+
+    balance = graphene.Field(BalanceType)
+
+    def mutate(root, info, id, document=None, balance_data=None):
+        creator = info.context.user
+        Balance.objects.filter(pk=id).update(**balance_data)
+        balance = Balance.objects.get(pk=id)
+        if not balance.folder or balance.folder is None:
+            folder = Folder.objects.create(name=str(balance.id)+'_'+balance.name,creator=creator)
+            Balance.objects.filter(pk=id).update(folder=folder)
+        if not document and balance.document:
+            document_file = balance.document
+            document_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = balance.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                balance.document = document_file
+            balance.save()
+        return UpdateBalance(balance=balance)
+
+class DeleteBalance(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    balance = graphene.Field(BalanceType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            balance = Balance.objects.get(pk=id)
+            balance.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteBalance(deleted=deleted, success=success, message=message, id=id)
+
+#*************************************************************************#
+
 class FinanceMutation(graphene.ObjectType):
     create_decision_document = CreateDecisionDocument.Field()
     update_decision_document = UpdateDecisionDocument.Field()
@@ -417,3 +564,7 @@ class FinanceMutation(graphene.ObjectType):
     update_bank_account = UpdateBankAccount.Field()
     update_bank_account_state = UpdateBankAccountState.Field()
     delete_bank_account = DeleteBankAccount.Field()
+
+    create_balance = CreateBalance.Field()
+    update_balance = UpdateBalance.Field()
+    delete_balance = DeleteBalance.Field()

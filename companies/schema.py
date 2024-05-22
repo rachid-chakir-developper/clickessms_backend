@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from companies.models import Company, Establishment, EstablishmentManager
+from companies.models import Company, Establishment, EstablishmentManager, ActivityAuthorization
 from medias.models import File, Folder
 from human_ressources.models import Employee
 
@@ -28,6 +28,11 @@ class EstablishmentManagerType(DjangoObjectType):
         model = EstablishmentManager
         fields = "__all__"
 
+class ActivityAuthorizationType(DjangoObjectType):
+    class Meta:
+        model = ActivityAuthorization
+        fields = "__all__"
+
 class EstablishmentType(DjangoObjectType):
     class Meta:
         model = Establishment
@@ -35,12 +40,15 @@ class EstablishmentType(DjangoObjectType):
     logo = graphene.String()
     cover_image = graphene.String()
     managers = graphene.List(EstablishmentManagerType)
+    activity_authorizations = graphene.List(ActivityAuthorizationType)
     def resolve_logo( instance, info, **kwargs ):
         return instance.logo and info.context.build_absolute_uri(instance.logo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
     def resolve_managers( instance, info, **kwargs ):
         return instance.establishmentmanager_set.all()
+    def resolve_activity_authorizations( instance, info, **kwargs ):
+        return instance.activityauthorization_set.all()
 
 class EstablishmentNodeType(graphene.ObjectType):
     nodes = graphene.List(EstablishmentType)
@@ -79,6 +87,14 @@ class CompanyInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
 
+class ActivityAuthorizationInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    capacity = graphene.Float(required=False)
+    is_active = graphene.Boolean(required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
+
 class EstablishmentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -91,6 +107,7 @@ class EstablishmentInput(graphene.InputObjectType):
     text_color = graphene.String(required=False)
     opening_date = graphene.DateTime(required=False)
     closing_date = graphene.DateTime(required=False)
+    measurement_activity_unit = graphene.String(required=False)
     latitude = graphene.String(required=False)
     longitude = graphene.String(required=False)
     city = graphene.String(required=False)
@@ -115,6 +132,7 @@ class EstablishmentInput(graphene.InputObjectType):
     establishment_parent_id = graphene.Int(name="establishmentParent", required=False)
     establishment_childs = graphene.List(graphene.Int, required=False)
     managers = graphene.List(graphene.Int, required=False)
+    activity_authorizations = graphene.List(ActivityAuthorizationInput, required=False)
 
 
 class CompanyQuery(graphene.ObjectType):
@@ -309,6 +327,7 @@ class CreateEstablishment(graphene.Mutation):
         creator = info.context.user
         establishment_childs_ids = establishment_data.pop("establishment_childs")
         managers_ids = establishment_data.pop("managers")
+        activity_authorizations = establishment_data.pop("activity_authorizations")
         establishment_childs = Establishment.objects.filter(id__in=establishment_childs_ids)
         establishment = Establishment(**establishment_data)
         establishment.creator = creator
@@ -349,6 +368,11 @@ class CreateEstablishment(graphene.Mutation):
                     )
 
         establishment.save()
+
+        for item in activity_authorizations:
+            activity_authorization = ActivityAuthorization(**item)
+            activity_authorization.establishment = establishment
+            activity_authorization.save()
         return CreateEstablishment(establishment=establishment)
 
 class UpdateEstablishment(graphene.Mutation):
@@ -364,6 +388,7 @@ class UpdateEstablishment(graphene.Mutation):
         creator = info.context.user
         establishment_childs_ids = establishment_data.pop("establishment_childs")
         managers_ids = establishment_data.pop("managers")
+        activity_authorizations = establishment_data.pop("activity_authorizations")
         establishment_childs = Establishment.objects.filter(id__in=establishment_childs_ids)
         Establishment.objects.filter(pk=id).update(**establishment_data)
         establishment = Establishment.objects.get(pk=id)
@@ -409,6 +434,16 @@ class UpdateEstablishment(graphene.Mutation):
                         employee=employee,
                         creator=creator
                     )
+
+        activity_authorization_ids = [item.id for item in activity_authorizations if item.id is not None]
+        ActivityAuthorization.objects.filter(establishment=establishment).exclude(id__in=activity_authorization_ids).delete()
+        for item in activity_authorizations:
+            if id in item or 'id' in item:
+                ActivityAuthorization.objects.filter(pk=item.id).update(**item)
+            else:
+                activity_authorization = ActivityAuthorization(**item)
+                activity_authorization.establishment = establishment
+                activity_authorization.save()
         establishment = Establishment.objects.get(pk=id)
         return UpdateEstablishment(establishment=establishment)
         
