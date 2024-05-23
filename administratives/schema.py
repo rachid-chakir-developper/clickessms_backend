@@ -6,9 +6,10 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from administratives.models import Call, Caller, CallBeneficiary, Letter, LetterBeneficiary, Meeting, ParticipantMeetingItem,  BeneficiaryMeetingItem, MeetingReport, MeetingReportItem
-from data_management.models import MeetingReason
+from administratives.models import Call, Caller, CallBeneficiary, Letter, LetterBeneficiary, Meeting, MeetingEstablishment, MeetingParticipant,  MeetingBeneficiary, MeetingDecision, MeetingReviewPoint
+from data_management.models import MeetingReason, TypeMeeting
 from medias.models import Folder, File
+from companies.models import Establishment
 from human_ressources.models import Employee, Beneficiary
 
 class CallBeneficiaryType(DjangoObjectType):
@@ -69,39 +70,50 @@ class LetterFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
 
-class ParticipantMeetingItemType(DjangoObjectType):
+class MeetingEstablishmentType(DjangoObjectType):
     class Meta:
-        model = ParticipantMeetingItem
+        model = MeetingEstablishment
         fields = "__all__"
 
-class BeneficiaryMeetingItemType(DjangoObjectType):
+class MeetingParticipantType(DjangoObjectType):
     class Meta:
-        model = BeneficiaryMeetingItem
+        model = MeetingParticipant
         fields = "__all__"
 
-class MeetingReportItemType(DjangoObjectType):
+class MeetingBeneficiaryType(DjangoObjectType):
     class Meta:
-        model = MeetingReportItem
+        model = MeetingBeneficiary
         fields = "__all__"
 
-class MeetingReportType(DjangoObjectType):
+class MeetingDecisionType(DjangoObjectType):
     class Meta:
-        model = MeetingReport
+        model = MeetingDecision
         fields = "__all__"
-    meeting_report_items = graphene.List(MeetingReportItemType)
-    def resolve_meeting_report_items( instance, info, **kwargs ):
-        return instance.meetingreportitem_set.all()
+
+class MeetingReviewPointType(DjangoObjectType):
+    class Meta:
+        model = MeetingReviewPoint
+        fields = "__all__"
 
 class MeetingType(DjangoObjectType):
     class Meta:
         model = Meeting
         fields = "__all__"
-    participants = graphene.List(ParticipantMeetingItemType)
-    beneficiaries = graphene.List(BeneficiaryMeetingItemType)
-    def resolve_beneficiaries( instance, info, **kwargs ):
-        return instance.beneficiarymeetingitem_set.all()
+    establishments = graphene.List(MeetingEstablishmentType)
+    participants = graphene.List(MeetingParticipantType)
+    beneficiaries = graphene.List(MeetingBeneficiaryType)
+    meeting_decisions = graphene.List(MeetingDecisionType)
+    meeting_review_points = graphene.List(MeetingReviewPointType)
+    def resolve_establishments( instance, info, **kwargs ):
+        return instance.meetingestablishment_set.all()
     def resolve_participants( instance, info, **kwargs ):
-        return instance.participantmeetingitem_set.all()
+        return instance.meetingparticipant_set.all()
+    def resolve_beneficiaries( instance, info, **kwargs ):
+        return instance.meetingbeneficiary_set.all()
+    def resolve_meeting_decisions( instance, info, **kwargs ):
+        return instance.meetingdecision_set.all()
+    def resolve_meeting_review_points( instance, info, **kwargs ):
+        return instance.meetingreviewpoint_set.all()
 
 class MeetingNodeType(graphene.ObjectType):
     nodes = graphene.List(MeetingType)
@@ -151,6 +163,16 @@ class LetterInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     employee_id = graphene.Int(name="employee", required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
+
+class MeetingDecisionInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    decision = graphene.String(required=False)
+    due_date = graphene.DateTime(required=False)
+    employees = graphene.List(graphene.Int, required=False)
+
+class MeetingReviewPointInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    point_to_review = graphene.String(required=False)
     
 class MeetingInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -161,18 +183,17 @@ class MeetingInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
     employee_id = graphene.Int(name="employee", required=False)
     participants = graphene.List(graphene.Int, required=False)
+    present_participants = graphene.List(graphene.Int, required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
+    meeting_types = graphene.List(graphene.Int, required=False)
     reasons = graphene.List(graphene.Int, required=False)
     other_reasons = graphene.String(required=False)
-
-class MeetingReportItemInput(graphene.InputObjectType):
-    id = graphene.ID(required=False)
-    report = graphene.String(required=False)
-    decision = graphene.String(required=False)
-    points_to_review = graphene.String(required=False)
-    meeting_report_id = graphene.Int(name="meetingReport", required=False)
+    meeting_decisions = graphene.List(MeetingDecisionInput, required=False)
+    meeting_review_points = graphene.List(MeetingReviewPointInput, required=False)
     
 class AdministrativesQuery(graphene.ObjectType):
     calls = graphene.Field(CallNodeType, call_filter= CallFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -181,7 +202,6 @@ class AdministrativesQuery(graphene.ObjectType):
     letter = graphene.Field(LetterType, id = graphene.ID())
     meetings = graphene.Field(MeetingNodeType, meeting_filter= MeetingFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     meeting = graphene.Field(MeetingType, id = graphene.ID())
-    meeting_report = graphene.Field(MeetingReportType, id = graphene.ID(required=False), id_meeting = graphene.Int(required=False))
     def resolve_calls(root, info, call_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -276,14 +296,6 @@ class AdministrativesQuery(graphene.ObjectType):
         except Meeting.DoesNotExist:
             meeting = None
         return meeting
-
-    def resolve_meeting_report(root, info, id=None, id_meeting=None):
-        # We can easily optimize query count in the resolve method
-        try:
-            meeting_report = MeetingReport.objects.get(pk=id) if id else MeetingReport.objects.get(meeting__id=id_meeting)
-        except Meeting.DoesNotExist:
-            meeting_report = None
-        return meeting_report
 
 #************************************************************************
 
@@ -575,9 +587,14 @@ class CreateMeeting(graphene.Mutation):
 
     def mutate(root, info, meeting_data=None):
         creator = info.context.user
+        establishment_ids = meeting_data.pop("establishments")
         beneficiary_ids = meeting_data.pop("beneficiaries")
         participants_ids = meeting_data.pop("participants")
+        present_participants_ids = meeting_data.pop("present_participants")
         reason_ids = meeting_data.pop("reasons")
+        meeting_type_ids = meeting_data.pop("meeting_types")
+        meeting_decisions = meeting_data.pop("meeting_decisions")
+        meeting_review_points = meeting_data.pop("meeting_review_points")
         meeting = Meeting(**meeting_data)
         meeting.creator = creator
         meeting.company = creator.current_company if creator.current_company is not None else creator.company
@@ -587,14 +604,31 @@ class CreateMeeting(graphene.Mutation):
         if not meeting.employee:
             meeting.employee = creator.getEmployeeInCompany()
         if reason_ids and reason_ids is not None:
-            reasons = MeetingReason.objects.filter(id__in=reason_ids)
-            meeting.reasons.set(reasons)
+            meeting.reasons.set(reason_ids)
+        if present_participants_ids and present_participants_ids is not None:
+            meeting.present_participants.set(present_participants_ids)
+
+        if meeting_type_ids and meeting_type_ids is not None:
+            meeting_types = TypeMeeting.objects.filter(id__in=meeting_type_ids)
+            meeting.meeting_types.set(meeting_types)
+        
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                meeting_establishment = MeetingEstablishment.objects.get(establishment__id=establishment.id, meeting__id=meeting.id)
+            except MeetingEstablishment.DoesNotExist:
+                MeetingEstablishment.objects.create(
+                        meeting=meeting,
+                        establishment=establishment,
+                        creator=creator
+                    )
+
         employees = Employee.objects.filter(id__in=participants_ids)
         for employee in employees:
             try:
-                participant_meeting_items = ParticipantMeetingItem.objects.get(employee__id=employee.id, meeting__id=meeting.id)
-            except ParticipantMeetingItem.DoesNotExist:
-                ParticipantMeetingItem.objects.create(
+                meeting_participant = MeetingParticipant.objects.get(employee__id=employee.id, meeting__id=meeting.id)
+            except MeetingParticipant.DoesNotExist:
+                MeetingParticipant.objects.create(
                         meeting=meeting,
                         employee=employee,
                         creator=creator
@@ -602,13 +636,26 @@ class CreateMeeting(graphene.Mutation):
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:
             try:
-                beneficiary_meeting_items = BeneficiaryMeetingItem.objects.get(beneficiary__id=beneficiary.id, meeting__id=meeting.id)
-            except BeneficiaryMeetingItem.DoesNotExist:
-                BeneficiaryMeetingItem.objects.create(
+                meeting_beneficiaries = MeetingBeneficiary.objects.get(beneficiary__id=beneficiary.id, meeting__id=meeting.id)
+            except MeetingBeneficiary.DoesNotExist:
+                MeetingBeneficiary.objects.create(
                         meeting=meeting,
                         beneficiary=beneficiary,
                         creator=creator
                     )
+        for item in meeting_decisions:
+            employees_ids = item.pop("employees")
+            meeting_decision = MeetingDecision(**item)
+            meeting_decision.meeting = meeting
+            meeting_decision.save()
+            if employees_ids and employees_ids is not None:
+                meeting_decision.employees.set(employees_ids)
+
+        for item in meeting_review_points:
+            meeting_review_point = MeetingReviewPoint(**item)
+            meeting_review_point.meeting = meeting
+            meeting_review_point.save()
+
         meeting.save()
         return CreateMeeting(meeting=meeting)
 
@@ -621,9 +668,14 @@ class UpdateMeeting(graphene.Mutation):
 
     def mutate(root, info, id, image=None, meeting_data=None):
         creator = info.context.user
+        establishment_ids = meeting_data.pop("establishments")
         beneficiary_ids = meeting_data.pop("beneficiaries")
         participants_ids = meeting_data.pop("participants")
+        present_participants_ids = meeting_data.pop("present_participants")
         reason_ids = meeting_data.pop("reasons")
+        meeting_type_ids = meeting_data.pop("meeting_types")
+        meeting_decisions = meeting_data.pop("meeting_decisions")
+        meeting_review_points = meeting_data.pop("meeting_review_points")
         Meeting.objects.filter(pk=id).update(**meeting_data)
         meeting = Meeting.objects.get(pk=id)
         if not meeting.folder or meeting.folder is None:
@@ -632,33 +684,76 @@ class UpdateMeeting(graphene.Mutation):
         if not meeting.employee:
             meeting.employee = creator.getEmployeeInCompany()
             meeting.save()
-
+        if present_participants_ids and present_participants_ids is not None:
+            meeting.present_participants.set(present_participants_ids)
+            
         if reason_ids and reason_ids is not None:
             reasons = MeetingReason.objects.filter(id__in=reason_ids)
             meeting.reasons.set(reasons)
+            
+        if meeting_type_ids and meeting_type_ids is not None:
+            meeting_types = TypeMeeting.objects.filter(id__in=meeting_type_ids)
+            meeting.meeting_types.set(meeting_types)
 
-        ParticipantMeetingItem.objects.filter(meeting=meeting).exclude(employee__id__in=participants_ids).delete()
+        MeetingEstablishment.objects.filter(meeting=meeting).exclude(establishment__id__in=establishment_ids).delete()
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                meeting_establishment = MeetingEstablishment.objects.get(establishment__id=establishment.id, meeting__id=meeting.id)
+            except MeetingEstablishment.DoesNotExist:
+                MeetingEstablishment.objects.create(
+                        meeting=meeting,
+                        establishment=establishment,
+                        creator=creator
+                    )
+
+        MeetingParticipant.objects.filter(meeting=meeting).exclude(employee__id__in=participants_ids).delete()
         employees = Employee.objects.filter(id__in=participants_ids)
         for employee in employees:
             try:
-                participant_meeting_items = ParticipantMeetingItem.objects.get(employee__id=employee.id, meeting__id=meeting.id)
-            except ParticipantMeetingItem.DoesNotExist:
-                ParticipantMeetingItem.objects.create(
+                meeting_participant = MeetingParticipant.objects.get(employee__id=employee.id, meeting__id=meeting.id)
+            except MeetingParticipant.DoesNotExist:
+                MeetingParticipant.objects.create(
                         meeting=meeting,
                         employee=employee,
                         creator=creator
                     )
-        BeneficiaryMeetingItem.objects.filter(meeting=meeting).exclude(beneficiary__id__in=beneficiary_ids).delete()
+        MeetingBeneficiary.objects.filter(meeting=meeting).exclude(beneficiary__id__in=beneficiary_ids).delete()
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:
             try:
-                beneficiary_meeting_items = BeneficiaryMeetingItem.objects.get(beneficiary__id=beneficiary.id, meeting__id=meeting.id)
-            except BeneficiaryMeetingItem.DoesNotExist:
-                BeneficiaryMeetingItem.objects.create(
+                meeting_beneficiaries = MeetingBeneficiary.objects.get(beneficiary__id=beneficiary.id, meeting__id=meeting.id)
+            except MeetingBeneficiary.DoesNotExist:
+                MeetingBeneficiary.objects.create(
                         meeting=meeting,
                         beneficiary=beneficiary,
                         creator=creator
                     )
+
+        meeting_decision_ids = [item.id for item in meeting_decisions if item.id is not None]
+        MeetingDecision.objects.filter(meeting=meeting).exclude(id__in=meeting_decision_ids).delete()
+        for item in meeting_decisions:
+            employees_ids = item.pop("employees")
+            if id in item or 'id' in item:
+                MeetingDecision.objects.filter(pk=item.id).update(**item)
+                meeting_decision = MeetingDecision.objects.get(pk=item.id)
+            else:
+                meeting_decision = MeetingDecision(**item)
+                meeting_decision.meeting = meeting
+                meeting_decision.save()
+            if employees_ids and employees_ids is not None:
+                meeting_decision.employees.set(employees_ids)
+
+        meeting_review_point_ids = [item.id for item in meeting_review_points if item.id is not None]
+        MeetingReviewPoint.objects.filter(meeting=meeting).exclude(id__in=meeting_review_point_ids).delete()
+        for item in meeting_review_points:
+            if id in item or 'id' in item:
+                MeetingReviewPoint.objects.filter(pk=item.id).update(**item)
+            else:
+                meeting_review_point = MeetingReviewPoint(**item)
+                meeting_review_point.meeting = meeting
+                meeting_review_point.save()
+
         return UpdateMeeting(meeting=meeting)
 
 class DeleteMeeting(graphene.Mutation):
@@ -686,55 +781,6 @@ class DeleteMeeting(graphene.Mutation):
         return DeleteMeeting(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
-
-class CreateMeetingReportItem(graphene.Mutation):
-    class Arguments:
-        meeting_report_item_data = MeetingReportItemInput(required=True)
-
-    meeting_report_item = graphene.Field(MeetingReportItemType)
-
-    def mutate(root, info, meeting_report_item_data=None):
-        creator = info.context.user
-        meeting_report_item = MeetingReportItem(**meeting_report_item_data)
-        meeting_report_item.creator = creator
-        meeting_report_item.save()
-        return CreateMeetingReportItem(meeting_report_item=meeting_report_item)
-
-class UpdateMeetingReportItem(graphene.Mutation):
-    class Arguments:
-        id = graphene.ID()
-        meeting_report_item_data = MeetingReportItemInput(required=True)
-
-    meeting_report_item = graphene.Field(MeetingReportItemType)
-
-    def mutate(root, info, id, meeting_report_item_data=None):
-        MeetingReportItem.objects.filter(pk=id).update(**meeting_report_item_data)
-        meeting_report_item = MeetingReportItem.objects.get(pk=id)
-        return UpdateMeetingReportItem(meeting_report_item=meeting_report_item)
-
-class DeleteMeetingReportItem(graphene.Mutation):
-    class Arguments:
-        id = graphene.ID()
-
-    meeting_report_item = graphene.Field(MeetingReportItemType)
-    id = graphene.ID()
-    deleted = graphene.Boolean()
-    success = graphene.Boolean()
-    message = graphene.String()
-
-    def mutate(root, info, id):
-        deleted = False
-        success = False
-        message = ''
-        current_user = info.context.user
-        if current_user.is_superuser:
-            meeting_report_item = MeetingReportItem.objects.get(pk=id)
-            meeting_report_item.delete()
-            deleted = True
-            success = True
-        else:
-            message = "Vous n'êtes pas un Superuser."
-        return DeleteMeetingReportItem(deleted=deleted, success=success, message=message, id=id)
 
 #*************************************************************************#
 

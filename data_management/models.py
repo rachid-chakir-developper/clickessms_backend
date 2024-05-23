@@ -75,6 +75,10 @@ class MeetingReason(DataModel):
 	def __str__(self):
 		return str(self.id)
 
+class TypeMeeting(DataModel):
+	def __str__(self):
+		return str(self.id)
+
 class EmployeeContractType(DataModel):
 	def __str__(self):
 		return str(self.id)
