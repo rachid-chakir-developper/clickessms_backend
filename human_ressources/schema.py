@@ -814,7 +814,7 @@ class CreateBeneficiary(graphene.Mutation):
         beneficiary.folder = folder
         beneficiary.save()
         for item in beneficiary_admission_documents:
-            document = item.pop("document")
+            document = item.pop("document") if "document" in item else None
             beneficiary_admission_document = BeneficiaryAdmissionDocument(**item)
             beneficiary_admission_document.beneficiary = beneficiary
             if document and isinstance(document, UploadedFile):
@@ -884,7 +884,7 @@ class UpdateBeneficiary(graphene.Mutation):
         beneficiary_admission_document_ids = [item.id for item in beneficiary_admission_documents if item.id is not None]
         BeneficiaryAdmissionDocument.objects.filter(beneficiary=beneficiary).exclude(id__in=beneficiary_admission_document_ids).delete()
         for item in beneficiary_admission_documents:
-            document = item.pop("document")
+            document = item.pop("document") if "document" in item else None
             if id in item or 'id' in item:
                 BeneficiaryAdmissionDocument.objects.filter(pk=item.id).update(**item)
                 beneficiary_admission_document = BeneficiaryAdmissionDocument.objects.get(pk=item.id)
