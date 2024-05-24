@@ -161,6 +161,7 @@ class EstablishmentManager(models.Model):
 # Create your models here.
 class ActivityAuthorization(models.Model):
     establishment = models.ForeignKey(Establishment, on_delete=models.SET_NULL, null=True)
+    document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='activity_authorization_file', null=True)
     starting_date_time = models.DateTimeField(null=True)
     ending_date_time = models.DateTimeField(null=True)
     capacity = models.FloatField(null=True)

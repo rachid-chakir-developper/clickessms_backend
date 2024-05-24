@@ -32,6 +32,9 @@ class ActivityAuthorizationType(DjangoObjectType):
     class Meta:
         model = ActivityAuthorization
         fields = "__all__"
+    document = graphene.String()
+    def resolve_document( instance, info, **kwargs ):
+        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
 
 class EstablishmentType(DjangoObjectType):
     class Meta:
@@ -89,6 +92,7 @@ class CompanyInput(graphene.InputObjectType):
 
 class ActivityAuthorizationInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
+    document = Upload(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     capacity = graphene.Float(required=False)
@@ -370,8 +374,17 @@ class CreateEstablishment(graphene.Mutation):
         establishment.save()
 
         for item in activity_authorizations:
+            document = item.pop("document") if "document" in item else None
             activity_authorization = ActivityAuthorization(**item)
             activity_authorization.establishment = establishment
+            if document and isinstance(document, UploadedFile):
+                document_file = activity_authorization.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                activity_authorization.document = document_file
             activity_authorization.save()
         return CreateEstablishment(establishment=establishment)
 
@@ -438,11 +451,25 @@ class UpdateEstablishment(graphene.Mutation):
         activity_authorization_ids = [item.id for item in activity_authorizations if item.id is not None]
         ActivityAuthorization.objects.filter(establishment=establishment).exclude(id__in=activity_authorization_ids).delete()
         for item in activity_authorizations:
+            document = item.pop("document") if "document" in item else None
             if id in item or 'id' in item:
                 ActivityAuthorization.objects.filter(pk=item.id).update(**item)
+                activity_authorization = ActivityAuthorization.objects.get(pk=item.id)
             else:
                 activity_authorization = ActivityAuthorization(**item)
                 activity_authorization.establishment = establishment
+                activity_authorization.save()
+            if not document and activity_authorization.document:
+                document_file = activity_authorization.document
+                document_file.delete()
+            if document and isinstance(document, UploadedFile):
+                document_file = activity_authorization.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                activity_authorization.document = document_file
                 activity_authorization.save()
         establishment = Establishment.objects.get(pk=id)
         return UpdateEstablishment(establishment=establishment)
