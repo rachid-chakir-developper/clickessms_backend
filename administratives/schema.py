@@ -591,7 +591,7 @@ class CreateMeeting(graphene.Mutation):
         beneficiary_ids = meeting_data.pop("beneficiaries")
         participants_ids = meeting_data.pop("participants")
         present_participants_ids = meeting_data.pop("present_participants")
-        reason_ids = meeting_data.pop("reasons") if 'reasons' meeting_data in else None
+        reason_ids = meeting_data.pop("reasons") if 'reasons' in meeting_data else None
         meeting_type_ids = meeting_data.pop("meeting_types")
         meeting_decisions = meeting_data.pop("meeting_decisions")
         meeting_review_points = meeting_data.pop("meeting_review_points")
@@ -672,7 +672,7 @@ class UpdateMeeting(graphene.Mutation):
         beneficiary_ids = meeting_data.pop("beneficiaries")
         participants_ids = meeting_data.pop("participants")
         present_participants_ids = meeting_data.pop("present_participants")
-        reason_ids = meeting_data.pop("reasons") if 'reasons' meeting_data in else None
+        reason_ids = meeting_data.pop("reasons") if 'reasons' in meeting_data else None
         meeting_type_ids = meeting_data.pop("meeting_types")
         meeting_decisions = meeting_data.pop("meeting_decisions")
         meeting_review_points = meeting_data.pop("meeting_review_points")
