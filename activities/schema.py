@@ -37,6 +37,7 @@ class BeneficiaryAbsenceFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    beneficiaries = graphene.List(graphene.Int, required=False)
 
 class EventType(DjangoObjectType):
     class Meta:
@@ -57,6 +58,7 @@ class EventFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    beneficiaries = graphene.List(graphene.Int, required=False)
 
 class EventInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -98,6 +100,9 @@ class ActivitiesQuery(graphene.ObjectType):
             keyword = event_filter.get('keyword', '')
             starting_date_time = event_filter.get('starting_date_time')
             ending_date_time = event_filter.get('ending_date_time')
+            beneficiaries = event_filter.get('beneficiaries')
+            if beneficiaries:
+                events = events.filter(eventbeneficiary__beneficiary__id__in=beneficiaries)
             if keyword:
                 events = events.filter(Q(title__icontains=keyword))
             if starting_date_time:
@@ -130,12 +135,16 @@ class ActivitiesQuery(graphene.ObjectType):
             keyword = beneficiary_absence_filter.get('keyword', '')
             starting_date_time = beneficiary_absence_filter.get('starting_date_time')
             ending_date_time = beneficiary_absence_filter.get('ending_date_time')
+            beneficiaries = beneficiary_absence_filter.get('beneficiaries')
+            if beneficiaries:
+                beneficiary_absences = beneficiary_absences.filter(beneficiaryabsenceitem__beneficiary__id__in=beneficiaries)
             if keyword:
                 beneficiary_absences = beneficiary_absences.filter(Q(title__icontains=keyword))
             if starting_date_time:
                 beneficiary_absences = beneficiary_absences.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
                 beneficiary_absences = beneficiary_absences.filter(starting_date_time__lte=ending_date_time)
+
         beneficiary_absences = beneficiary_absences.order_by('-created_at')
         total_count = beneficiary_absences.count()
         if page:
