@@ -183,6 +183,7 @@ class MeetingInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    notes = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     establishments = graphene.List(graphene.Int, required=False)
     employee_id = graphene.Int(name="employee", required=False)

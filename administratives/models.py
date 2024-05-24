@@ -175,6 +175,7 @@ class Meeting(models.Model):
 	present_participants = models.ManyToManyField('human_ressources.Employee', related_name='present_participant_meetings')
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
+	notes = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_meetings', null=True)
