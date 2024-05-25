@@ -164,15 +164,21 @@ class LetterBeneficiary(models.Model):
 
 # Create your models here.
 class Meeting(models.Model):
+	MEETING_MODES = [
+	    ('PV', 'Procès-Verbal'),
+	    ('SIMPLE', 'Réunion Simple'),
+	]
 	number = models.CharField(max_length=255, editable=False, null=True)
-	title = models.CharField(max_length=255)
+	title = models.CharField(max_length=255, null=True)
+	topic = models.CharField(max_length=255, null=True, blank=True)
 	video_call_link = models.URLField(max_length=255, null=True)
 	starting_date_time = models.DateTimeField(null=True)
 	ending_date_time = models.DateTimeField(null=True)
+	meeting_mode = models.CharField(max_length=50, choices=MEETING_MODES, default= "SIMPLE")
 	meeting_types = models.ManyToManyField('data_management.TypeMeeting', related_name='type_meetings')
 	reasons = models.ManyToManyField('data_management.MeetingReason', related_name='reason_meetings')
 	other_reasons = models.CharField(max_length=255, null=True)
-	present_participants = models.ManyToManyField('human_ressources.Employee', related_name='present_participant_meetings')
+	absent_participants = models.ManyToManyField('human_ressources.Employee', related_name='absent_participant_meetings')
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	notes = models.TextField(default='', null=True)
@@ -251,8 +257,14 @@ class MeetingReviewPoint(models.Model):
 
 # Create your models here.
 class MeetingParticipant(models.Model):
+	STATUS_CHOICES = [
+	    ('PRESENT', 'Present'),
+	    ('ABSENT', 'Absent'),
+	    ('EXCUSED', 'Excused'),
+	]
 	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='participant_meetings', null=True)
+	status = models.CharField(max_length=50, choices=STATUS_CHOICES, default= "PRESENT")
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='participant_meeting_former', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

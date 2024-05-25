@@ -123,6 +123,7 @@ class MeetingFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    meeting_mode = graphene.String(required=False)
 
 class CallerInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -178,6 +179,8 @@ class MeetingInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     title = graphene.String(required=False)
+    topic = graphene.String(required=False)
+    meeting_mode = graphene.String(required=False)
     video_call_link = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
@@ -188,7 +191,7 @@ class MeetingInput(graphene.InputObjectType):
     establishments = graphene.List(graphene.Int, required=False)
     employee_id = graphene.Int(name="employee", required=False)
     participants = graphene.List(graphene.Int, required=False)
-    present_participants = graphene.List(graphene.Int, required=False)
+    absent_participants = graphene.List(graphene.Int, required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
     meeting_types = graphene.List(graphene.Int, required=False)
     reasons = graphene.List(graphene.Int, required=False)
@@ -276,12 +279,16 @@ class AdministrativesQuery(graphene.ObjectType):
             keyword = meeting_filter.get('keyword', '')
             starting_date_time = meeting_filter.get('starting_date_time')
             ending_date_time = meeting_filter.get('ending_date_time')
+            meeting_mode = meeting_filter.get('meeting_mode', 'SIMPLE')
+            meetings = meetings.filter(meeting_mode=meeting_mode if meeting_mode else 'SIMPLE')
             if keyword:
                 meetings = meetings.filter(Q(title__icontains=keyword))
             if starting_date_time:
                 meetings = meetings.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
                 meetings = meetings.filter(starting_date_time__lte=ending_date_time)
+        else:
+            meetings = meetings.filter(Q(meeting_mode='SIMPLE') | Q(meeting_mode='') | Q(meeting_mode=None))
         meetings = meetings.order_by('-created_at')
         total_count = meetings.count()
         if page:
@@ -591,7 +598,7 @@ class CreateMeeting(graphene.Mutation):
         establishment_ids = meeting_data.pop("establishments")
         beneficiary_ids = meeting_data.pop("beneficiaries")
         participants_ids = meeting_data.pop("participants")
-        present_participants_ids = meeting_data.pop("present_participants")
+        absent_participants_ids = meeting_data.pop("absent_participants")
         reason_ids = meeting_data.pop("reasons") if 'reasons' in meeting_data else None
         meeting_type_ids = meeting_data.pop("meeting_types")
         meeting_decisions = meeting_data.pop("meeting_decisions")
@@ -606,8 +613,8 @@ class CreateMeeting(graphene.Mutation):
             meeting.employee = creator.getEmployeeInCompany()
         if reason_ids and reason_ids is not None:
             meeting.reasons.set(reason_ids)
-        if present_participants_ids and present_participants_ids is not None:
-            meeting.present_participants.set(present_participants_ids)
+        if absent_participants_ids and absent_participants_ids is not None:
+            meeting.absent_participants.set(absent_participants_ids)
 
         if meeting_type_ids and meeting_type_ids is not None:
             meeting_types = TypeMeeting.objects.filter(id__in=meeting_type_ids)
@@ -672,7 +679,7 @@ class UpdateMeeting(graphene.Mutation):
         establishment_ids = meeting_data.pop("establishments")
         beneficiary_ids = meeting_data.pop("beneficiaries")
         participants_ids = meeting_data.pop("participants")
-        present_participants_ids = meeting_data.pop("present_participants")
+        absent_participants_ids = meeting_data.pop("absent_participants")
         reason_ids = meeting_data.pop("reasons") if 'reasons' in meeting_data else None
         meeting_type_ids = meeting_data.pop("meeting_types")
         meeting_decisions = meeting_data.pop("meeting_decisions")
@@ -685,8 +692,8 @@ class UpdateMeeting(graphene.Mutation):
         if not meeting.employee:
             meeting.employee = creator.getEmployeeInCompany()
             meeting.save()
-        if present_participants_ids and present_participants_ids is not None:
-            meeting.present_participants.set(present_participants_ids)
+        if absent_participants_ids and absent_participants_ids is not None:
+            meeting.absent_participants.set(absent_participants_ids)
             
         if reason_ids and reason_ids is not None:
             reasons = MeetingReason.objects.filter(id__in=reason_ids)
