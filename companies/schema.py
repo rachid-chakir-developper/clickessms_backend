@@ -3,6 +3,7 @@ from graphene_django import DjangoObjectType
 from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
+from django.utils import timezone
 
 from companies.models import Company, Establishment, EstablishmentManager, ActivityAuthorization
 from medias.models import File, Folder
@@ -44,6 +45,7 @@ class EstablishmentType(DjangoObjectType):
     cover_image = graphene.String()
     managers = graphene.List(EstablishmentManagerType)
     activity_authorizations = graphene.List(ActivityAuthorizationType)
+    current_capacity = graphene.Float()
     def resolve_logo( instance, info, **kwargs ):
         return instance.logo and info.context.build_absolute_uri(instance.logo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
@@ -52,6 +54,12 @@ class EstablishmentType(DjangoObjectType):
         return instance.establishmentmanager_set.all()
     def resolve_activity_authorizations( instance, info, **kwargs ):
         return instance.activityauthorization_set.all()
+    def resolve_current_capacity( instance, info, **kwargs ):
+        now = timezone.now().date()
+        current_authorization = instance.activityauthorization_set.filter(
+            starting_date_time__date__lte=now
+        ).order_by('-ending_date_time').first()
+        return current_authorization.capacity if current_authorization else None
 
 class EstablishmentNodeType(graphene.ObjectType):
     nodes = graphene.List(EstablishmentType)

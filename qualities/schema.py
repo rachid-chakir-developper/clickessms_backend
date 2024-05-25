@@ -61,6 +61,7 @@ class UndesirableEventFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class UndesirableEventInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -102,8 +103,11 @@ class QualitiesQuery(graphene.ObjectType):
             starting_date_time = undesirable_event_filter.get('starting_date_time')
             ending_date_time = undesirable_event_filter.get('ending_date_time')
             beneficiaries = undesirable_event_filter.get('beneficiaries')
+            establishments = undesirable_event_filter.get('establishments')
             if beneficiaries:
                 undesirable_events = undesirable_events.filter(undesirableeventbeneficiary__beneficiary__id__in=beneficiaries)
+            if establishments:
+                undesirable_events = undesirable_events.filter(undesirableeventestablishment__establishment__id__in=establishments)
             if keyword:
                 undesirable_events = undesirable_events.filter(Q(title__icontains=keyword))
             if starting_date_time:
