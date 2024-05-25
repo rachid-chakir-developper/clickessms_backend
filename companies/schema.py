@@ -46,6 +46,7 @@ class EstablishmentType(DjangoObjectType):
     managers = graphene.List(EstablishmentManagerType)
     activity_authorizations = graphene.List(ActivityAuthorizationType)
     current_capacity = graphene.Float()
+    current_temporary_capacity = graphene.Float()
     def resolve_logo( instance, info, **kwargs ):
         return instance.logo and info.context.build_absolute_uri(instance.logo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
@@ -60,6 +61,12 @@ class EstablishmentType(DjangoObjectType):
             starting_date_time__date__lte=now
         ).order_by('-ending_date_time').first()
         return current_authorization.capacity if current_authorization else None
+    def resolve_current_temporary_capacity( instance, info, **kwargs ):
+        now = timezone.now().date()
+        current_authorization = instance.activityauthorization_set.filter(
+            starting_date_time__date__lte=now
+        ).order_by('-ending_date_time').first()
+        return current_authorization.temporary_capacity if current_authorization else None
 
 class EstablishmentNodeType(graphene.ObjectType):
     nodes = graphene.List(EstablishmentType)
@@ -104,6 +111,7 @@ class ActivityAuthorizationInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     capacity = graphene.Float(required=False)
+    temporary_capacity = graphene.Float(required=False)
     is_active = graphene.Boolean(required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
 

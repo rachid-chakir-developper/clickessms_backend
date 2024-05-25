@@ -165,6 +165,7 @@ class ActivityAuthorization(models.Model):
     starting_date_time = models.DateTimeField(null=True)
     ending_date_time = models.DateTimeField(null=True)
     capacity = models.FloatField(null=True)
+    temporary_capacity = models.FloatField(null=True)
     is_active = models.BooleanField(default=True, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='activity_authorization_former', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
