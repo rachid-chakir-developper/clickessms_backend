@@ -70,7 +70,8 @@ INSTALLED_APPS = [
     'qualities',
     'administratives',
     'finance',
-    'governance'
+    'governance',
+    'planning'
 ]
 
 MIDDLEWARE = [
