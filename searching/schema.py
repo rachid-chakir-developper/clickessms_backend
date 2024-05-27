@@ -56,21 +56,27 @@ class SearchQuery(graphene.ObjectType):
         employees = Employee.objects.all()
         clients = Client.objects.all()
         suppliers = Supplier.objects.all()
+        beneficiaries = Beneficiary.objects.all()
+        establishments = Establishment.objects.all()
 
         # Apply search filter if keyword is provided
         if search_filter and search_filter.keyword:
             keyword = search_filter.keyword.lower()
             tasks = tasks.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))  # Assuming 'name' is a field in Task model
             employees = employees.filter(Q(number__icontains=keyword) | Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(email__icontains=keyword))  # Assuming 'name' is a field in Employee model
+            beneficiaries = beneficiaries.filter(Q(number__icontains=keyword) | Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(email__icontains=keyword))  # Assuming 'name' is a field in Employee model
             clients = clients.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))
             suppliers = suppliers.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))
+            establishments = establishments.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))
 
         # Apply date range filter if starting_date_time and ending_date_time are provided
         if search_filter and search_filter.starting_date_time and search_filter.ending_date_time:
             tasks = tasks.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
             employees = employees.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
+            beneficiaries = beneficiaries.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
             clients = clients.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
             suppliers = suppliers.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
+            establishments = establishments.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
 
         # Apply additional filters based on your requirements
 
@@ -80,15 +86,19 @@ class SearchQuery(graphene.ObjectType):
             end_index = offset + limit
             tasks = tasks[start_index:end_index]
             employees = employees[start_index:end_index]
+            beneficiaries = beneficiaries[start_index:end_index]
             clients = clients[start_index:end_index]
             suppliers = suppliers[start_index:end_index]
+            establishments = establishments[start_index:end_index]
 
         return {
             "results": {
                 "tasks": {'total_count': len(tasks), 'nodes' : tasks},
                 "employees": {'total_count': len(employees), 'nodes' : employees},
+                "beneficiaries": {'total_count': len(beneficiaries), 'nodes' : beneficiaries},
                 "clients": {'total_count': len(clients), 'nodes' : clients},
                 "suppliers": {'total_count': len(suppliers), 'nodes' : suppliers},
+                "establishments": {'total_count': len(establishments), 'nodes' : establishments},
             }
         }
 
