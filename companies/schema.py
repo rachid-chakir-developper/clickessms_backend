@@ -5,6 +5,8 @@ from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 from django.utils import timezone
 
+from django.db.models import Q
+
 from companies.models import Company, Establishment, EstablishmentManager, ActivityAuthorization
 from medias.models import File, Folder
 from human_ressources.models import Employee
@@ -76,6 +78,8 @@ class EstablishmentFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    establishment_categories = graphene.List(graphene.String, required=False)
+    establishment_types = graphene.List(graphene.String, required=False)
 
 class CompanyInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -194,12 +198,18 @@ class CompanyQuery(graphene.ObjectType):
             keyword = establishment_filter.get('keyword', '')
             starting_date_time = establishment_filter.get('starting_date_time')
             ending_date_time = establishment_filter.get('ending_date_time')
+            establishment_categories = establishment_filter.get('establishment_categories')
+            establishment_types = establishment_filter.get('establishment_types')
+            if establishment_categories:
+                establishments = establishments.filter(establishment_category_id__in=establishment_categories)
+            if establishment_types:
+                establishments = establishments.filter(establishment_type_id__in=establishment_types)
             if keyword:
-                establishments = establishments.filter(Q(name__icontains=keyword) | Q(registration_number__icontains=keyword) | Q(driver_name__icontains=keyword))
+                establishments = establishments.filter(Q(name__icontains=keyword) | Q(siret__icontains=keyword) | Q(finess__icontains=keyword) | Q(ape_code__icontains=keyword) | Q(zip_code__icontains=keyword) | Q(address__icontains=keyword))
             if starting_date_time:
-                establishments = establishments.filter(created_at__gte=starting_date_time)
+                establishments = establishments.filter(opening_date__gte=starting_date_time)
             if ending_date_time:
-                establishments = establishments.filter(created_at__lte=ending_date_time)
+                establishments = establishments.filter(opening_date__lte=ending_date_time)
         establishments = establishments.order_by('-created_at')
         total_count = establishments.count()
         if page:

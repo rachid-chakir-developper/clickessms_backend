@@ -47,7 +47,7 @@ class User(AbstractUser):
     def getEmployeeInCompany(self, company=None):
         company = company or self.current_company
         user_company = self.managed_companies.filter(company=company).first()
-        return user_company.employee if user_company else self.employee
+        return user_company.employee if user_company and user_company.employee else self.employee
 
     def setEmployeeForCompany(self, employee_id, company=None):
         from human_ressources.models import Employee

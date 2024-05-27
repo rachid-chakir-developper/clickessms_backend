@@ -104,7 +104,7 @@ class ActivitiesQuery(graphene.ObjectType):
             if beneficiaries:
                 events = events.filter(eventbeneficiary__beneficiary__id__in=beneficiaries)
             if keyword:
-                events = events.filter(Q(title__icontains=keyword))
+                events = events.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
             if starting_date_time:
                 events = events.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
@@ -139,7 +139,7 @@ class ActivitiesQuery(graphene.ObjectType):
             if beneficiaries:
                 beneficiary_absences = beneficiary_absences.filter(beneficiaryabsenceitem__beneficiary__id__in=beneficiaries)
             if keyword:
-                beneficiary_absences = beneficiary_absences.filter(Q(title__icontains=keyword))
+                beneficiary_absences = beneficiary_absences.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
             if starting_date_time:
                 beneficiary_absences = beneficiary_absences.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
