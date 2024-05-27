@@ -45,7 +45,7 @@ class User(AbstractUser):
         return False
 
     def getEmployeeInCompany(self, company=None):
-        company = company or self.current_company
+        company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
         return user_company.employee if user_company and user_company.employee else self.employee
 
