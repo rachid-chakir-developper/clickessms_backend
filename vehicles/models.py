@@ -8,22 +8,11 @@ class Vehicle(models.Model):
 	name = models.CharField(max_length=255)
 	image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='vehicle_image', null=True)
 	registration_number = models.CharField(max_length=255)
-	is_in_service = models.BooleanField(null=True)
-	is_out_of_order = models.BooleanField(null=True)
-	designation = models.TextField(default='', null=True)
-	is_rented = models.BooleanField(null=True)
-	is_bought = models.BooleanField(null=True)
-	driver_name = models.TextField(null=True)
-	driver_number = models.TextField(null=True)
-	buying_price = models.FloatField(null=True)
-	rental_price = models.FloatField(null=True)
-	advance_paid = models.FloatField(null=True)
-	purchase_date = models.DateTimeField(null=True)
-	rental_date = models.DateTimeField(null=True)
+	vehicle_brand = models.ManyToManyField('data_management.VehicleBrand', related_name='brand_vehicles')
+	vehicle_model = models.ManyToManyField('data_management.VehicleModel', related_name='model_vehicles')
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
-	driver = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='vehicle_driver', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_vehicles', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
@@ -59,3 +48,23 @@ class Vehicle(models.Model):
 	    
 	def __str__(self):
 		return self.name
+
+# Create your models here.
+class VehicleEstablishment(models.Model):
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True)
+	establishments = models.ManyToManyField('companies.Establishment', related_name='vehicle_establishments')
+	starting_date = models.DateTimeField(null=True)
+	ending_date = models.DateTimeField(null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+# Create your models here.
+class VehicleEmployee(models.Model):
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True)
+	employees = models.ManyToManyField('human_ressources.Employee', related_name='vehicle_employees')
+	starting_date = models.DateTimeField(null=True)
+	ending_date = models.DateTimeField(null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)

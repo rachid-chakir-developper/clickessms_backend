@@ -237,6 +237,8 @@ class MeetingDecision(models.Model):
 	decision = models.TextField(default='', null=True)
 	due_date = models.DateTimeField(null=True)
 	employees = models.ManyToManyField('human_ressources.Employee', related_name='employee_meeting_decisions')
+	for_voters = models.ManyToManyField('human_ressources.Employee', related_name='voted_for_decisions')
+	against_voters = models.ManyToManyField('human_ressources.Employee', related_name='voted_against_decisions')
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='meeting_decision_former', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

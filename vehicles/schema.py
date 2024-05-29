@@ -6,16 +6,32 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from vehicles.models import Vehicle
+from vehicles.models import Vehicle, VehicleEstablishment, VehicleEmployee
 from medias.models import Folder, File
+
+class VehicleEstablishmentType(DjangoObjectType):
+    class Meta:
+        model = VehicleEstablishment
+        fields = "__all__"
+
+class VehicleEmployeeType(DjangoObjectType):
+    class Meta:
+        model = VehicleEmployee
+        fields = "__all__"
 
 class VehicleType(DjangoObjectType):
     class Meta:
         model = Vehicle
         fields = "__all__"
     image = graphene.String()
+    vehicle_establishments = graphene.List(VehicleEstablishmentType)
+    vehicle_employees = graphene.List(VehicleEmployeeType)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
+    def resolve_vehicle_establishments( instance, info, **kwargs ):
+        return instance.vehicleestablishment_set.all()
+    def resolve_vehicle_employees( instance, info, **kwargs ):
+        return instance.vehicleemployee_set.all()
 
 class VehicleNodeType(graphene.ObjectType):
     nodes = graphene.List(VehicleType)
@@ -26,27 +42,30 @@ class VehicleFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
 
+class VehicleEstablishmentInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    vehicle_id = graphene.Int(name="vehicle", required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+
+class VehicleEmployeeInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    vehicle_id = graphene.Int(name="vehicle", required=False)
+    employees = graphene.List(graphene.Int, required=False)
+
 class VehicleInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=True)
     name = graphene.String(required=True)
     registration_number = graphene.String(required=True)
-    is_in_service = graphene.Boolean(required=True)
-    is_out_of_order = graphene.Boolean(required=True)
-    designation = graphene.String(required=True)
-    is_rented = graphene.Boolean(required=True)
-    is_bought = graphene.Boolean(required=True)
-    driver_name = graphene.String(required=True)
-    driver_number = graphene.String(required=True)
-    buying_price = graphene.Float(required=True)
-    rental_price = graphene.Float(required=True)
-    advance_paid = graphene.Float(required=True)
-    purchase_date = graphene.DateTime(required=False)
-    rental_date = graphene.DateTime(required=False)
     description = graphene.String(required=True)
     observation = graphene.String(required=True)
     is_active = graphene.Boolean(required=True)
-    driver_id = graphene.Int(name="driver", required=False)
+    vehicle_establishments = graphene.List(VehicleEstablishmentInput, required=False)
+    vehicle_employees = graphene.List(VehicleEmployeeInput, required=False)
 
 class VehiclesQuery(graphene.ObjectType):
     vehicles = graphene.Field(VehicleNodeType, vehicle_filter= VehicleFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -94,6 +113,8 @@ class CreateVehicle(graphene.Mutation):
 
     def mutate(root, info, image=None, vehicle_data=None):
         creator = info.context.user
+        vehicle_establishments = vehicle_data.pop("vehicle_establishments") if "vehicle_establishments" in vehicle_data else []
+        vehicle_employees = vehicle_data.pop("vehicle_employees") if "vehicle_employees" in vehicle_data else []
         vehicle = Vehicle(**vehicle_data)
         vehicle.creator = creator
         vehicle.company = creator.current_company if creator.current_company is not None else creator.company
@@ -111,6 +132,18 @@ class CreateVehicle(graphene.Mutation):
         folder = Folder.objects.create(name=str(vehicle.id)+'_'+vehicle.name,creator=creator)
         vehicle.folder = folder
         vehicle.save()
+        for item in vehicle_establishments:
+            establishment_ids = item.pop("establishments")
+            vehicle_establishment = VehicleEstablishment(**item)
+            vehicle_establishment.vehicle = vehicle
+            vehicle_establishment.save()
+            vehicle_establishment.establishments.set(establishment_ids)
+        for item in vehicle_employees:
+            employees_ids = item.pop("employees")
+            vehicle_employee = VehicleEmployee(**item)
+            vehicle_employee.vehicle = vehicle
+            vehicle_employee.save()
+            vehicle_employee.employees.set(employees_ids)
         return CreateVehicle(vehicle=vehicle)
 
 class UpdateVehicle(graphene.Mutation):
@@ -123,6 +156,8 @@ class UpdateVehicle(graphene.Mutation):
 
     def mutate(root, info, id, image=None, vehicle_data=None):
         creator = info.context.user
+        vehicle_establishments = vehicle_data.pop("vehicle_establishments") if "vehicle_establishments" in vehicle_data else []
+        vehicle_employees = vehicle_data.pop("vehicle_employees") if "vehicle_employees" in vehicle_data else []
         Vehicle.objects.filter(pk=id).update(**vehicle_data)
         vehicle = Vehicle.objects.get(pk=id)
         if not vehicle.folder or vehicle.folder is None:
@@ -142,6 +177,30 @@ class UpdateVehicle(graphene.Mutation):
                 image_file.save()
                 vehicle.image = image_file
             vehicle.save()
+        vehicle_establishment_ids = [item.id for item in vehicle_establishments if item.id is not None]
+        VehicleEstablishment.objects.filter(vehicle=vehicle).exclude(id__in=vehicle_establishment_ids).delete()
+        for item in vehicle_establishments:
+            establishment_ids = item.pop("establishments")
+            if id in item or 'id' in item:
+                VehicleEstablishment.objects.filter(pk=item.id).update(**item)
+                vehicle_establishment = VehicleEstablishment.objects.get(pk=item.id)
+            else:
+                vehicle_establishment = VehicleEstablishment(**item)
+                vehicle_establishment.vehicle = vehicle
+                vehicle_establishment.save()
+            vehicle_establishment.establishments.set(establishment_ids)
+        vehicle_employee_ids = [item.id for item in vehicle_employees if item.id is not None]
+        VehicleEmployee.objects.filter(vehicle=vehicle).exclude(id__in=vehicle_employee_ids).delete()
+        for item in vehicle_employees:
+            employee_ids = item.pop("employees")
+            if id in item or 'id' in item:
+                VehicleEmployee.objects.filter(pk=item.id).update(**item)
+                vehicle_employee = VehicleEmployee.objects.get(pk=item.id)
+            else:
+                vehicle_employee = VehicleEmployee(**item)
+                vehicle_employee.vehicle = vehicle
+                vehicle_employee.save()
+            vehicle_employee.employees.set(employee_ids)
         return UpdateVehicle(vehicle=vehicle)
 
 class UpdateVehicleState(graphene.Mutation):

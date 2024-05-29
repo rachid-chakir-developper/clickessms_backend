@@ -82,3 +82,12 @@ class TypeMeeting(DataModel):
 class EmployeeContractType(DataModel):
 	def __str__(self):
 		return str(self.id)
+
+class VehicleBrand(DataModel):
+	def __str__(self):
+		return str(self.id)
+
+class VehicleModel(DataModel):
+	vehicle_brand = models.ManyToManyField('data_management.VehicleBrand', related_name='vehicle_models')
+	def __str__(self):
+		return str(self.id)

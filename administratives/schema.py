@@ -170,6 +170,8 @@ class MeetingDecisionInput(graphene.InputObjectType):
     decision = graphene.String(required=False)
     due_date = graphene.DateTime(required=False)
     employees = graphene.List(graphene.Int, required=False)
+    for_voters = graphene.List(graphene.Int, required=False)
+    against_voters = graphene.List(graphene.Int, required=False)
 
 class MeetingReviewPointInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -652,12 +654,18 @@ class CreateMeeting(graphene.Mutation):
                         creator=creator
                     )
         for item in meeting_decisions:
-            employees_ids = item.pop("employees")
+            employees_ids = item.pop("employees") if "employees" in item else None
+            for_voters_ids = item.pop("for_voters") if "for_voters" in item else None
+            against_voters_ids = item.pop("against_voters") if "against_voters" in item else None
             meeting_decision = MeetingDecision(**item)
             meeting_decision.meeting = meeting
             meeting_decision.save()
             if employees_ids and employees_ids is not None:
                 meeting_decision.employees.set(employees_ids)
+            if for_voters_ids and for_voters_ids is not None:
+                meeting_decision.for_voters.set(for_voters_ids)
+            if against_voters_ids and against_voters_ids is not None:
+                meeting_decision.against_voters.set(against_voters_ids)
 
         for item in meeting_review_points:
             meeting_review_point = MeetingReviewPoint(**item)
@@ -741,7 +749,9 @@ class UpdateMeeting(graphene.Mutation):
         meeting_decision_ids = [item.id for item in meeting_decisions if item.id is not None]
         MeetingDecision.objects.filter(meeting=meeting).exclude(id__in=meeting_decision_ids).delete()
         for item in meeting_decisions:
-            employees_ids = item.pop("employees")
+            employees_ids = item.pop("employees") if "employees" in item else None
+            for_voters_ids = item.pop("for_voters") if "for_voters" in item else None
+            against_voters_ids = item.pop("against_voters") if "against_voters" in item else None
             if id in item or 'id' in item:
                 MeetingDecision.objects.filter(pk=item.id).update(**item)
                 meeting_decision = MeetingDecision.objects.get(pk=item.id)
@@ -751,6 +761,10 @@ class UpdateMeeting(graphene.Mutation):
                 meeting_decision.save()
             if employees_ids and employees_ids is not None:
                 meeting_decision.employees.set(employees_ids)
+            if for_voters_ids and for_voters_ids is not None:
+                meeting_decision.for_voters.set(for_voters_ids)
+            if against_voters_ids and against_voters_ids is not None:
+                meeting_decision.against_voters.set(against_voters_ids)
 
         meeting_review_point_ids = [item.id for item in meeting_review_points if item.id is not None]
         MeetingReviewPoint.objects.filter(meeting=meeting).exclude(id__in=meeting_review_point_ids).delete()
