@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from vehicles.models import Vehicle, VehicleEstablishment, VehicleEmployee
+from vehicles.models import Vehicle, VehicleEstablishment, VehicleEmployee, VehicleOwnership
 from medias.models import Folder, File
 
 class VehicleEstablishmentType(DjangoObjectType):
@@ -19,19 +19,18 @@ class VehicleEmployeeType(DjangoObjectType):
         model = VehicleEmployee
         fields = "__all__"
 
+class VehicleOwnershipType(DjangoObjectType):
+    class Meta:
+        model = VehicleOwnership
+        fields = "__all__"
+
 class VehicleType(DjangoObjectType):
     class Meta:
         model = Vehicle
         fields = "__all__"
     image = graphene.String()
-    vehicle_establishments = graphene.List(VehicleEstablishmentType)
-    vehicle_employees = graphene.List(VehicleEmployeeType)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
-    def resolve_vehicle_establishments( instance, info, **kwargs ):
-        return instance.vehicleestablishment_set.all()
-    def resolve_vehicle_employees( instance, info, **kwargs ):
-        return instance.vehicleemployee_set.all()
 
 class VehicleNodeType(graphene.ObjectType):
     nodes = graphene.List(VehicleType)
@@ -56,11 +55,26 @@ class VehicleEmployeeInput(graphene.InputObjectType):
     vehicle_id = graphene.Int(name="vehicle", required=False)
     employees = graphene.List(graphene.Int, required=False)
 
+class VehicleOwnershipInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    ownership_type = graphene.String(required=True)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    vehicle_id = graphene.Int(name="vehicle", required=False)
+    purchase_price = graphene.Decimal(required=False)
+    lease_start_date = graphene.DateTime(required=False)
+    lease_end_date = graphene.DateTime(required=False)
+    expected_mileage = graphene.Int(required=False)
+
 class VehicleInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=True)
     name = graphene.String(required=True)
     registration_number = graphene.String(required=True)
+    vehicle_brand_id = graphene.Int(name="vehicleBrand", required=False)
+    vehicle_model_id = graphene.Int(name="vehicleModel", required=False)
+    state = graphene.String(required=True)
+    crit_air_vignette = graphene.String(required=True)
     description = graphene.String(required=True)
     observation = graphene.String(required=True)
     is_active = graphene.Boolean(required=True)

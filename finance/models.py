@@ -69,7 +69,8 @@ class DecisionDocument(models.Model):
 # Create your models here.
 class DecisionDocumentItem(models.Model):
     decision_document = models.ForeignKey(
-        DecisionDocument, on_delete=models.SET_NULL, null=True
+        DecisionDocument, on_delete=models.SET_NULL, null=True,
+        related_name="decision_document_items",
     )
     establishment = models.ForeignKey(
         "companies.Establishment",
@@ -79,8 +80,8 @@ class DecisionDocumentItem(models.Model):
     )
     starting_date_time = models.DateTimeField(null=True)
     ending_date_time = models.DateTimeField(null=True)
-    price = models.FloatField(null=True)
-    endowment = models.FloatField(null=True)
+    price = models.DecimalField(decimal_places=2, max_digits=11, null=True)
+    endowment = models.DecimalField(decimal_places=2, max_digits=11, null=True)
     occupancy_rate = models.FloatField(null=True)
     theoretical_number_unit_work = models.FloatField(null=True)
     creator = models.ForeignKey(

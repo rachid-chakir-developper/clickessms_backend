@@ -188,8 +188,8 @@ class Beneficiary(models.Model):
 
 # Create your models here.
 class BeneficiaryAdmissionDocument(models.Model):
-    beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True)
-    document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='beneficiary_admission_documents', null=True)
+    beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True, related_name='beneficiary_admission_documents')
+    document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='document_beneficiary_admission_documents', null=True)
     admission_document_type = models.ForeignKey('data_management.AdmissionDocumentType', on_delete=models.SET_NULL, null=True)
     financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True)
     starting_date = models.DateTimeField(null=True)
@@ -203,7 +203,7 @@ class BeneficiaryAdmissionDocument(models.Model):
 
 # Create your models here.
 class BeneficiaryEntry(models.Model):
-    beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True)
+    beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True, related_name='beneficiary_entries')
     entry_date = models.DateTimeField(null=True)
     release_date = models.DateTimeField(null=True)
     establishments = models.ManyToManyField('companies.Establishment', related_name='establishments_beneficiary_entries')

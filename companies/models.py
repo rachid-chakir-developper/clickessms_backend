@@ -149,7 +149,7 @@ class Establishment(models.Model):
 
 # Create your models here.
 class EstablishmentManager(models.Model):
-    establishment = models.ForeignKey(Establishment, on_delete=models.SET_NULL, null=True)
+    establishment = models.ForeignKey(Establishment, on_delete=models.SET_NULL, null=True, related_name='managers')
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='establishment_manager', null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='establishment_manager_former', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -160,7 +160,7 @@ class EstablishmentManager(models.Model):
 
 # Create your models here.
 class ActivityAuthorization(models.Model):
-    establishment = models.ForeignKey(Establishment, on_delete=models.SET_NULL, null=True)
+    establishment = models.ForeignKey(Establishment, on_delete=models.SET_NULL, null=True, related_name='activity_authorizations')
     document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='activity_authorization_file', null=True)
     starting_date_time = models.DateTimeField(null=True)
     ending_date_time = models.DateTimeField(null=True)

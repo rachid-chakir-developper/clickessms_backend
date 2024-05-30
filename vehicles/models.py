@@ -4,12 +4,28 @@ import random
 
 # Create your models here.
 class Vehicle(models.Model):
+	VEHICLE_STATE = [
+		('NEW', 'Neuf'),
+		('GOOD', 'Correct'),
+		('BAD', 'Mauvais'),
+	]
+	CRIT_AIR_CHOICES = [
+		('', 'NONE'),
+		('ZERO', '0'),
+		('ONE', '1'),
+		('TWO', '2'),
+		('THREE', '3'),
+		('FOUR', '4'),
+		('FIVE', '5')
+	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	name = models.CharField(max_length=255)
 	image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='vehicle_image', null=True)
 	registration_number = models.CharField(max_length=255)
-	vehicle_brand = models.ManyToManyField('data_management.VehicleBrand', related_name='brand_vehicles')
-	vehicle_model = models.ManyToManyField('data_management.VehicleModel', related_name='model_vehicles')
+	vehicle_brand = models.ForeignKey('data_management.VehicleBrand', on_delete=models.SET_NULL, related_name='brand_vehicles', null=True)
+	vehicle_model = models.ForeignKey('data_management.VehicleModel', on_delete=models.SET_NULL, related_name='model_vehicles', null=True)
+	state = models.CharField(max_length=50, choices=VEHICLE_STATE, default= "GOOD", null=True)
+	crit_air_vignette = models.CharField(max_length=50, choices=CRIT_AIR_CHOICES, null=True, blank=True)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
@@ -51,8 +67,8 @@ class Vehicle(models.Model):
 
 # Create your models here.
 class VehicleEstablishment(models.Model):
-	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True)
-	establishments = models.ManyToManyField('companies.Establishment', related_name='vehicle_establishments')
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, related_name='vehicle_establishments')
+	establishments = models.ManyToManyField('companies.Establishment')
 	starting_date = models.DateTimeField(null=True)
 	ending_date = models.DateTimeField(null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
@@ -61,10 +77,30 @@ class VehicleEstablishment(models.Model):
 
 # Create your models here.
 class VehicleEmployee(models.Model):
-	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True)
-	employees = models.ManyToManyField('human_ressources.Employee', related_name='vehicle_employees')
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, related_name='vehicle_employees')
+	employees = models.ManyToManyField('human_ressources.Employee')
 	starting_date = models.DateTimeField(null=True)
 	ending_date = models.DateTimeField(null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+class VehicleOwnership(models.Model):
+    OWNERSHIP_TYPE_CHOICES = [
+        ('LEASE', 'Location'),
+        ('PURCHASE', 'Achat'),
+        ('SALE', 'Vente'),
+    ]
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, related_name='vehicle_ownerships')
+    ownership_type = models.CharField(max_length=10, choices=OWNERSHIP_TYPE_CHOICES, default= "LEASE", null=True)
+    starting_date = models.DateField()
+    ending_date = models.DateField(null=True, blank=True)
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    lease_start_date = models.DateField(null=True, blank=True)
+    lease_end_date = models.DateField(null=True, blank=True)
+    expected_mileage = models.PositiveIntegerField(null=True, blank=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+

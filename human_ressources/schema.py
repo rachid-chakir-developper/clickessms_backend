@@ -91,16 +91,10 @@ class BeneficiaryType(DjangoObjectType):
         fields = "__all__"
     photo = graphene.String()
     cover_image = graphene.String()
-    beneficiary_admission_documents = graphene.List(BeneficiaryAdmissionDocumentType)
-    beneficiary_entries = graphene.List(BeneficiaryEntryType)
     def resolve_photo( instance, info, **kwargs ):
         return instance.photo and info.context.build_absolute_uri(instance.photo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
-    def resolve_beneficiary_admission_documents( instance, info, **kwargs ):
-        return instance.beneficiaryadmissiondocument_set.all()
-    def resolve_beneficiary_entries( instance, info, **kwargs ):
-        return instance.beneficiaryentry_set.all()
 
 class BeneficiaryNodeType(graphene.ObjectType):
     nodes = graphene.List(BeneficiaryType)

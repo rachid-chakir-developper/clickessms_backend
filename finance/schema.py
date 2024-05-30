@@ -23,15 +23,11 @@ class DecisionDocumentType(DjangoObjectType):
         fields = "__all__"
 
     document = graphene.String()
-    decision_document_items = graphene.List(DecisionDocumentItemType)
 
     def resolve_document(instance, info, **kwargs):
         return instance.document and info.context.build_absolute_uri(
             instance.document.file.url
         )
-
-    def resolve_decision_document_items(instance, info, **kwargs):
-        return instance.decisiondocumentitem_set.all()
 
 
 class DecisionDocumentNodeType(graphene.ObjectType):
@@ -103,8 +99,8 @@ class DecisionDocumentItemInput(graphene.InputObjectType):
     name = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
-    price = graphene.Float(required=False)
-    endowment = graphene.Float(required=False)
+    price = graphene.Decimal(required=False)
+    endowment = graphene.Decimal(required=False)
     occupancy_rate = graphene.Float(required=False)
     theoretical_number_unit_work = graphene.Float(required=False)
     description = graphene.String(required=False)

@@ -45,27 +45,21 @@ class EstablishmentType(DjangoObjectType):
         fields = "__all__"
     logo = graphene.String()
     cover_image = graphene.String()
-    managers = graphene.List(EstablishmentManagerType)
-    activity_authorizations = graphene.List(ActivityAuthorizationType)
     current_capacity = graphene.Float()
     current_temporary_capacity = graphene.Float()
     def resolve_logo( instance, info, **kwargs ):
         return instance.logo and info.context.build_absolute_uri(instance.logo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
-    def resolve_managers( instance, info, **kwargs ):
-        return instance.establishmentmanager_set.all()
-    def resolve_activity_authorizations( instance, info, **kwargs ):
-        return instance.activityauthorization_set.all()
     def resolve_current_capacity( instance, info, **kwargs ):
         now = timezone.now().date()
-        current_authorization = instance.activityauthorization_set.filter(
+        current_authorization = instance.activity_authorizations.filter(
             starting_date_time__date__lte=now
         ).order_by('-ending_date_time').first()
         return current_authorization.capacity if current_authorization else None
     def resolve_current_temporary_capacity( instance, info, **kwargs ):
         now = timezone.now().date()
-        current_authorization = instance.activityauthorization_set.filter(
+        current_authorization = instance.activity_authorizations.filter(
             starting_date_time__date__lte=now
         ).order_by('-ending_date_time').first()
         return current_authorization.temporary_capacity if current_authorization else None
