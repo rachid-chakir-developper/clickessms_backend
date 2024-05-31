@@ -12,6 +12,16 @@ install() {
     pip install -r requirements.txt
 }
 
+migrate() {
+    source ./.venv/bin/activate
+    python ./manage.py migrate
+}
+
+makemigrations() {
+    source ./.venv/bin/activate
+    python ./manage.py makemigrations
+}
+
 # runs the command passed as first argument, passing to it all other arguments
 cmd=$1
 shift
