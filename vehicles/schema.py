@@ -57,13 +57,15 @@ class VehicleEmployeeInput(graphene.InputObjectType):
 
 class VehicleOwnershipInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
-    ownership_type = graphene.String(required=True)
-    starting_date = graphene.DateTime(required=False)
-    ending_date = graphene.DateTime(required=False)
+    ownership_type = graphene.String(required=False)
     vehicle_id = graphene.Int(name="vehicle", required=False)
+    purchase_date = graphene.DateTime(required=False)
     purchase_price = graphene.Decimal(required=False)
-    lease_start_date = graphene.DateTime(required=False)
-    lease_end_date = graphene.DateTime(required=False)
+    sale_date = graphene.DateTime(required=False)
+    sale_price = graphene.Decimal(required=False)
+    rental_starting_date = graphene.DateTime(required=False)
+    rental_ending_date = graphene.DateTime(required=False)
+    rental_price = graphene.Decimal(required=False)
     expected_mileage = graphene.Int(required=False)
 
 class VehicleInput(graphene.InputObjectType):
@@ -80,6 +82,7 @@ class VehicleInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=True)
     vehicle_establishments = graphene.List(VehicleEstablishmentInput, required=False)
     vehicle_employees = graphene.List(VehicleEmployeeInput, required=False)
+    vehicle_ownerships = graphene.List(VehicleOwnershipInput, required=False)
 
 class VehiclesQuery(graphene.ObjectType):
     vehicles = graphene.Field(VehicleNodeType, vehicle_filter= VehicleFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -129,6 +132,7 @@ class CreateVehicle(graphene.Mutation):
         creator = info.context.user
         vehicle_establishments = vehicle_data.pop("vehicle_establishments") if "vehicle_establishments" in vehicle_data else []
         vehicle_employees = vehicle_data.pop("vehicle_employees") if "vehicle_employees" in vehicle_data else []
+        vehicle_ownerships = vehicle_data.pop("vehicle_ownerships") if "vehicle_ownerships" in vehicle_data else []
         vehicle = Vehicle(**vehicle_data)
         vehicle.creator = creator
         vehicle.company = creator.current_company if creator.current_company is not None else creator.company
@@ -158,6 +162,10 @@ class CreateVehicle(graphene.Mutation):
             vehicle_employee.vehicle = vehicle
             vehicle_employee.save()
             vehicle_employee.employees.set(employees_ids)
+        for item in vehicle_ownerships:
+            vehicle_ownership = VehicleOwnership(**item)
+            vehicle_ownership.vehicle = vehicle
+            vehicle_ownership.save()
         return CreateVehicle(vehicle=vehicle)
 
 class UpdateVehicle(graphene.Mutation):
@@ -172,6 +180,7 @@ class UpdateVehicle(graphene.Mutation):
         creator = info.context.user
         vehicle_establishments = vehicle_data.pop("vehicle_establishments") if "vehicle_establishments" in vehicle_data else []
         vehicle_employees = vehicle_data.pop("vehicle_employees") if "vehicle_employees" in vehicle_data else []
+        vehicle_ownerships = vehicle_data.pop("vehicle_ownerships") if "vehicle_ownerships" in vehicle_data else []
         Vehicle.objects.filter(pk=id).update(**vehicle_data)
         vehicle = Vehicle.objects.get(pk=id)
         if not vehicle.folder or vehicle.folder is None:
@@ -215,6 +224,15 @@ class UpdateVehicle(graphene.Mutation):
                 vehicle_employee.vehicle = vehicle
                 vehicle_employee.save()
             vehicle_employee.employees.set(employee_ids)
+        vehicle_ownership_ids = [item.id for item in vehicle_ownerships if item.id is not None]
+        VehicleOwnership.objects.filter(vehicle=vehicle).exclude(id__in=vehicle_ownership_ids).delete()
+        for item in vehicle_ownerships:
+            if id in item or 'id' in item:
+                VehicleOwnership.objects.filter(pk=item.id).update(**item)
+            else:
+                vehicle_ownership = VehicleOwnership(**item)
+                vehicle_ownership.vehicle = vehicle
+                vehicle_ownership.save()
         return UpdateVehicle(vehicle=vehicle)
 
 class UpdateVehicleState(graphene.Mutation):
