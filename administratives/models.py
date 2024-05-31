@@ -222,7 +222,7 @@ class Meeting(models.Model):
 
 # Create your models here.
 class MeetingEstablishment(models.Model):
-	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True)
+	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True, related_name='establishments')
 	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='meeting_establishment', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='meeting_establishment_former', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -233,7 +233,7 @@ class MeetingEstablishment(models.Model):
 
 # Create your models here.
 class MeetingDecision(models.Model):
-	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True)
+	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True, related_name='meeting_decisions')
 	decision = models.TextField(default='', null=True)
 	due_date = models.DateTimeField(null=True)
 	employees = models.ManyToManyField('human_ressources.Employee', related_name='employee_meeting_decisions')
@@ -248,7 +248,7 @@ class MeetingDecision(models.Model):
 
 # Create your models here.
 class MeetingReviewPoint(models.Model):
-	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True)
+	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True, related_name='meeting_review_points')
 	point_to_review = models.TextField(default='', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='review_point_former', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -264,7 +264,7 @@ class MeetingParticipant(models.Model):
 	    ('ABSENT', 'Absent'),
 	    ('EXCUSED', 'Excused'),
 	]
-	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True)
+	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True, related_name='participants')
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='participant_meetings', null=True)
 	status = models.CharField(max_length=50, choices=STATUS_CHOICES, default= "PRESENT")
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='participant_meeting_former', null=True)
@@ -275,7 +275,7 @@ class MeetingParticipant(models.Model):
 		return str(self.id)
 # Create your models here.
 class MeetingBeneficiary(models.Model):
-	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True)
+	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True, related_name='beneficiaries')
 	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='meeting_beneficiaries', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='meeting_beneficiary_former', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)

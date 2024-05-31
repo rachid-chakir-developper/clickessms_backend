@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from vehicles.models import Vehicle, VehicleEstablishment, VehicleEmployee, VehicleOwnership
+from vehicles.models import Vehicle, VehicleEstablishment, VehicleEmployee, VehicleOwnership, VehicleInspection
 from medias.models import Folder, File
 
 class VehicleEstablishmentType(DjangoObjectType):
@@ -23,6 +23,22 @@ class VehicleOwnershipType(DjangoObjectType):
     class Meta:
         model = VehicleOwnership
         fields = "__all__"
+
+class VehicleInspectionType(DjangoObjectType):
+    class Meta:
+        model = VehicleInspection
+        fields = "__all__"
+    
+
+class VehicleInspectionNodeType(graphene.ObjectType):
+    nodes = graphene.List(VehicleInspectionType)
+    total_count = graphene.Int()
+
+class VehicleInspectionFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+
 
 class VehicleType(DjangoObjectType):
     class Meta:
@@ -55,6 +71,13 @@ class VehicleEmployeeInput(graphene.InputObjectType):
     vehicle_id = graphene.Int(name="vehicle", required=False)
     employees = graphene.List(graphene.Int, required=False)
 
+class VehicleMediaInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    image = Upload(required=False)
+    video = Upload(required=False)
+    media = Upload(required=False)
+    caption = graphene.String(required=False)
+
 class VehicleOwnershipInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     ownership_type = graphene.String(required=False)
@@ -66,11 +89,32 @@ class VehicleOwnershipInput(graphene.InputObjectType):
     rental_starting_date = graphene.DateTime(required=False)
     rental_ending_date = graphene.DateTime(required=False)
     rental_price = graphene.Decimal(required=False)
-    expected_mileage = graphene.Int(required=False)
+    expected_mileage = graphene.Float(required=False)
+
+class VehicleInspectionInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    vehicle_id = graphene.Int(name="vehicle", required=True)
+    inspection_date_time = graphene.DateTime(required=False)
+    next_inspection_date = graphene.DateTime(required=False)
+    controller_employees = graphene.List(graphene.Int, required=False)
+    controller_partner_id = graphene.Int(name="controllerPartner", required=False)
+    mileage = graphene.Float(required=False)
+    is_registration_card_here = graphene.Boolean(required=False)
+    is_insurance_certificate_here = graphene.Boolean(required=False)
+    is_insurance_attestation_here = graphene.Boolean(required=False)
+    is_oil_level_checked = graphene.Boolean(required=False)
+    is_windshield_washer_level_checked = graphene.Boolean(required=False)
+    is_brake_fluid_level_checked = graphene.Boolean(required=False)
+    is_coolant_level_checked = graphene.Boolean(required=False)
+    is_tire_pressure_checked = graphene.Boolean(required=False)
+    is_lights_condition_checked = graphene.Boolean(required=False)
+    is_body_condition_checked = graphene.Boolean(required=False)
+    remarks = graphene.String(required=False)
 
 class VehicleInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
-    number = graphene.String(required=True)
+    number = graphene.String(required=False)
     name = graphene.String(required=True)
     registration_number = graphene.String(required=True)
     vehicle_brand_id = graphene.Int(name="vehicleBrand", required=False)
@@ -87,6 +131,8 @@ class VehicleInput(graphene.InputObjectType):
 class VehiclesQuery(graphene.ObjectType):
     vehicles = graphene.Field(VehicleNodeType, vehicle_filter= VehicleFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     vehicle = graphene.Field(VehicleType, id = graphene.ID())
+    vehicle_inspections = graphene.Field(VehicleInspectionNodeType, vehicle_inspection_filter= VehicleInspectionFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    vehicle_inspection = graphene.Field(VehicleInspectionType, id = graphene.ID())
     def resolve_vehicles(root, info, vehicle_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -118,6 +164,37 @@ class VehiclesQuery(graphene.ObjectType):
         except Vehicle.DoesNotExist:
             vehicle = None
         return vehicle
+    def resolve_vehicle_inspections(root, info, vehicle_inspection_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        total_count = 0
+        vehicle_inspections = VehicleInspection.objects.filter(company=company)
+        if vehicle_inspection_filter:
+            keyword = vehicle_inspection_filter.get('keyword', '')
+            starting_date_time = vehicle_inspection_filter.get('starting_date_time')
+            ending_date_time = vehicle_inspection_filter.get('ending_date_time')
+            if keyword:
+                vehicle_inspections = vehicle_inspections.filter(Q(name__icontains=keyword) | Q(registration_number__icontains=keyword) | Q(driver_name__icontains=keyword))
+            if starting_date_time:
+                vehicle_inspections = vehicle_inspections.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                vehicle_inspections = vehicle_inspections.filter(created_at__lte=ending_date_time)
+        vehicle_inspections = vehicle_inspections.order_by('-created_at')
+        total_count = vehicle_inspections.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            vehicle_inspections = vehicle_inspections[offset:offset + limit]
+        return VehicleInspectionNodeType(nodes=vehicle_inspections, total_count=total_count)
+
+    def resolve_vehicle_inspection(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            vehicle_inspection = VehicleInspection.objects.get(pk=id)
+        except VehicleInspection.DoesNotExist:
+            vehicle_inspection = None
+        return vehicle_inspection
 
 #************************************************************************
 
@@ -286,9 +363,142 @@ class DeleteVehicle(graphene.Mutation):
             message = "Vous n'êtes pas un Superuser."
         return DeleteVehicle(deleted=deleted, success=success, message=message, id=id)
 
+#***************************************************************************************************
+#***********************************************************************************************************
+
+class CreateVehicleInspection(graphene.Mutation):
+    class Arguments:
+        vehicle_id = graphene.ID(required=False)
+        vehicle_inspection_data = VehicleInspectionInput(required=False)
+        images = graphene.List(VehicleMediaInput, required=False)
+        videos = graphene.List(VehicleMediaInput, required=False)
+
+    vehicle_inspection = graphene.Field(VehicleInspectionType)
+
+    def mutate(root, info, vehicle_id=None, images=None, videos=None, vehicle_inspection_data=None):
+        creator = info.context.user
+        controller_employees_ids = vehicle_inspection_data.pop("controller_employees") if 'controller_employees' in vehicle_inspection_data else []
+        vehicle_inspection = VehicleInspection(**vehicle_inspection_data)
+        vehicle_inspection.creator = creator
+        vehicle_inspection.company = creator.current_company if creator.current_company is not None else creator.company
+        vehicle_inspection.save()
+        folder = Folder.objects.create(name=str(vehicle_inspection.id)+'_'+vehicle_inspection.number,creator=creator)
+        vehicle_inspection.folder = folder
+        if controller_employees_ids and controller_employees_ids is not None:
+            vehicle_inspection.controller_employees.set(controller_employees_ids)
+        if not images:
+            images = []
+        for image_media in images:
+            image = image_media.image
+            caption = image_media.caption
+            if id in image_media or 'id' in image_media:
+                image_file = File.objects.get(pk=image_media.id)
+            else:
+                image_file = File()
+                image_file.creator = creator
+            if info.context.FILES and image and isinstance(image, UploadedFile):
+                image_file.image = image
+            image_file.caption = caption
+            image_file.save()
+            vehicle_inspection.images.add(image_file)
+        if not videos:
+            videos = []
+        for video_media in videos:
+            video = video_media.video
+            caption = video_media.caption
+            if id in video_media  or 'id' in video_media:
+                video_file = File.objects.get(pk=video_media.id)
+            else:
+                video_file = File()
+                video_file.creator = creator
+            if info.context.FILES and video and isinstance(video, UploadedFile):
+                video_file.video = video
+            video_file.caption = caption
+            video_file.save()
+            vehicle_inspection.videos.add(video_file)
+        vehicle_inspection.save()
+        return CreateVehicleInspection(vehicle_inspection=vehicle_inspection)
+
+class UpdateVehicleInspection(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID(required=True)
+        vehicle_inspection_data = VehicleInspectionInput(required=False)
+        images = graphene.List(VehicleMediaInput, required=False)
+        videos = graphene.List(VehicleMediaInput, required=False)
+
+    vehicle_inspection = graphene.Field(VehicleInspectionType)
+
+    def mutate(root, info, id, images=None, videos=None, vehicle_inspection_data=None):
+        creator = info.context.user
+        controller_employees_ids = vehicle_inspection_data.pop("controller_employees") if 'controller_employees' in vehicle_inspection_data else []
+        VehicleInspection.objects.filter(pk=id).update(**vehicle_inspection_data)
+        vehicle_inspection = VehicleInspection.objects.get(pk=id)
+        if controller_employees_ids and controller_employees_ids is not None:
+            vehicle_inspection.controller_employees.set(controller_employees_ids)
+        if not images:
+            images = []
+        for image_media in images:
+            image = image_media.image
+            caption = image_media.caption
+            if id in image_media or 'id' in image_media:
+                image_file = File.objects.get(pk=image_media.id)
+            else:
+                image_file = File()
+                image_file.creator = creator
+            if info.context.FILES and image and isinstance(image, UploadedFile):
+                image_file.image = image
+            image_file.caption = caption
+            image_file.save()
+            vehicle_inspection.images.add(image_file)
+        if not videos:
+            videos = []
+        for video_media in videos:
+            video = video_media.video
+            caption = video_media.caption
+            if id in video_media  or 'id' in video_media:
+                video_file = File.objects.get(pk=video_media.id)
+            else:
+                video_file = File()
+                video_file.creator = creator
+            if info.context.FILES and video and isinstance(video, UploadedFile):
+                video_file.video = video
+            video_file.caption = caption
+            video_file.save()
+            vehicle_inspection.videos.add(video_file)
+        vehicle_inspection.save()
+        return UpdateVehicleInspection(vehicle_inspection=vehicle_inspection)
+
+class DeleteVehicleInspection(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    vehicle_inspection = graphene.Field(VehicleType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            vehicle_inspection = VehicleInspection.objects.get(pk=id)
+            vehicle_inspection.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteVehicleInspection(deleted=deleted, success=success, message=message, id=id)
+
 #*************************************************************************#
 class VehiclesMutation(graphene.ObjectType):
     create_vehicle = CreateVehicle.Field()
     update_vehicle = UpdateVehicle.Field()
     update_vehicle_state = UpdateVehicleState.Field()
     delete_vehicle = DeleteVehicle.Field()
+
+    create_vehicle_inspection = CreateVehicleInspection.Field()
+    update_vehicle_inspection = UpdateVehicleInspection.Field()
+    delete_vehicle_inspection = DeleteVehicleInspection.Field()

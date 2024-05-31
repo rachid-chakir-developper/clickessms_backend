@@ -99,21 +99,6 @@ class MeetingType(DjangoObjectType):
     class Meta:
         model = Meeting
         fields = "__all__"
-    establishments = graphene.List(MeetingEstablishmentType)
-    participants = graphene.List(MeetingParticipantType)
-    beneficiaries = graphene.List(MeetingBeneficiaryType)
-    meeting_decisions = graphene.List(MeetingDecisionType)
-    meeting_review_points = graphene.List(MeetingReviewPointType)
-    def resolve_establishments( instance, info, **kwargs ):
-        return instance.meetingestablishment_set.all()
-    def resolve_participants( instance, info, **kwargs ):
-        return instance.meetingparticipant_set.all()
-    def resolve_beneficiaries( instance, info, **kwargs ):
-        return instance.meetingbeneficiary_set.all()
-    def resolve_meeting_decisions( instance, info, **kwargs ):
-        return instance.meetingdecision_set.all()
-    def resolve_meeting_review_points( instance, info, **kwargs ):
-        return instance.meetingreviewpoint_set.all()
 
 class MeetingNodeType(graphene.ObjectType):
     nodes = graphene.List(MeetingType)
