@@ -71,7 +71,7 @@ class VehicleEmployeeInput(graphene.InputObjectType):
     vehicle_id = graphene.Int(name="vehicle", required=False)
     employees = graphene.List(graphene.Int, required=False)
 
-class VehicleMediaInput(graphene.InputObjectType):
+class MediaInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     image = Upload(required=False)
     video = Upload(required=False)
@@ -103,6 +103,7 @@ class VehicleInspectionInput(graphene.InputObjectType):
     is_registration_card_here = graphene.Boolean(required=False)
     is_insurance_certificate_here = graphene.Boolean(required=False)
     is_insurance_attestation_here = graphene.Boolean(required=False)
+    is_technical_control_here = graphene.Boolean(required=False)
     is_oil_level_checked = graphene.Boolean(required=False)
     is_windshield_washer_level_checked = graphene.Boolean(required=False)
     is_brake_fluid_level_checked = graphene.Boolean(required=False)
@@ -370,8 +371,8 @@ class CreateVehicleInspection(graphene.Mutation):
     class Arguments:
         vehicle_id = graphene.ID(required=False)
         vehicle_inspection_data = VehicleInspectionInput(required=False)
-        images = graphene.List(VehicleMediaInput, required=False)
-        videos = graphene.List(VehicleMediaInput, required=False)
+        images = graphene.List(MediaInput, required=False)
+        videos = graphene.List(MediaInput, required=False)
 
     vehicle_inspection = graphene.Field(VehicleInspectionType)
 
@@ -423,8 +424,8 @@ class UpdateVehicleInspection(graphene.Mutation):
     class Arguments:
         id = graphene.ID(required=True)
         vehicle_inspection_data = VehicleInspectionInput(required=False)
-        images = graphene.List(VehicleMediaInput, required=False)
-        videos = graphene.List(VehicleMediaInput, required=False)
+        images = graphene.List(MediaInput, required=False)
+        videos = graphene.List(MediaInput, required=False)
 
     vehicle_inspection = graphene.Field(VehicleInspectionType)
 
@@ -437,6 +438,9 @@ class UpdateVehicleInspection(graphene.Mutation):
             vehicle_inspection.controller_employees.set(controller_employees_ids)
         if not images:
             images = []
+        else:
+            image_ids = [item.id for item in images if item.id is not None]
+            File.objects.filter(image_vehicle_inspections=vehicle_inspection).exclude(id__in=image_ids).delete()
         for image_media in images:
             image = image_media.image
             caption = image_media.caption
