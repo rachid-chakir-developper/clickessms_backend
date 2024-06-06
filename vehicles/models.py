@@ -110,6 +110,7 @@ class VehicleInspection(models.Model):
 	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, related_name='vehicle_inspections')
 	inspection_date_time = models.DateTimeField(null=True, blank=True)
 	next_inspection_date = models.DateTimeField(null=True, blank=True)
+	next_technical_inspection_date = models.DateTimeField(null=True, blank=True)
 	controller_employees = models.ManyToManyField('human_ressources.Employee')
 	controller_partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, null=True, blank=True, related_name='inspected_vehicles')
 	mileage = models.FloatField(null=True, blank=True)
@@ -130,6 +131,165 @@ class VehicleInspection(models.Model):
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_inspected_vehicles', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+	def save(self, *args, **kwargs):
+	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+	    if not self.number:
+	        self.number = self.generate_unique_number()
+
+	    super(VehicleInspection, self).save(*args, **kwargs)
+
+	def generate_unique_number(self):
+	    # Implémentez la logique de génération du numéro unique ici
+	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
+	    # par exemple, en utilisant la fonction strftime de l'objet datetime
+	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+
+	    # Exemple : Utilisation de la date et de l'heure actuelles
+	    current_time = datetime.now()
+	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+	    number = f'{number_prefix}{number_suffix}'
+
+	    # Vérifier s'il est unique dans la base de données
+	    while VehicleInspection.objects.filter(number=number).exists():
+	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+	        number = f'{number_prefix}{number_suffix}'
+
+	    return number
+	    
+	def __str__(self):
+		return self.number
+
+
+
+class VehicleTechnicalInspection(models.Model):
+	TECH_INSPECTION_STATES = [
+		('FAVORABLE', 'Favorable'),
+		('NOT_FAVORABLE', 'Non favorable'),
+	]
+	number = models.CharField(max_length=255, editable=False, null=True)
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, related_name='vehicle_technical_inspections')
+	inspection_date_time = models.DateTimeField(null=True, blank=True)
+	next_inspection_date = models.DateTimeField(null=True, blank=True)
+	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='vehicle_technical_inspections', null=True)
+	observation = models.TextField(default='', null=True, blank=True)
+	state = models.CharField(max_length=50, choices=TECH_INSPECTION_STATES, default= "FAVORABLE", null=True)
+	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='vehicle_technical_inspections', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+	def save(self, *args, **kwargs):
+	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+	    if not self.number:
+	        self.number = self.generate_unique_number()
+
+	    super(VehicleTechnicalInspection, self).save(*args, **kwargs)
+
+	def generate_unique_number(self):
+	    # Implémentez la logique de génération du numéro unique ici
+	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
+	    # par exemple, en utilisant la fonction strftime de l'objet datetime
+	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+
+	    # Exemple : Utilisation de la date et de l'heure actuelles
+	    current_time = datetime.now()
+	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+	    number = f'{number_prefix}{number_suffix}'
+
+	    # Vérifier s'il est unique dans la base de données
+	    while VehicleTechnicalInspection.objects.filter(number=number).exists():
+	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+	        number = f'{number_prefix}{number_suffix}'
+
+	    return number
+	    
+	def __str__(self):
+		return self.number
+
+# Create your models here.
+class VehicleInspectionFailure(models.Model):
+	INSPECTION_FAILURE_TYPES = [
+		('MINOR', 'Défaillance mineur'),
+		('MAJOR', 'Défaillance majeur'),
+		('CRITICAL', 'Défaillance critique'),
+	]
+	vehicle_technical_inspection = models.ForeignKey(VehicleTechnicalInspection, on_delete=models.SET_NULL, null=True, related_name='failures')
+	failure_type = models.CharField(max_length=50, choices=INSPECTION_FAILURE_TYPES, default= "MINOR", null=True)
+	description = models.TextField(default='', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='technical_inspection_failures', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+class VehicleRepair(models.Model):
+	REPAIR_STATES = [
+		('COMPLETED', 'Terminée'),
+		('TO_DO', 'À faire'),
+	]
+	number = models.CharField(max_length=255, editable=False, null=True)
+	label = models.CharField(max_length=255, null=True, blank=True)
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, related_name='vehicle_repairs')
+	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='vehicle_repairs', null=True)
+	repair_date_time = models.DateTimeField(null=True, blank=True)
+	garage_partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, null=True, blank=True, related_name='vehicle_repairs')
+	state = models.CharField(max_length=50, choices=REPAIR_STATES, default= "COMPLETED", null=True)
+	description = models.TextField(default='', null=True, blank=True)
+	observation = models.TextField(default='', null=True, blank=True)
+	report = models.TextField(default='', null=True, blank=True)
+	total_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='vehicle_repairs', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+	def save(self, *args, **kwargs):
+	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+	    if not self.number:
+	        self.number = self.generate_unique_number()
+
+	    super(VehicleRepair, self).save(*args, **kwargs)
+
+	def generate_unique_number(self):
+	    # Implémentez la logique de génération du numéro unique ici
+	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
+	    # par exemple, en utilisant la fonction strftime de l'objet datetime
+	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+
+	    # Exemple : Utilisation de la date et de l'heure actuelles
+	    current_time = datetime.now()
+	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+	    number = f'{number_prefix}{number_suffix}'
+
+	    # Vérifier s'il est unique dans la base de données
+	    while VehicleRepair.objects.filter(number=number).exists():
+	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+	        number = f'{number_prefix}{number_suffix}'
+
+	    return number
+	    
+	def __str__(self):
+		return self.number
+
+# Create your models here.
+class VehicleTheCarriedOutRepair(models.Model):
+	vehicle_repair = models.ForeignKey(VehicleRepair, on_delete=models.SET_NULL, null=True, related_name='repairs')
+	description = models.TextField(default='', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='vehicle_the_carried_out_repairs', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+# Create your models here.
+class VehicleRepairVigilantPoint(models.Model):
+	vehicle_repair = models.ForeignKey(VehicleRepair, on_delete=models.SET_NULL, null=True, related_name='vigilant_points')
+	description = models.TextField(default='', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='vehicle_repair_vigilant_points', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 
