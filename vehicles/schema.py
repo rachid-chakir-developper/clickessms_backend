@@ -573,6 +573,8 @@ class CreateVehicleInspection(graphene.Mutation):
         vehicle_inspection.folder = folder
         if controller_employees_ids and controller_employees_ids is not None:
             vehicle_inspection.controller_employees.set(controller_employees_ids)
+        if creator.getPartnerInCompany():
+            vehicle_inspection.controller_partner = creator.getPartnerInCompany()
         if not images:
             images = []
         for image_media in images:
@@ -627,6 +629,8 @@ class UpdateVehicleInspection(graphene.Mutation):
         else:
             image_ids = [item.id for item in images if item.id is not None]
             File.objects.filter(image_vehicle_inspections=vehicle_inspection).exclude(id__in=image_ids).delete()
+        if creator.getPartnerInCompany():
+            vehicle_inspection.controller_partner = creator.getPartnerInCompany()
         for image_media in images:
             image = image_media.image
             caption = image_media.caption
@@ -835,6 +839,8 @@ class CreateVehicleRepair(graphene.Mutation):
             name=str(vehicle_repair.id) + "_" + vehicle_repair.label, creator=creator
         )
         vehicle_repair.folder = folder
+        if creator.getPartnerInCompany():
+            vehicle_repair.garage_partner = creator.getPartnerInCompany()
         vehicle_repair.save()
         for item in repairs:
             repair = VehicleTheCarriedOutRepair(**item)
@@ -879,6 +885,9 @@ class UpdateVehicleRepair(graphene.Mutation):
                 document_file.file = document
                 document_file.save()
                 vehicle_repair.document = document_file
+            vehicle_repair.save()
+        if creator.getPartnerInCompany():
+            vehicle_repair.garage_partner = creator.getPartnerInCompany()
             vehicle_repair.save()
 
         repair_ids = [item.id for item in repairs if item.id is not None]
