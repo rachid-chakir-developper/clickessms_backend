@@ -71,7 +71,8 @@ INSTALLED_APPS = [
     'administratives',
     'finance',
     'governance',
-    'planning'
+    'planning',
+    'robert_ia'
 ]
 
 MIDDLEWARE = [

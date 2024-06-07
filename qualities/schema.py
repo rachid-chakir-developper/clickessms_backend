@@ -6,8 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson
-from data_management.models import UndesirableEventNormalType, UndesirableEventSeriousType
+from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson, UndesirableEventReview, UndesirableEventAction
 from medias.models import Folder, File
 from companies.models import Establishment
 from human_ressources.models import Employee, Beneficiary
@@ -32,25 +31,23 @@ class UndesirableEventNotifiedPersonType(DjangoObjectType):
         model = UndesirableEventNotifiedPerson
         fields = "__all__"
 
+class UndesirableEventReviewType(DjangoObjectType):
+    class Meta:
+        model = UndesirableEventReview
+        fields = "__all__"
+
+class UndesirableEventActionType(DjangoObjectType):
+    class Meta:
+        model = UndesirableEventAction
+        fields = "__all__"
+
 class UndesirableEventType(DjangoObjectType):
     class Meta:
         model = UndesirableEvent
         fields = "__all__"
     image = graphene.String()
-    establishments = graphene.List(UndesirableEventEstablishmentType)
-    employees = graphene.List(UndesirableEventEmployeeType)
-    beneficiaries = graphene.List(UndesirableEventBeneficiaryType)
-    notified_persons = graphene.List(UndesirableEventNotifiedPersonType)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
-    def resolve_establishments( instance, info, **kwargs ):
-        return instance.undesirableeventestablishment_set.all()
-    def resolve_employees( instance, info, **kwargs ):
-        return instance.undesirableeventemployee_set.all()
-    def resolve_beneficiaries( instance, info, **kwargs ):
-        return instance.undesirableeventbeneficiary_set.all()
-    def resolve_notified_persons( instance, info, **kwargs ):
-        return instance.undesirableeventnotifiedperson_set.all()
 
 class UndesirableEventNodeType(graphene.ObjectType):
     nodes = graphene.List(UndesirableEventType)
@@ -63,6 +60,18 @@ class UndesirableEventFilterInput(graphene.InputObjectType):
     beneficiaries = graphene.List(graphene.Int, required=False)
     establishments = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)
+
+class UndesirableEventActionInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    action = graphene.String(required=False)
+    due_date = graphene.DateTime(required=False)
+    employees = graphene.List(graphene.Int, required=False)
+
+class UndesirableEventReviewInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    analysis_text = graphene.String(required=False)
+    undesirable_event_id = graphene.Int(name="undesirableEvent", required=False)
+    actions = graphene.List(UndesirableEventActionInput, required=False)
 
 class UndesirableEventInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -170,12 +179,10 @@ class CreateUndesirableEvent(graphene.Mutation):
         folder = Folder.objects.create(name=str(undesirable_event.id)+'_'+undesirable_event.title,creator=creator)
         undesirable_event.folder = folder
         if normal_type_ids and normal_type_ids is not None:
-            normal_types = UndesirableEventNormalType.objects.filter(id__in=normal_type_ids)
-            undesirable_event.normal_types.set(normal_types)
+            undesirable_event.normal_types.set(normal_type_ids)
 
         if serious_type_ids and serious_type_ids is not None:
-            serious_types = UndesirableEventSeriousType.objects.filter(id__in=serious_type_ids)
-            undesirable_event.serious_types.set(serious_types)
+            undesirable_event.serious_types.set(serious_type_ids)
 
         establishments = Establishment.objects.filter(id__in=establishment_ids)
         for establishment in establishments:
@@ -261,12 +268,10 @@ class UpdateUndesirableEvent(graphene.Mutation):
             undesirable_event.save()
 
         if normal_type_ids and normal_type_ids is not None:
-            normal_types = UndesirableEventNormalType.objects.filter(id__in=normal_type_ids)
-            undesirable_event.normal_types.set(normal_types)
+            undesirable_event.normal_types.set(normal_type_ids)
 
         if serious_type_ids and serious_type_ids is not None:
-            serious_types = UndesirableEventSeriousType.objects.filter(id__in=serious_type_ids)
-            undesirable_event.serious_types.set(serious_types)
+            undesirable_event.serious_types.set(serious_type_ids)
 
         UndesirableEventEstablishment.objects.filter(undesirable_event=undesirable_event).exclude(establishment__id__in=establishment_ids).delete()
         establishments = Establishment.objects.filter(id__in=establishment_ids)
@@ -367,9 +372,105 @@ class DeleteUndesirableEvent(graphene.Mutation):
             message = "Vous n'êtes pas un Superuser."
         return DeleteUndesirableEvent(deleted=deleted, success=success, message=message, id=id)
         
+#*************************************************************************#  
+#*************************************************************************#
+#************************************************************************
+
+class CreateUndesirableEventReview(graphene.Mutation):
+    class Arguments:
+        undesirable_event_review_data = UndesirableEventReviewInput(required=True)
+
+    undesirable_event_review = graphene.Field(UndesirableEventReviewType)
+
+    def mutate(root, info, undesirable_event_review_data=None):
+        creator = info.context.user
+        undesirable_event_actions = undesirable_event_review_data.pop("actions")
+        undesirable_event_review = UndesirableEventReview(**undesirable_event_review_data)
+        undesirable_event_review.creator = creator
+        undesirable_event_review.save()
+        folder = Folder.objects.create(name=str(undesirable_event_review.id)+'_'+undesirable_event_review.title,creator=creator)
+        undesirable_event_review.folder = folder
+        if not undesirable_event_review.employee:
+            undesirable_event_review.employee = creator.getEmployeeInCompany()
+        for item in undesirable_event_actions:
+            employees_ids = item.pop("employees") if "employees" in item else None
+            undesirable_event_action = UndesirableEventAction(**item)
+            undesirable_event_action.undesirable_event_review = undesirable_event_review
+            undesirable_event_action.save()
+            if employees_ids and employees_ids is not None:
+                undesirable_event_action.employees.set(employees_ids)
+
+        undesirable_event_review.save()
+        return CreateUndesirableEventReview(undesirable_event_review=undesirable_event_review)
+
+class UpdateUndesirableEventReview(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        undesirable_event_review_data = UndesirableEventReviewInput(required=True)
+
+    undesirable_event_review = graphene.Field(UndesirableEventReviewType)
+
+    def mutate(root, info, id, image=None, undesirable_event_review_data=None):
+        creator = info.context.user
+        undesirable_event_actions = undesirable_event_review_data.pop("actions")
+        UndesirableEventReview.objects.filter(pk=id).update(**undesirable_event_review_data)
+        undesirable_event_review = UndesirableEventReview.objects.get(pk=id)
+        if not undesirable_event_review.folder or undesirable_event_review.folder is None:
+            folder = Folder.objects.create(name=str(undesirable_event_review.id)+'_'+undesirable_event_review.title,creator=creator)
+            UndesirableEventReview.objects.filter(pk=id).update(folder=folder)
+        if not undesirable_event_review.employee:
+            undesirable_event_review.employee = creator.getEmployeeInCompany()
+            undesirable_event_review.save()
+
+        undesirable_event_action_ids = [item.id for item in undesirable_event_actions if item.id is not None]
+        UndesirableEventAction.objects.filter(undesirable_event_review=undesirable_event_review).exclude(id__in=undesirable_event_action_ids).delete()
+        for item in undesirable_event_actions:
+            employees_ids = item.pop("employees") if "employees" in item else None
+            if id in item or 'id' in item:
+                UndesirableEventAction.objects.filter(pk=item.id).update(**item)
+                undesirable_event_action = UndesirableEventAction.objects.get(pk=item.id)
+            else:
+                undesirable_event_action = UndesirableEventAction(**item)
+                undesirable_event_action.undesirable_event_review = undesirable_event_review
+                undesirable_event_action.save()
+            if employees_ids and employees_ids is not None:
+                undesirable_event_action.employees.set(employees_ids)
+
+        return UpdateUndesirableEventReview(undesirable_event_review=undesirable_event_review)
+
+class DeleteUndesirableEventReview(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    undesirable_event_review = graphene.Field(UndesirableEventReviewType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            undesirable_event_review = UndesirableEventReview.objects.get(pk=id)
+            undesirable_event_review.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteUndesirableEventReview(deleted=deleted, success=success, message=message, id=id)
+
+#************************************************************************
+
 #*************************************************************************#
 class QualitiesMutation(graphene.ObjectType):
     create_undesirable_event = CreateUndesirableEvent.Field()
     update_undesirable_event = UpdateUndesirableEvent.Field()
     update_undesirable_event_state = UpdateUndesirableEventState.Field()
     delete_undesirable_event = DeleteUndesirableEvent.Field()
+
+    create_undesirable_event_review = CreateUndesirableEventReview.Field()
+    update_undesirable_event_review = UpdateUndesirableEventReview.Field()
+    delete_undesirable_event_review = DeleteUndesirableEventReview.Field()

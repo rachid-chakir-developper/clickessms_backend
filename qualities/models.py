@@ -91,9 +91,9 @@ class UndesirableEvent(models.Model):
 
 # Create your models here.
 class UndesirableEventEstablishment(models.Model):
-	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True)
-	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='undesirable_event_establishment', null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_establishment_former', null=True)
+	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True, related_name='establishments')
+	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='undesirable_event_establishments', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_establishments', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -102,9 +102,9 @@ class UndesirableEventEstablishment(models.Model):
 
 # Create your models here.
 class UndesirableEventEmployee(models.Model):
-	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True)
-	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='undesirable_event_employee', null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_employee_former', null=True)
+	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True, related_name='employees')
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='undesirable_event_employees', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_employees', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -113,9 +113,9 @@ class UndesirableEventEmployee(models.Model):
 
 # Create your models here.
 class UndesirableEventBeneficiary(models.Model):
-	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True)
-	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='undesirable_event_beneficiary', null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_beneficiary_former', null=True)
+	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True, related_name='beneficiaries')
+	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='undesirable_event_beneficiaries', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_beneficiaries', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -124,9 +124,33 @@ class UndesirableEventBeneficiary(models.Model):
 
 # Create your models here.
 class UndesirableEventNotifiedPerson(models.Model):
-	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True)
-	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='undesirable_event_notified_person', null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_notified_person_former', null=True)
+	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True, related_name='notified_persons')
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='undesirable_event_notified_persons', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_notified_persons', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
+
+class UndesirableEventReview(models.Model):
+	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True, related_name='reviews')
+	analysis_text = models.TextField(default='', null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='undesirable_event_reviews', null=True)
+	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_reviews', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
+
+class UndesirableEventAction(models.Model):
+	undesirable_event_review = models.ForeignKey(UndesirableEventReview, on_delete=models.SET_NULL, null=True, related_name='actions')
+	action = models.TextField(default='', null=True)
+	due_date = models.DateTimeField(null=True)
+	employees = models.ManyToManyField('human_ressources.Employee', related_name='undesirable_event_actions')
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_actions', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 

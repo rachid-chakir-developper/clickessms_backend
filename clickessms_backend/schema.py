@@ -26,6 +26,7 @@ from administratives.schema import AdministrativesQuery, AdministrativesMutation
 from finance.schema import FinanceQuery, FinanceMutation
 from governance.schema import GovernanceQuery, GovernanceMutation
 from planning.schema import PlanningQuery, PlanningMutation
+from robert_ia.schema import RobertIaMutation
 
 class ObtainJSONWebToken(mutations.ObtainJSONWebToken):
     user = graphene.Field(UserType)
@@ -67,7 +68,7 @@ class Mutation(AuthMutation, UserMutation, MediasMutation, DataMutation,
     CompanyMutation, HumanRessourcesMutation, StocksMutation,
     VehiclesMutation, PartnershipsMutation, PurchasesMutation, SalesMutation, WorksMutation,
     CommentsMutation, NotificationsMutation, ChatMutation, LoansMutation, ActivitiesMutation,
-    QualitiesMutation, AdministrativesMutation, FinanceMutation, GovernanceMutation, PlanningMutation,
+    QualitiesMutation, AdministrativesMutation, FinanceMutation, GovernanceMutation, PlanningMutation, RobertIaMutation,
     graphene.ObjectType):
    pass
 

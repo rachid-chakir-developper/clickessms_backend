@@ -14,6 +14,7 @@ from accounts.models import User, UserCompany, Device
 from medias.models import File
 
 from human_ressources.schema import EmployeeType
+from partnerships.schema import PartnerType
 
 from accounts.broadcaster import broadcastUserUpdated, broadcastUserCurrentLocalisationAsked
 
@@ -34,6 +35,7 @@ class UserType(DjangoObjectType):
     verified = graphene.Boolean()
     secondary_email = graphene.String()
     employee = graphene.Field(EmployeeType)
+    partner = graphene.Field(PartnerType)
     companies = graphene.List(UserCompanyType)
     def resolve_pk(instance, info):
         return instance.pk
@@ -50,6 +52,9 @@ class UserType(DjangoObjectType):
     def resolve_employee(instance, info):
         user = info.context.user
         return instance.getEmployeeInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.employee
+    def resolve_partner(instance, info):
+        user = info.context.user
+        return instance.getPartnerInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.partner
     def resolve_companies(instance, info):
         return instance.managed_companies.all()
 
@@ -91,6 +96,7 @@ class UserInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     is_cgu_accepted = graphene.Boolean(required=False)
     employee_id = graphene.Int(name="employee", required=False)
+    partner_id = graphene.Int(name="partner", required=False)
     company_id = graphene.Int(name="company", required=False)
 
 class DeviceInput(graphene.InputObjectType):
@@ -227,6 +233,7 @@ class CreateUser(graphene.Mutation):
     def mutate(root, info, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
         employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
+        partner_id = user_data.pop("partner_id") if ('partner_id' in user_data) else None
         # company_id = user_data.pop("company_id")
 
         password1 = user_data.username if 'username' in user_data else 'password1'
@@ -243,6 +250,8 @@ class CreateUser(graphene.Mutation):
         user.save()
         if employee_id:
             user.setEmployeeForCompany(employee_id=employee_id)
+        if partner_id:
+            user.setPartnerForCompany(partner_id=partner_id)
         if user_groups is not None:
             groups = Group.objects.filter(id__in=user_groups)
             user.groups.set(groups)
@@ -289,6 +298,7 @@ class UpdateUser(graphene.Mutation):
     def mutate(root, info, id, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
         employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
+        partner_id = user_data.pop("partner_id") if ('partner_id' in user_data) else None
         # company_id = user_data.pop("company_id")
         password1 = None
         password2 = None
@@ -300,8 +310,8 @@ class UpdateUser(graphene.Mutation):
             raise ValueError("Les mots de passe ne correspondent pas")
         User.objects.filter(pk=id).update(**user_data)
         user = User.objects.get(pk=id)
-        if employee_id:
-            user.setEmployeeForCompany(employee_id=employee_id)
+        user.setEmployeeForCompany(employee_id=employee_id)
+        user.setPartnerForCompany(partner_id=partner_id)
         if user.status.verified is False:
             user.status.verified = True
             user.status.save(update_fields=["verified"])

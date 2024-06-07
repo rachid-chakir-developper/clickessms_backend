@@ -23,10 +23,12 @@ class User(AbstractUser):
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_admins', null=True)
     current_company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='current_company_users', null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_user', null=True)
+    partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, related_name='partner_user', null=True)
     creator = models.ForeignKey('self', on_delete=models.SET_NULL, null=True)
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+    tokens = models.IntegerField(default=5, null=False)
 
     USERNAME_FIELD = "username"
     EMAIL_FIELD = "email"
@@ -52,14 +54,34 @@ class User(AbstractUser):
     def setEmployeeForCompany(self, employee_id, company=None):
         from human_ressources.models import Employee
         company = company or self.current_company or self.company
-        employee = Employee.objects.get(id=employee_id)
+        try:
+            employee = Employee.objects.get(id=employee_id)
+        except Employee.DoesNotExist:
+            employee = None
         user_company, created = self.managed_companies.get_or_create(company=company)
         user_company.employee = employee
+        user_company.save()
+
+    def getPartnerInCompany(self, company=None):
+        company = company or self.current_company or self.company
+        user_company = self.managed_companies.filter(company=company).first()
+        return user_company.partner if user_company and user_company.partner else self.partner
+
+    def setPartnerForCompany(self, partner_id, company=None):
+        from partnerships.models import Partner
+        company = company or self.current_company or self.company
+        try:
+            partner = Partner.objects.get(id=partner_id)
+        except Partner.DoesNotExist:
+            partner = None
+        user_company, created = self.managed_companies.get_or_create(company=company)
+        user_company.partner = partner
         user_company.save()
 
 class UserCompany(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='managed_companies', null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, null=True)
+    partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, null=True)
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
