@@ -1,28 +1,34 @@
 from django.db import models
 from datetime import datetime
 import random
+STATUS = [
+    ("NEW", "À traiter"),
+    ("ACCEPTED", "Accepté"),
+    ("REFUSED", "Refusé"),
+    ("STARTED", "En cours"),
+    ("FINISHED", "Terminée"),
+    ("PENDING", "En attente"),
+    ("CANCELED", "Annulée"),
+    ("ARCHIVED", "Archivée")
+]
+STATUS_All = {
+    "NEW" : "NEW",
+    "ACCEPTED" : "ACCEPTED",
+    "REFUSED" : "REFUSED",
+    "STARTED" : "STARTED",
+    "FINISHED" : "FINISHED",
+    "PENDING" : "PENDING",
+    "CANCELED" : "CANCELED",
+    "ARCHIVED" : "ARCHIVED"
+}
+PRIORITIES = [
+    ("LOW", "Faible"),#
+    ("MEDIUM", "Moyenne"),#
+    ("HIGH", "Haute")#
+]
+
 # Create your models here.
 class UndesirableEvent(models.Model):
-	STATUS = [
-	    ("NEW", "À traiter"),
-	    ("ACCEPTED", "Accepté"),
-	    ("REFUSED", "Refusé"),
-	    ("STARTED", "En cours"),
-	    ("FINISHED", "Terminée"),
-	    ("PENDING", "En attente"),
-	    ("CANCELED", "Annulée"),
-	    ("ARCHIVED", "Archivée")
-	]
-	STATUS_All = {
-	    "NEW" : "NEW",
-	    "ACCEPTED" : "ACCEPTED",
-	    "REFUSED" : "REFUSED",
-	    "STARTED" : "STARTED",
-	    "FINISHED" : "FINISHED",
-	    "PENDING" : "PENDING",
-	    "CANCELED" : "CANCELED",
-	    "ARCHIVED" : "ARCHIVED"
-	}
 	UDESIRABLE_EVENT_TYPES = [
         ("NORMAL", "EVENEMENT INDESIRABLE (EI) - Normal"),
         ("SERIOUS", "EVENEMENT INDESIRABLE GRAVE (EIG) - Grave"),
@@ -133,24 +139,62 @@ class UndesirableEventNotifiedPerson(models.Model):
 	def __str__(self):
 		return str(self.id)
 
-class UndesirableEventReview(models.Model):
-	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True, related_name='reviews')
-	analysis_text = models.TextField(default='', null=True)
-	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='undesirable_event_reviews', null=True)
+class ActionPlanObjective(models.Model):
+	number = models.CharField(max_length=255, editable=False, null=True)
+	title = models.CharField(max_length=255, null=True)
+	description = models.TextField(default='', null=True)
+	establishments = models.ManyToManyField('companies.Establishment', related_name='action_plan_objectives')
+	priority = models.CharField(max_length=50, choices=PRIORITIES, default= "LOW")
+	status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='action_plan_objectives', null=True)
+	is_active = models.BooleanField(default=False, null=True)
+	undesirable_event = models.ForeignKey(UndesirableEvent, on_delete=models.SET_NULL, null=True, related_name='objectives')
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_reviews', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='action_plan_objectives', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='action_plan_objectives', null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+	def save(self, *args, **kwargs):
+	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+	    if not self.number:
+	        self.number = self.generate_unique_number()
+
+	    super(ActionPlanObjective, self).save(*args, **kwargs)
+
+	def generate_unique_number(self):
+	    # Implémentez la logique de génération du numéro unique ici
+	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
+	    # par exemple, en utilisant la fonction strftime de l'objet datetime
+	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+
+	    # Exemple : Utilisation de la date et de l'heure actuelles
+	    current_time = datetime.now()
+	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+	    number = f'{number_prefix}{number_suffix}'
+
+	    # Vérifier s'il est unique dans la base de données
+	    while ActionPlanObjective.objects.filter(number=number).exists():
+	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+	        number = f'{number_prefix}{number_suffix}'
+
+	    return number
+	    
+	def __str__(self):
+		return self.title
 
 	def __str__(self):
 		return str(self.id)
 
-class UndesirableEventAction(models.Model):
-	undesirable_event_review = models.ForeignKey(UndesirableEventReview, on_delete=models.SET_NULL, null=True, related_name='actions')
+class ActionPlanObjectiveAction(models.Model):
+	action_plan_objective = models.ForeignKey(ActionPlanObjective, on_delete=models.SET_NULL, null=True, related_name='actions')
 	action = models.TextField(default='', null=True)
 	due_date = models.DateTimeField(null=True)
-	employees = models.ManyToManyField('human_ressources.Employee', related_name='undesirable_event_actions')
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='undesirable_event_actions', null=True)
+	employees = models.ManyToManyField('human_ressources.Employee', related_name='action_plan_objective_actions')
+	status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='action_plan_objective_actions', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 

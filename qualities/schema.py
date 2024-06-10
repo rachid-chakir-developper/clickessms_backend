@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson, UndesirableEventReview, UndesirableEventAction
+from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson, ActionPlanObjective, ActionPlanObjectiveAction
 from medias.models import Folder, File
 from companies.models import Establishment
 from human_ressources.models import Employee, Beneficiary
@@ -31,15 +31,25 @@ class UndesirableEventNotifiedPersonType(DjangoObjectType):
         model = UndesirableEventNotifiedPerson
         fields = "__all__"
 
-class UndesirableEventReviewType(DjangoObjectType):
+class ActionPlanObjectiveActionType(DjangoObjectType):
     class Meta:
-        model = UndesirableEventReview
+        model = ActionPlanObjectiveAction
         fields = "__all__"
 
-class UndesirableEventActionType(DjangoObjectType):
+class ActionPlanObjectiveType(DjangoObjectType):
     class Meta:
-        model = UndesirableEventAction
+        model = ActionPlanObjective
         fields = "__all__"
+
+class ActionPlanObjectiveNodeType(graphene.ObjectType):
+    nodes = graphene.List(ActionPlanObjectiveType)
+    total_count = graphene.Int()
+
+class ActionPlanObjectiveFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class UndesirableEventType(DjangoObjectType):
     class Meta:
@@ -61,17 +71,25 @@ class UndesirableEventFilterInput(graphene.InputObjectType):
     establishments = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)
 
-class UndesirableEventActionInput(graphene.InputObjectType):
+class ActionPlanObjectiveActionInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     action = graphene.String(required=False)
     due_date = graphene.DateTime(required=False)
     employees = graphene.List(graphene.Int, required=False)
+    status = graphene.String(required=False)
 
-class UndesirableEventReviewInput(graphene.InputObjectType):
+class ActionPlanObjectiveInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
-    analysis_text = graphene.String(required=False)
+    number = graphene.String(required=False)
+    title = graphene.String(required=False)
+    description = graphene.String(required=False)
+    priority = graphene.String(required=False)
+    status = graphene.String(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    is_active = graphene.Boolean(required=False)
     undesirable_event_id = graphene.Int(name="undesirableEvent", required=False)
-    actions = graphene.List(UndesirableEventActionInput, required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    actions = graphene.List(ActionPlanObjectiveActionInput, required=False)
 
 class UndesirableEventInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -102,6 +120,8 @@ class UndesirableEventInput(graphene.InputObjectType):
 class QualitiesQuery(graphene.ObjectType):
     undesirable_events = graphene.Field(UndesirableEventNodeType, undesirable_event_filter= UndesirableEventFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     undesirable_event = graphene.Field(UndesirableEventType, id = graphene.ID())
+    action_plan_objectives = graphene.Field(ActionPlanObjectiveNodeType, action_plan_objective_filter= ActionPlanObjectiveFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    action_plan_objective = graphene.Field(ActionPlanObjectiveType, id = graphene.ID())
     def resolve_undesirable_events(root, info, undesirable_event_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -142,6 +162,40 @@ class QualitiesQuery(graphene.ObjectType):
         except UndesirableEvent.DoesNotExist:
             undesirable_event = None
         return undesirable_event
+    def resolve_action_plan_objectives(root, info, action_plan_objective_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        total_count = 0
+        action_plan_objectives = ActionPlanObjective.objects.filter(company=company)
+        if action_plan_objective_filter:
+            keyword = action_plan_objective_filter.get('keyword', '')
+            starting_date_time = action_plan_objective_filter.get('starting_date_time')
+            ending_date_time = action_plan_objective_filter.get('ending_date_time')
+            establishments = action_plan_objective_filter.get('establishments')
+            if establishments:
+                action_plan_objectives = action_plan_objectives.filter(undesirableeventestablishment__establishment__id__in=establishments)
+            if keyword:
+                action_plan_objectives = action_plan_objectives.filter(Q(title__icontains=keyword))
+            if starting_date_time:
+                action_plan_objectives = action_plan_objectives.filter(starting_date_time__gte=starting_date_time)
+            if ending_date_time:
+                action_plan_objectives = action_plan_objectives.filter(starting_date_time__lte=ending_date_time)
+        action_plan_objectives = action_plan_objectives.order_by('-created_at')
+        total_count = action_plan_objectives.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            action_plan_objectives = action_plan_objectives[offset:offset + limit]
+        return ActionPlanObjectiveNodeType(nodes=action_plan_objectives, total_count=total_count)
+
+    def resolve_action_plan_objective(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            action_plan_objective = ActionPlanObjective.objects.get(pk=id)
+        except ActionPlanObjective.DoesNotExist:
+            action_plan_objective = None
+        return action_plan_objective
 
 #************************************************************************
 
@@ -376,73 +430,79 @@ class DeleteUndesirableEvent(graphene.Mutation):
 #*************************************************************************#
 #************************************************************************
 
-class CreateUndesirableEventReview(graphene.Mutation):
+class CreateActionPlanObjective(graphene.Mutation):
     class Arguments:
-        undesirable_event_review_data = UndesirableEventReviewInput(required=True)
+        action_plan_objective_data = ActionPlanObjectiveInput(required=True)
 
-    undesirable_event_review = graphene.Field(UndesirableEventReviewType)
+    action_plan_objective = graphene.Field(ActionPlanObjectiveType)
 
-    def mutate(root, info, undesirable_event_review_data=None):
+    def mutate(root, info, action_plan_objective_data=None):
         creator = info.context.user
-        undesirable_event_actions = undesirable_event_review_data.pop("actions")
-        undesirable_event_review = UndesirableEventReview(**undesirable_event_review_data)
-        undesirable_event_review.creator = creator
-        undesirable_event_review.save()
-        folder = Folder.objects.create(name=str(undesirable_event_review.id)+'_'+undesirable_event_review.title,creator=creator)
-        undesirable_event_review.folder = folder
-        if not undesirable_event_review.employee:
-            undesirable_event_review.employee = creator.getEmployeeInCompany()
-        for item in undesirable_event_actions:
+        establishment_ids = action_plan_objective_data.pop("establishments") if "establishments" in action_plan_objective_data else None
+        action_plan_objective_actions = action_plan_objective_data.pop("actions")
+        action_plan_objective = ActionPlanObjective(**action_plan_objective_data)
+        action_plan_objective.creator = creator
+        action_plan_objective.company = creator.current_company if creator.current_company is not None else creator.company
+        action_plan_objective.save()
+        if establishment_ids and establishment_ids is not None:
+            action_plan_objective.establishments.set(establishment_ids)
+        folder = Folder.objects.create(name=str(action_plan_objective.id)+'_'+action_plan_objective.title,creator=creator)
+        action_plan_objective.folder = folder
+        if not action_plan_objective.employee:
+            action_plan_objective.employee = creator.getEmployeeInCompany()
+        for item in action_plan_objective_actions:
             employees_ids = item.pop("employees") if "employees" in item else None
-            undesirable_event_action = UndesirableEventAction(**item)
-            undesirable_event_action.undesirable_event_review = undesirable_event_review
-            undesirable_event_action.save()
+            action_plan_objective_action = ActionPlanObjectiveAction(**item)
+            action_plan_objective_action.action_plan_objective = action_plan_objective
+            action_plan_objective_action.save()
             if employees_ids and employees_ids is not None:
-                undesirable_event_action.employees.set(employees_ids)
+                action_plan_objective_action.employees.set(employees_ids)
 
-        undesirable_event_review.save()
-        return CreateUndesirableEventReview(undesirable_event_review=undesirable_event_review)
+        action_plan_objective.save()
+        return CreateActionPlanObjective(action_plan_objective=action_plan_objective)
 
-class UpdateUndesirableEventReview(graphene.Mutation):
+class UpdateActionPlanObjective(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
-        undesirable_event_review_data = UndesirableEventReviewInput(required=True)
+        action_plan_objective_data = ActionPlanObjectiveInput(required=True)
 
-    undesirable_event_review = graphene.Field(UndesirableEventReviewType)
+    action_plan_objective = graphene.Field(ActionPlanObjectiveType)
 
-    def mutate(root, info, id, image=None, undesirable_event_review_data=None):
+    def mutate(root, info, id, image=None, action_plan_objective_data=None):
         creator = info.context.user
-        undesirable_event_actions = undesirable_event_review_data.pop("actions")
-        UndesirableEventReview.objects.filter(pk=id).update(**undesirable_event_review_data)
-        undesirable_event_review = UndesirableEventReview.objects.get(pk=id)
-        if not undesirable_event_review.folder or undesirable_event_review.folder is None:
-            folder = Folder.objects.create(name=str(undesirable_event_review.id)+'_'+undesirable_event_review.title,creator=creator)
-            UndesirableEventReview.objects.filter(pk=id).update(folder=folder)
-        if not undesirable_event_review.employee:
-            undesirable_event_review.employee = creator.getEmployeeInCompany()
-            undesirable_event_review.save()
-
-        undesirable_event_action_ids = [item.id for item in undesirable_event_actions if item.id is not None]
-        UndesirableEventAction.objects.filter(undesirable_event_review=undesirable_event_review).exclude(id__in=undesirable_event_action_ids).delete()
-        for item in undesirable_event_actions:
+        establishment_ids = action_plan_objective_data.pop("establishments") if "establishments" in action_plan_objective_data else None
+        action_plan_objective_actions = action_plan_objective_data.pop("actions")
+        ActionPlanObjective.objects.filter(pk=id).update(**action_plan_objective_data)
+        action_plan_objective = ActionPlanObjective.objects.get(pk=id)
+        if establishment_ids and establishment_ids is not None:
+            action_plan_objective.establishments.set(establishment_ids)
+        if not action_plan_objective.folder or action_plan_objective.folder is None:
+            folder = Folder.objects.create(name=str(action_plan_objective.id)+'_'+action_plan_objective.title,creator=creator)
+            ActionPlanObjective.objects.filter(pk=id).update(folder=folder)
+        if not action_plan_objective.employee:
+            action_plan_objective.employee = creator.getEmployeeInCompany()
+            action_plan_objective.save()
+        action_plan_objective_action_ids = [item.id for item in action_plan_objective_actions if item.id is not None]
+        ActionPlanObjectiveAction.objects.filter(action_plan_objective=action_plan_objective).exclude(id__in=action_plan_objective_action_ids).delete()
+        for item in action_plan_objective_actions:
             employees_ids = item.pop("employees") if "employees" in item else None
             if id in item or 'id' in item:
-                UndesirableEventAction.objects.filter(pk=item.id).update(**item)
-                undesirable_event_action = UndesirableEventAction.objects.get(pk=item.id)
+                ActionPlanObjectiveAction.objects.filter(pk=item.id).update(**item)
+                action_plan_objective_action = ActionPlanObjectiveAction.objects.get(pk=item.id)
             else:
-                undesirable_event_action = UndesirableEventAction(**item)
-                undesirable_event_action.undesirable_event_review = undesirable_event_review
-                undesirable_event_action.save()
+                action_plan_objective_action = ActionPlanObjectiveAction(**item)
+                action_plan_objective_action.action_plan_objective = action_plan_objective
+                action_plan_objective_action.save()
             if employees_ids and employees_ids is not None:
-                undesirable_event_action.employees.set(employees_ids)
+                action_plan_objective_action.employees.set(employees_ids)
 
-        return UpdateUndesirableEventReview(undesirable_event_review=undesirable_event_review)
+        return UpdateActionPlanObjective(action_plan_objective=action_plan_objective)
 
-class DeleteUndesirableEventReview(graphene.Mutation):
+class DeleteActionPlanObjective(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
 
-    undesirable_event_review = graphene.Field(UndesirableEventReviewType)
+    action_plan_objective = graphene.Field(ActionPlanObjectiveType)
     id = graphene.ID()
     deleted = graphene.Boolean()
     success = graphene.Boolean()
@@ -454,13 +514,13 @@ class DeleteUndesirableEventReview(graphene.Mutation):
         message = ''
         current_user = info.context.user
         if current_user.is_superuser:
-            undesirable_event_review = UndesirableEventReview.objects.get(pk=id)
-            undesirable_event_review.delete()
+            action_plan_objective = ActionPlanObjective.objects.get(pk=id)
+            action_plan_objective.delete()
             deleted = True
             success = True
         else:
             message = "Vous n'êtes pas un Superuser."
-        return DeleteUndesirableEventReview(deleted=deleted, success=success, message=message, id=id)
+        return DeleteActionPlanObjective(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
 
@@ -471,6 +531,6 @@ class QualitiesMutation(graphene.ObjectType):
     update_undesirable_event_state = UpdateUndesirableEventState.Field()
     delete_undesirable_event = DeleteUndesirableEvent.Field()
 
-    create_undesirable_event_review = CreateUndesirableEventReview.Field()
-    update_undesirable_event_review = UpdateUndesirableEventReview.Field()
-    delete_undesirable_event_review = DeleteUndesirableEventReview.Field()
+    create_action_plan_objective = CreateActionPlanObjective.Field()
+    update_action_plan_objective = UpdateActionPlanObjective.Field()
+    delete_action_plan_objective = DeleteActionPlanObjective.Field()
