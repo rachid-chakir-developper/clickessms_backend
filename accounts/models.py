@@ -15,7 +15,7 @@ class User(AbstractUser):
     email = models.EmailField(max_length=254, null=True)
     is_cgu_accepted = models.BooleanField(null=True)
     is_online = models.BooleanField(default=False, null=True)
-    number_current_connexions = models.IntegerField(default=0, null=True)
+    number_current_connexions = models.PositiveIntegerField(default=0, null=True)
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
     current_latitude = models.CharField(max_length=255, null=True)
@@ -28,7 +28,7 @@ class User(AbstractUser):
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
-    tokens = models.IntegerField(default=5, null=False)
+    number_current_openai_tokens = models.PositiveIntegerField(default=5, null=False)
 
     USERNAME_FIELD = "username"
     EMAIL_FIELD = "email"

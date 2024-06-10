@@ -266,5 +266,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 FCM_KEY = "AAAAcZ-1XUU:APA91bG4oSUn39sLzHC7hEOC87TAgGUSRTDmWPkZR5DQRul-cbw9StMHRXMtHpCpDXrk7Eys5BIhaD2-gCtM2NJutbfpSJL7Y1cbzEzbkGVYXCzrd0FfNqOkiRzO5Gf7ili1yOhV4dpQ"
 
+OPENAI_API_KEY = "sk-proj-yLb0I38slayq6OvtHLaOT3BlbkFJ93QX2ZtP7xcobqNiKUwu"
+
 MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']

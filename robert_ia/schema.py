@@ -1,10 +1,11 @@
+from django.conf import settings
 import graphene
 import openai
 from accounts.models import User
 
 class ChatResponseType(graphene.ObjectType):
     answer = graphene.String()
-    tokens = graphene.Int()
+    number_current_openai_tokens = graphene.Int()
 
 class UserQuestion(graphene.Mutation):
     class Arguments:
@@ -15,15 +16,15 @@ class UserQuestion(graphene.Mutation):
     @staticmethod
     def mutate(root, info, question):
         current_user = info.context.user
-        current_tokens = current_user.tokens
-        if current_tokens <= 0:
-            return ChatResponseType(answer="Vous avez consommé vos tokens d'aujourd'hui", tokens=0)
+        number_current_openai_tokens = current_user.number_current_openai_tokens
+        if number_current_openai_tokens <= 0:
+            return ChatResponseType(answer="Vous avez consommé vos tokens d'aujourd'hui", number_current_openai_tokens=0)
         try:
             if not question:
                 raise Exception('No question provided')
 
             # Assurez-vous d'avoir configuré votre clé API OpenAI dans settings.py
-            openai.api_key = 'sk-proj-5zqaRwnD6lveLifNElDaT3BlbkFJZtGJzFK8mL8JA0GmLiKq'
+            openai.api_key = settings.OPENAI_API_KEY
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",  # Utiliser le modèle Chat
                 messages=[
@@ -33,9 +34,9 @@ class UserQuestion(graphene.Mutation):
             )
 
             answer = response.choices[0].message['content'].strip()
-            new_tokens = current_user.tokens - 1
-            User.objects.filter(pk=current_user.id).update(tokens=new_tokens)
-            return ChatResponseType(answer=answer, tokens=new_tokens)
+            new_number_current_openai_tokens = number_current_openai_tokens - 1
+            User.objects.filter(pk=current_user.id).update(number_current_openai_tokens=new_number_current_openai_tokens)
+            return ChatResponseType(answer=answer, number_current_openai_tokens=new_number_current_openai_tokens)
 
         except Exception as e:
             return ChatResponseType(answer=str(e))
