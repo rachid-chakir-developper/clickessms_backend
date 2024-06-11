@@ -5,6 +5,7 @@ from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
+from django.db import transaction
 
 from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson, ActionPlanObjective, ActionPlanObjectiveAction
 from medias.models import Folder, File
@@ -59,11 +60,14 @@ class UndesirableEventType(DjangoObjectType):
         model = UndesirableEvent
         fields = "__all__"
     image = graphene.String()
+    completion_percentage = graphene.Float()
+    action_plan_objective = graphene.Field(ActionPlanObjectiveType)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
-    completion_percentage = graphene.Float()
     def resolve_completion_percentage(instance, info, **kwargs):
         return instance.completion_percentage
+    def resolve_action_plan_objective(instance, info, **kwargs):
+        return instance.objectives.first()
 
 class UndesirableEventNodeType(graphene.ObjectType):
     nodes = graphene.List(UndesirableEventType)
@@ -408,6 +412,59 @@ class UpdateUndesirableEventState(graphene.Mutation):
         return UpdateUndesirableEventState(done=done, success=success, message=message,undesirable_event=undesirable_event)
 
 
+class CreateUndesirableEventObjective(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID(required=True)
+
+    undesirable_event = graphene.Field(UndesirableEventType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        creator = info.context.user
+        success = True
+        message = ''
+        action_plan_objective = None
+
+        try:
+            undesirable_event = UndesirableEvent.objects.get(pk=id)
+            if ActionPlanObjective.objects.filter(undesirable_event=undesirable_event).exists():
+                action_plan_objective = ActionPlanObjective.objects.filter(undesirable_event=undesirable_event).first()
+                message = "Un objectif pour cet événement indésirable existe déjà."
+            else:
+                with transaction.atomic():
+                    action_plan_objective = ActionPlanObjective.objects.create(
+                        title=f'Objectif pour {undesirable_event.title}',
+                        description=f'Créé à partir de l\'événement indésirable : {undesirable_event.title}',
+                        employee=creator.getEmployeeInCompany(),
+                        undesirable_event=undesirable_event,
+                        company=creator.current_company if creator.current_company is not None else creator.company,
+                        creator=creator,
+                    )
+                    establishments = UndesirableEventEstablishment.objects.filter(undesirable_event=undesirable_event)
+                    for ue_establishment in establishments:
+                        if ue_establishment.establishment:
+                            action_plan_objective.establishments.add(ue_establishment.establishment)
+
+                    message = 'Objectif créé avec succès avec les établissements associés.'
+
+        except UndesirableEvent.DoesNotExist:
+            success = False
+            message = "Événement indésirable non trouvé."
+
+        except Exception as e:
+            success = False
+            message = f"Une erreur s'est produite: {str(e)}"
+
+        return CreateUndesirableEventObjective(
+            undesirable_event=undesirable_event if success else None,
+            done=success,
+            success=success,
+            message=message
+        )
+
+
 class DeleteUndesirableEvent(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -535,6 +592,7 @@ class QualitiesMutation(graphene.ObjectType):
     create_undesirable_event = CreateUndesirableEvent.Field()
     update_undesirable_event = UpdateUndesirableEvent.Field()
     update_undesirable_event_state = UpdateUndesirableEventState.Field()
+    create_undesirable_event_objective = CreateUndesirableEventObjective.Field()
     delete_undesirable_event = DeleteUndesirableEvent.Field()
 
     create_action_plan_objective = CreateActionPlanObjective.Field()
