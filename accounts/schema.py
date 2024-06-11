@@ -349,9 +349,9 @@ class UpdateUser(graphene.Mutation):
                 cover_image_file.save()
                 user.cover_image = cover_image_file
             user.save()
-        if password1:
-            user.set_password(password1)
-            user.save()
+        # if password1:
+        #     user.set_password(password1)
+        #     user.save()
         user = User.objects.get(pk=id)
         return UpdateUser(user=user)
 

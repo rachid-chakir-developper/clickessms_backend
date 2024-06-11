@@ -40,6 +40,9 @@ class ActionPlanObjectiveType(DjangoObjectType):
     class Meta:
         model = ActionPlanObjective
         fields = "__all__"
+    completion_percentage = graphene.Float()
+    def resolve_completion_percentage(instance, info, **kwargs):
+        return instance.completion_percentage
 
 class ActionPlanObjectiveNodeType(graphene.ObjectType):
     nodes = graphene.List(ActionPlanObjectiveType)
@@ -58,6 +61,9 @@ class UndesirableEventType(DjangoObjectType):
     image = graphene.String()
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
+    completion_percentage = graphene.Float()
+    def resolve_completion_percentage(instance, info, **kwargs):
+        return instance.completion_percentage
 
 class UndesirableEventNodeType(graphene.ObjectType):
     nodes = graphene.List(UndesirableEventType)

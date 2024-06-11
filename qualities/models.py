@@ -1,34 +1,19 @@
 from django.db import models
 from datetime import datetime
 import random
-STATUS = [
-    ("NEW", "À traiter"),
-    ("ACCEPTED", "Accepté"),
-    ("REFUSED", "Refusé"),
-    ("STARTED", "En cours"),
-    ("FINISHED", "Terminée"),
-    ("PENDING", "En attente"),
-    ("CANCELED", "Annulée"),
-    ("ARCHIVED", "Archivée")
-]
-STATUS_All = {
-    "NEW" : "NEW",
-    "ACCEPTED" : "ACCEPTED",
-    "REFUSED" : "REFUSED",
-    "STARTED" : "STARTED",
-    "FINISHED" : "FINISHED",
-    "PENDING" : "PENDING",
-    "CANCELED" : "CANCELED",
-    "ARCHIVED" : "ARCHIVED"
-}
-PRIORITIES = [
-    ("LOW", "Faible"),#
-    ("MEDIUM", "Moyenne"),#
-    ("HIGH", "Haute")#
-]
 
 # Create your models here.
 class UndesirableEvent(models.Model):
+	STATUS = [
+	    ("NEW", "Nouveau"),
+	    ("ACCEPTED", "Accepté"),
+	    ("REFUSED", "Refusé"),
+	    ("IN_PROGRESS", "En cours"),
+	    ("COMPLETED", "Terminée"),
+	    ("ON_HOLD", "En attente"),
+	    ("CANCELED", "Annulée"),
+	    ("ARCHIVED", "Archivée")
+	]
 	UDESIRABLE_EVENT_TYPES = [
         ("NORMAL", "EVENEMENT INDESIRABLE (EI) - Normal"),
         ("SERIOUS", "EVENEMENT INDESIRABLE GRAVE (EIG) - Grave"),
@@ -91,6 +76,14 @@ class UndesirableEvent(models.Model):
 	        number = f'{number_prefix}{number_suffix}'
 
 	    return number
+
+	@property
+	def completion_percentage(self):
+		total_objectives = self.objectives.count()
+		if total_objectives == 0:
+			return 0
+		total_completion = sum(obj.completion_percentage for obj in self.objectives.all())
+		return round(total_completion / total_objectives, 2)
 	    
 	def __str__(self):
 		return self.title
@@ -140,6 +133,21 @@ class UndesirableEventNotifiedPerson(models.Model):
 		return str(self.id)
 
 class ActionPlanObjective(models.Model):
+	STATUS = [
+	    ("NEW", "Nouveau"),
+	    ("ACCEPTED", "Accepté"),
+	    ("REFUSED", "Refusé"),
+	    ("IN_PROGRESS", "En cours"),
+	    ("COMPLETED", "Terminée"),
+	    ("ON_HOLD", "En attente"),
+	    ("CANCELED", "Annulée"),
+	    ("ARCHIVED", "Archivée")
+	]
+	PRIORITIES = [
+	    ("LOW", "Faible"),#
+	    ("MEDIUM", "Moyenne"),#
+	    ("HIGH", "Haute")#
+	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255, null=True)
 	description = models.TextField(default='', null=True)
@@ -181,19 +189,35 @@ class ActionPlanObjective(models.Model):
 	        number = f'{number_prefix}{number_suffix}'
 
 	    return number
+
+	@property
+	def completion_percentage(self):
+		total_actions = self.actions.count()
+		if total_actions == 0:
+			return 0
+		completed_actions = self.actions.filter(status="DONE").count()
+		percentage = (completed_actions / total_actions) * 100
+		return round(percentage, 2)
 	    
 	def __str__(self):
 		return self.title
 
-	def __str__(self):
-		return str(self.id)
-
 class ActionPlanObjectiveAction(models.Model):
+	STATUS = [
+	    ("TO_DO", "À traiter"),
+	    ("IN_PROGRESS", "En cours"),
+	    ("DONE", "Traité")
+	]
+	PRIORITIES = [
+	    ("LOW", "Faible"),#
+	    ("MEDIUM", "Moyenne"),#
+	    ("HIGH", "Haute")#
+	]
 	action_plan_objective = models.ForeignKey(ActionPlanObjective, on_delete=models.SET_NULL, null=True, related_name='actions')
 	action = models.TextField(default='', null=True)
 	due_date = models.DateTimeField(null=True)
 	employees = models.ManyToManyField('human_ressources.Employee', related_name='action_plan_objective_actions')
-	status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
+	status = models.CharField(max_length=50, choices=STATUS, default= "TO_DO")
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='action_plan_objective_actions', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
