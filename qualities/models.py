@@ -202,7 +202,7 @@ class ActionPlanObjective(models.Model):
 	def __str__(self):
 		return self.title
 
-class ActionPlanObjectiveAction(models.Model):
+class ActionPlanAction(models.Model):
 	STATUS = [
 	    ("TO_DO", "À traiter"),
 	    ("IN_PROGRESS", "En cours"),
@@ -216,9 +216,9 @@ class ActionPlanObjectiveAction(models.Model):
 	action_plan_objective = models.ForeignKey(ActionPlanObjective, on_delete=models.SET_NULL, null=True, related_name='actions')
 	action = models.TextField(default='', null=True)
 	due_date = models.DateTimeField(null=True)
-	employees = models.ManyToManyField('human_ressources.Employee', related_name='action_plan_objective_actions')
+	employees = models.ManyToManyField('human_ressources.Employee', related_name='action_plan_actions')
 	status = models.CharField(max_length=50, choices=STATUS, default= "TO_DO")
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='action_plan_objective_actions', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='action_plan_actions', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 

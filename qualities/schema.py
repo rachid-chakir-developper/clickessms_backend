@@ -7,7 +7,7 @@ from graphene_file_upload.scalars import Upload
 from django.db.models import Q
 from django.db import transaction
 
-from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson, ActionPlanObjective, ActionPlanObjectiveAction
+from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson, ActionPlanObjective, ActionPlanAction
 from medias.models import Folder, File
 from companies.models import Establishment
 from human_ressources.models import Employee, Beneficiary
@@ -32,9 +32,9 @@ class UndesirableEventNotifiedPersonType(DjangoObjectType):
         model = UndesirableEventNotifiedPerson
         fields = "__all__"
 
-class ActionPlanObjectiveActionType(DjangoObjectType):
+class ActionPlanActionType(DjangoObjectType):
     class Meta:
-        model = ActionPlanObjectiveAction
+        model = ActionPlanAction
         fields = "__all__"
 
 class ActionPlanObjectiveType(DjangoObjectType):
@@ -81,7 +81,7 @@ class UndesirableEventFilterInput(graphene.InputObjectType):
     establishments = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)
 
-class ActionPlanObjectiveActionInput(graphene.InputObjectType):
+class ActionPlanActionInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     action = graphene.String(required=False)
     due_date = graphene.DateTime(required=False)
@@ -99,7 +99,7 @@ class ActionPlanObjectiveInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     undesirable_event_id = graphene.Int(name="undesirableEvent", required=False)
     establishments = graphene.List(graphene.Int, required=False)
-    actions = graphene.List(ActionPlanObjectiveActionInput, required=False)
+    actions = graphene.List(ActionPlanActionInput, required=False)
 
 class UndesirableEventInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -502,7 +502,7 @@ class CreateActionPlanObjective(graphene.Mutation):
     def mutate(root, info, action_plan_objective_data=None):
         creator = info.context.user
         establishment_ids = action_plan_objective_data.pop("establishments") if "establishments" in action_plan_objective_data else None
-        action_plan_objective_actions = action_plan_objective_data.pop("actions")
+        action_plan_actions = action_plan_objective_data.pop("actions")
         action_plan_objective = ActionPlanObjective(**action_plan_objective_data)
         action_plan_objective.creator = creator
         action_plan_objective.company = creator.current_company if creator.current_company is not None else creator.company
@@ -513,13 +513,13 @@ class CreateActionPlanObjective(graphene.Mutation):
         action_plan_objective.folder = folder
         if not action_plan_objective.employee:
             action_plan_objective.employee = creator.getEmployeeInCompany()
-        for item in action_plan_objective_actions:
+        for item in action_plan_actions:
             employees_ids = item.pop("employees") if "employees" in item else None
-            action_plan_objective_action = ActionPlanObjectiveAction(**item)
-            action_plan_objective_action.action_plan_objective = action_plan_objective
-            action_plan_objective_action.save()
+            action_plan_action = ActionPlanAction(**item)
+            action_plan_action.action_plan_objective = action_plan_objective
+            action_plan_action.save()
             if employees_ids and employees_ids is not None:
-                action_plan_objective_action.employees.set(employees_ids)
+                action_plan_action.employees.set(employees_ids)
 
         action_plan_objective.save()
         return CreateActionPlanObjective(action_plan_objective=action_plan_objective)
@@ -534,7 +534,7 @@ class UpdateActionPlanObjective(graphene.Mutation):
     def mutate(root, info, id, image=None, action_plan_objective_data=None):
         creator = info.context.user
         establishment_ids = action_plan_objective_data.pop("establishments") if "establishments" in action_plan_objective_data else None
-        action_plan_objective_actions = action_plan_objective_data.pop("actions")
+        action_plan_actions = action_plan_objective_data.pop("actions")
         ActionPlanObjective.objects.filter(pk=id).update(**action_plan_objective_data)
         action_plan_objective = ActionPlanObjective.objects.get(pk=id)
         if establishment_ids and establishment_ids is not None:
@@ -545,19 +545,19 @@ class UpdateActionPlanObjective(graphene.Mutation):
         if not action_plan_objective.employee:
             action_plan_objective.employee = creator.getEmployeeInCompany()
             action_plan_objective.save()
-        action_plan_objective_action_ids = [item.id for item in action_plan_objective_actions if item.id is not None]
-        ActionPlanObjectiveAction.objects.filter(action_plan_objective=action_plan_objective).exclude(id__in=action_plan_objective_action_ids).delete()
-        for item in action_plan_objective_actions:
+        action_plan_action_ids = [item.id for item in action_plan_actions if item.id is not None]
+        ActionPlanAction.objects.filter(action_plan_objective=action_plan_objective).exclude(id__in=action_plan_action_ids).delete()
+        for item in action_plan_actions:
             employees_ids = item.pop("employees") if "employees" in item else None
             if id in item or 'id' in item:
-                ActionPlanObjectiveAction.objects.filter(pk=item.id).update(**item)
-                action_plan_objective_action = ActionPlanObjectiveAction.objects.get(pk=item.id)
+                ActionPlanAction.objects.filter(pk=item.id).update(**item)
+                action_plan_action = ActionPlanAction.objects.get(pk=item.id)
             else:
-                action_plan_objective_action = ActionPlanObjectiveAction(**item)
-                action_plan_objective_action.action_plan_objective = action_plan_objective
-                action_plan_objective_action.save()
+                action_plan_action = ActionPlanAction(**item)
+                action_plan_action.action_plan_objective = action_plan_objective
+                action_plan_action.save()
             if employees_ids and employees_ids is not None:
-                action_plan_objective_action.employees.set(employees_ids)
+                action_plan_action.employees.set(employees_ids)
 
         return UpdateActionPlanObjective(action_plan_objective=action_plan_objective)
 
