@@ -24,6 +24,8 @@ class User(AbstractUser):
     current_company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='current_company_users', null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_user', null=True)
     partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, related_name='partner_user', null=True)
+    financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, related_name='financier_user', null=True)
+    supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='supplier_user', null=True)
     creator = models.ForeignKey('self', on_delete=models.SET_NULL, null=True)
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -78,10 +80,44 @@ class User(AbstractUser):
         user_company.partner = partner
         user_company.save()
 
+    def getFinancierInCompany(self, company=None):
+        company = company or self.current_company or self.company
+        user_company = self.managed_companies.filter(company=company).first()
+        return user_company.financier if user_company and user_company.financier else self.financier
+
+    def setFinancierForCompany(self, financier_id, company=None):
+        from partnerships.models import Financier
+        company = company or self.current_company or self.company
+        try:
+            financier = Financier.objects.get(id=financier_id)
+        except Financier.DoesNotExist:
+            financier = None
+        user_company, created = self.managed_companies.get_or_create(company=company)
+        user_company.financier = financier
+        user_company.save()
+
+    def getSupplierInCompany(self, company=None):
+        company = company or self.current_company or self.company
+        user_company = self.managed_companies.filter(company=company).first()
+        return user_company.supplier if user_company and user_company.supplier else self.supplier
+
+    def setSupplierForCompany(self, supplier_id, company=None):
+        from purchases.models import Supplier
+        company = company or self.current_company or self.company
+        try:
+            supplier = Supplier.objects.get(id=supplier_id)
+        except Supplier.DoesNotExist:
+            supplier = None
+        user_company, created = self.managed_companies.get_or_create(company=company)
+        user_company.supplier = supplier
+        user_company.save()
+
 class UserCompany(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='managed_companies', null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, null=True)
     partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, null=True)
+    financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True)
+    supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, null=True)
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)

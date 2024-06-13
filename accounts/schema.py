@@ -14,7 +14,8 @@ from accounts.models import User, UserCompany, Device
 from medias.models import File
 
 from human_ressources.schema import EmployeeType
-from partnerships.schema import PartnerType
+from partnerships.schema import PartnerType, FinancierType
+from purchases.schema import SupplierType
 
 from accounts.broadcaster import broadcastUserUpdated, broadcastUserCurrentLocalisationAsked
 
@@ -36,6 +37,8 @@ class UserType(DjangoObjectType):
     secondary_email = graphene.String()
     employee = graphene.Field(EmployeeType)
     partner = graphene.Field(PartnerType)
+    financier = graphene.Field(FinancierType)
+    supplier = graphene.Field(SupplierType)
     companies = graphene.List(UserCompanyType)
     def resolve_pk(instance, info):
         return instance.pk
@@ -55,6 +58,12 @@ class UserType(DjangoObjectType):
     def resolve_partner(instance, info):
         user = info.context.user
         return instance.getPartnerInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.partner
+    def resolve_financier(instance, info):
+        user = info.context.user
+        return instance.getFinancierInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.financier
+    def resolve_supplier(instance, info):
+        user = info.context.user
+        return instance.getSupplierInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.supplier
     def resolve_companies(instance, info):
         return instance.managed_companies.all()
 
@@ -97,6 +106,8 @@ class UserInput(graphene.InputObjectType):
     is_cgu_accepted = graphene.Boolean(required=False)
     employee_id = graphene.Int(name="employee", required=False)
     partner_id = graphene.Int(name="partner", required=False)
+    financier_id = graphene.Int(name="financier", required=False)
+    supplier_id = graphene.Int(name="supplier", required=False)
     company_id = graphene.Int(name="company", required=False)
 
 class DeviceInput(graphene.InputObjectType):
@@ -234,6 +245,8 @@ class CreateUser(graphene.Mutation):
         creator = info.context.user
         employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
         partner_id = user_data.pop("partner_id") if ('partner_id' in user_data) else None
+        financier_id = user_data.pop("financier_id") if ('financier_id' in user_data) else None
+        supplier_id = user_data.pop("supplier_id") if ('supplier_id' in user_data) else None
         # company_id = user_data.pop("company_id")
 
         password1 = user_data.username if 'username' in user_data else 'password1'
@@ -252,6 +265,10 @@ class CreateUser(graphene.Mutation):
             user.setEmployeeForCompany(employee_id=employee_id)
         if partner_id:
             user.setPartnerForCompany(partner_id=partner_id)
+        if financier_id:
+            user.setFinancierForCompany(financier_id=financier_id)
+        if supplier_id:
+            user.setSupplierForCompany(supplier_id=supplier_id)
         if user_groups is not None:
             groups = Group.objects.filter(id__in=user_groups)
             user.groups.set(groups)
@@ -299,6 +316,8 @@ class UpdateUser(graphene.Mutation):
         creator = info.context.user
         employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
         partner_id = user_data.pop("partner_id") if ('partner_id' in user_data) else None
+        financier_id = user_data.pop("financier_id") if ('financier_id' in user_data) else None
+        supplier_id = user_data.pop("supplier_id") if ('supplier_id' in user_data) else None
         # company_id = user_data.pop("company_id")
         password1 = None
         password2 = None
@@ -312,6 +331,8 @@ class UpdateUser(graphene.Mutation):
         user = User.objects.get(pk=id)
         user.setEmployeeForCompany(employee_id=employee_id)
         user.setPartnerForCompany(partner_id=partner_id)
+        user.setFinancierForCompany(financier_id=financier_id)
+        user.setSupplierForCompany(supplier_id=supplier_id)
         if user.status.verified is False:
             user.status.verified = True
             user.status.save(update_fields=["verified"])
