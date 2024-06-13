@@ -37,6 +37,16 @@ class ActionPlanActionType(DjangoObjectType):
         model = ActionPlanAction
         fields = "__all__"
 
+class ActionPlanActionNodeType(graphene.ObjectType):
+    nodes = graphene.List(ActionPlanActionType)
+    total_count = graphene.Int()
+
+class ActionPlanActionFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    employees = graphene.List(graphene.Int, required=False)
+
 class ActionPlanObjectiveType(DjangoObjectType):
     class Meta:
         model = ActionPlanObjective
@@ -132,6 +142,8 @@ class QualitiesQuery(graphene.ObjectType):
     undesirable_event = graphene.Field(UndesirableEventType, id = graphene.ID())
     action_plan_objectives = graphene.Field(ActionPlanObjectiveNodeType, action_plan_objective_filter= ActionPlanObjectiveFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     action_plan_objective = graphene.Field(ActionPlanObjectiveType, id = graphene.ID())
+    action_plan_actions = graphene.Field(ActionPlanActionNodeType, action_plan_action_filter= ActionPlanActionFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    action_plan_action = graphene.Field(ActionPlanActionType, id = graphene.ID())
     def resolve_undesirable_events(root, info, undesirable_event_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -206,6 +218,40 @@ class QualitiesQuery(graphene.ObjectType):
         except ActionPlanObjective.DoesNotExist:
             action_plan_objective = None
         return action_plan_objective
+    def resolve_action_plan_actions(root, info, action_plan_action_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        total_count = 0
+        action_plan_actions = ActionPlanAction.objects.filter(company=company)
+        if action_plan_action_filter:
+            keyword = action_plan_action_filter.get('keyword', '')
+            starting_date_time = action_plan_action_filter.get('starting_date_time')
+            ending_date_time = action_plan_action_filter.get('ending_date_time')
+            employees = action_plan_action_filter.get('employees')
+            if employees:
+                action_plan_actions = action_plan_actions.filter(employees__id__in=employees)
+            if keyword:
+                action_plan_actions = action_plan_actions.filter(Q(title__icontains=keyword))
+            if starting_date_time:
+                action_plan_actions = action_plan_actions.filter(starting_date_time__gte=starting_date_time)
+            if ending_date_time:
+                action_plan_actions = action_plan_actions.filter(starting_date_time__lte=ending_date_time)
+        action_plan_actions = action_plan_actions.order_by('-created_at')
+        total_count = action_plan_actions.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            action_plan_actions = action_plan_actions[offset:offset + limit]
+        return ActionPlanActionNodeType(nodes=action_plan_actions, total_count=total_count)
+
+    def resolve_action_plan_action(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            action_plan_action = ActionPlanAction.objects.get(pk=id)
+        except ActionPlanAction.DoesNotExist:
+            action_plan_action = None
+        return action_plan_action
 
 #************************************************************************
 
@@ -517,6 +563,8 @@ class CreateActionPlanObjective(graphene.Mutation):
             employees_ids = item.pop("employees") if "employees" in item else None
             action_plan_action = ActionPlanAction(**item)
             action_plan_action.action_plan_objective = action_plan_objective
+            action_plan_action.creator = creator
+            action_plan_action.company = action_plan_objective.company
             action_plan_action.save()
             if employees_ids and employees_ids is not None:
                 action_plan_action.employees.set(employees_ids)
@@ -555,6 +603,8 @@ class UpdateActionPlanObjective(graphene.Mutation):
             else:
                 action_plan_action = ActionPlanAction(**item)
                 action_plan_action.action_plan_objective = action_plan_objective
+                action_plan_action.creator = creator
+                action_plan_action.company = action_plan_objective.company
                 action_plan_action.save()
             if employees_ids and employees_ids is not None:
                 action_plan_action.employees.set(employees_ids)
@@ -587,6 +637,111 @@ class DeleteActionPlanObjective(graphene.Mutation):
 
 #************************************************************************
 
+# ************************************************************************
+
+
+class CreateActionPlanAction(graphene.Mutation):
+    class Arguments:
+        action_plan_action_data = ActionPlanActionInput(required=True)
+        document = Upload(required=False)
+
+    action_plan_action = graphene.Field(ActionPlanActionType)
+
+    def mutate(root, info, document=None, action_plan_action_data=None):
+        creator = info.context.user
+        employees_ids = action_plan_action_data.pop("employees") if "employees" in action_plan_action_data else None
+        action_plan_action = ActionPlanAction(**action_plan_action_data)
+        action_plan_action.creator = creator
+        action_plan_action.company = (
+            creator.current_company
+            if creator.current_company is not None
+            else creator.company
+        )
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = action_plan_action.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                action_plan_action.document = document_file
+        action_plan_action.save()
+        folder = Folder.objects.create(
+            name=str(action_plan_action.id) + "_", creator=creator
+        )
+        action_plan_action.folder = folder
+        action_plan_action.save()
+        if employees_ids and employees_ids is not None:
+            action_plan_action.employees.set(employees_ids)
+        return CreateActionPlanAction(action_plan_action=action_plan_action)
+
+
+class UpdateActionPlanAction(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        action_plan_action_data = ActionPlanActionInput(required=True)
+        document = Upload(required=False)
+
+    action_plan_action = graphene.Field(ActionPlanActionType)
+
+    def mutate(root, info, id, document=None, action_plan_action_data=None):
+        creator = info.context.user
+        employees_ids = action_plan_action_data.pop("employees") if "employees" in action_plan_action_data else None
+        ActionPlanAction.objects.filter(pk=id).update(**action_plan_action_data)
+        action_plan_action = ActionPlanAction.objects.get(pk=id)
+        if not action_plan_action.folder or action_plan_action.folder is None:
+            folder = Folder.objects.create(
+                name=str(action_plan_action.id) + "_", creator=creator
+            )
+            ActionPlanAction.objects.filter(pk=id).update(folder=folder)
+        if not document and action_plan_action.document:
+            document_file = action_plan_action.document
+            document_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = action_plan_action.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                action_plan_action.document = document_file
+            action_plan_action.save()
+        if employees_ids and employees_ids is not None:
+            action_plan_action.employees.set(employees_ids)
+        return UpdateActionPlanAction(action_plan_action=action_plan_action)
+
+
+class DeleteActionPlanAction(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    action_plan_action = graphene.Field(ActionPlanActionType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            action_plan_action = ActionPlanAction.objects.get(pk=id)
+            action_plan_action.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteActionPlanAction(deleted=deleted, success=success, message=message, id=id)
+
+
+# *************************************************************************#
+
 #*************************************************************************#
 class QualitiesMutation(graphene.ObjectType):
     create_undesirable_event = CreateUndesirableEvent.Field()
@@ -598,3 +753,7 @@ class QualitiesMutation(graphene.ObjectType):
     create_action_plan_objective = CreateActionPlanObjective.Field()
     update_action_plan_objective = UpdateActionPlanObjective.Field()
     delete_action_plan_objective = DeleteActionPlanObjective.Field()
+
+    create_action_plan_action = CreateActionPlanAction.Field()
+    update_action_plan_action = UpdateActionPlanAction.Field()
+    delete_action_plan_action = DeleteActionPlanAction.Field()
