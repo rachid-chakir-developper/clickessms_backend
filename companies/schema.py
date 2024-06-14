@@ -117,9 +117,9 @@ class EstablishmentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     name = graphene.String(required=True)
-    siret = graphene.String(required=True)
-    finess = graphene.String(required=True)
-    ape_code = graphene.String(required=True)
+    siret = graphene.String(required=False)
+    finess = graphene.String(required=False)
+    ape_code = graphene.String(required=False)
     primary_color = graphene.String(required=False)
     secondary_color = graphene.String(required=False)
     text_color = graphene.String(required=False)
@@ -156,7 +156,7 @@ class EstablishmentInput(graphene.InputObjectType):
 class CompanyQuery(graphene.ObjectType):
     companies = graphene.Field(CompanyNodeType, offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     company = graphene.Field(CompanyType, id = graphene.ID(required=False))
-    establishments = graphene.Field(EstablishmentNodeType, establishment_filter= EstablishmentFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    establishments = graphene.Field(EstablishmentNodeType, id_parent = graphene.ID(required=False), establishment_filter= EstablishmentFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     establishment = graphene.Field(EstablishmentType, id = graphene.ID())
 
     def resolve_companies(root, info, offset=None, limit=None, page=None):
@@ -182,12 +182,14 @@ class CompanyQuery(graphene.ObjectType):
             company = None
         return company
 
-    def resolve_establishments(root, info, establishment_filter=None, offset=None, limit=None, page=None):
+    def resolve_establishments(root, info, id_parent=None, establishment_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         total_count = 0
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         establishments = Establishment.objects.filter(company=company)
+        if id_parent:
+            establishments = establishments.filter(establishment_parent__id=id_parent if int(id_parent) > 0 else None)
         if establishment_filter:
             keyword = establishment_filter.get('keyword', '')
             starting_date_time = establishment_filter.get('starting_date_time')
