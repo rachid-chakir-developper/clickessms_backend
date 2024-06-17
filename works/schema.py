@@ -891,6 +891,33 @@ class UpdateTicket(graphene.Mutation):
 
         return UpdateTicket(ticket=ticket)
 
+class UpdateTicketFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        ticket_data = TicketInput(required=True)
+
+    ticket = graphene.Field(TicketType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, ticket_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        ticket = None
+        message = ''
+        try:
+            ticket = Ticket.objects.get(pk=id)
+            Ticket.objects.filter(pk=id).update(**ticket_data)
+            ticket.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            ticket=None
+            message = "Une erreur s'est produite."
+        return UpdateTicketFields(done=done, success=success, message=message, ticket=ticket)
+
 class DeleteTicket(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -1035,6 +1062,7 @@ class WorksMutation(graphene.ObjectType):
 
     create_ticket = CreateTicket.Field()
     update_ticket = UpdateTicket.Field()
+    update_ticket_fields = UpdateTicketFields.Field()
     delete_ticket = DeleteTicket.Field()
 
     create_task_action = CreateTaskAction.Field()
