@@ -7,7 +7,7 @@ from datetime import date, datetime, time
 
 from django.db.models import Q
 
-from works.models import Task, TaskWorker, TaskMaterial, TaskVehicle, TaskChecklistItem, TaskStep, STEP_TYPES_LABELS, STEP_TYPES_ALL, STATUS_All
+from works.models import Task, TaskWorker, TaskMaterial, TaskVehicle, TaskChecklistItem, TaskStep, STEP_TYPES_LABELS, STEP_TYPES_ALL, STATUS_All, Ticket, TaskAction
 from human_ressources.models import Employee
 from vehicles.models import Vehicle
 from stocks.models import Material
@@ -17,6 +17,39 @@ from notifications.notificator import notify, push_notification_to_employees
 from feedbacks.google_calendar import create_calendar_event_task, update_calendar_event_task, delete_calendar_event_task
 
 from feedbacks.schema import SignatureInput
+
+class TaskActionType(DjangoObjectType):
+    class Meta:
+        model = TaskAction
+        fields = "__all__"
+
+class TaskActionNodeType(graphene.ObjectType):
+    nodes = graphene.List(TaskActionType)
+    total_count = graphene.Int()
+
+class TaskActionFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    employees = graphene.List(graphene.Int, required=False)
+
+class TicketType(DjangoObjectType):
+    class Meta:
+        model = Ticket
+        fields = "__all__"
+    completion_percentage = graphene.Float()
+    def resolve_completion_percentage(instance, info, **kwargs):
+        return instance.completion_percentage
+
+class TicketNodeType(graphene.ObjectType):
+    nodes = graphene.List(TicketType)
+    total_count = graphene.Int()
+
+class TicketFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class TaskChecklistItemType(DjangoObjectType):
     class Meta:
@@ -69,6 +102,27 @@ class TaskType(DjangoObjectType):
 class TaskNodeType(graphene.ObjectType):
     nodes = graphene.List(TaskType)
     total_count = graphene.Int()
+
+
+class TaskActionInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    description = graphene.String(required=False)
+    due_date = graphene.DateTime(required=False)
+    employees = graphene.List(graphene.Int, required=False)
+    status = graphene.String(required=False)
+
+class TicketInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    title = graphene.String(required=False)
+    description = graphene.String(required=False)
+    priority = graphene.String(required=False)
+    status = graphene.String(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    is_active = graphene.Boolean(required=False)
+    undesirable_event_id = graphene.Int(name="undesirableEvent", required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    actions = graphene.List(TaskActionInput, required=False)
 
 class TaskChecklistItemInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -171,6 +225,10 @@ class WorksQuery(graphene.ObjectType):
     my_tasks = graphene.Field(TaskNodeType, task_filter= TaskFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     task = graphene.Field(TaskType, id = graphene.ID())
     task_step = graphene.Field(TaskStepType, task_id = graphene.ID(), step_type = graphene.String())
+    tickets = graphene.Field(TicketNodeType, ticket_filter= TicketFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    ticket = graphene.Field(TicketType, id = graphene.ID())
+    task_actions = graphene.Field(TaskActionNodeType, task_action_filter= TaskActionFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    task_action = graphene.Field(TaskActionType, id = graphene.ID())
 
     def resolve_tasks(root, info, task_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
@@ -270,6 +328,75 @@ class WorksQuery(graphene.ObjectType):
         except TaskStep.DoesNotExist:
             task_step = None
         return task_step
+        
+    def resolve_tickets(root, info, ticket_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        total_count = 0
+        tickets = Ticket.objects.filter(company=company)
+        if ticket_filter:
+            keyword = ticket_filter.get('keyword', '')
+            starting_date_time = ticket_filter.get('starting_date_time')
+            ending_date_time = ticket_filter.get('ending_date_time')
+            establishments = ticket_filter.get('establishments')
+            if establishments:
+                tickets = tickets.filter(undesirableeventestablishment__establishment__id__in=establishments)
+            if keyword:
+                tickets = tickets.filter(Q(title__icontains=keyword))
+            if starting_date_time:
+                tickets = tickets.filter(starting_date_time__gte=starting_date_time)
+            if ending_date_time:
+                tickets = tickets.filter(starting_date_time__lte=ending_date_time)
+        tickets = tickets.order_by('-created_at')
+        total_count = tickets.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            tickets = tickets[offset:offset + limit]
+        return TicketNodeType(nodes=tickets, total_count=total_count)
+
+    def resolve_ticket(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            ticket = Ticket.objects.get(pk=id)
+        except Ticket.DoesNotExist:
+            ticket = None
+        return ticket
+    def resolve_task_actions(root, info, task_action_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        total_count = 0
+        task_actions = TaskAction.objects.filter(company=company)
+        if task_action_filter:
+            keyword = task_action_filter.get('keyword', '')
+            starting_date_time = task_action_filter.get('starting_date_time')
+            ending_date_time = task_action_filter.get('ending_date_time')
+            employees = task_action_filter.get('employees')
+            if employees:
+                task_actions = task_actions.filter(employees__id__in=employees)
+            if keyword:
+                task_actions = task_actions.filter(Q(title__icontains=keyword))
+            if starting_date_time:
+                task_actions = task_actions.filter(starting_date_time__gte=starting_date_time)
+            if ending_date_time:
+                task_actions = task_actions.filter(starting_date_time__lte=ending_date_time)
+        task_actions = task_actions.order_by('-created_at')
+        total_count = task_actions.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            task_actions = task_actions[offset:offset + limit]
+        return TaskActionNodeType(nodes=task_actions, total_count=total_count)
+
+    def resolve_task_action(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            task_action = TaskAction.objects.get(pk=id)
+        except TaskAction.DoesNotExist:
+            task_action = None
+        return task_action
 
 #************************************************************************
 
@@ -689,6 +816,211 @@ class UpdateTaskChecklistItemStatus(graphene.Mutation):
             success = False
             message = "Une erreur s'est produite."
         return UpdateTaskChecklistItemStatus(done=done, success=success, message=message, task_checklist=task_checklist)
+#*************************************************************************#
+#************************************************************************
+
+class CreateTicket(graphene.Mutation):
+    class Arguments:
+        ticket_data = TicketInput(required=True)
+
+    ticket = graphene.Field(TicketType)
+
+    def mutate(root, info, ticket_data=None):
+        creator = info.context.user
+        establishment_ids = ticket_data.pop("establishments") if "establishments" in ticket_data else None
+        task_actions = ticket_data.pop("actions")
+        ticket = Ticket(**ticket_data)
+        ticket.creator = creator
+        ticket.company = creator.current_company if creator.current_company is not None else creator.company
+        ticket.save()
+        if establishment_ids and establishment_ids is not None:
+            ticket.establishments.set(establishment_ids)
+        folder = Folder.objects.create(name=str(ticket.id)+'_'+ticket.title,creator=creator)
+        ticket.folder = folder
+        if not ticket.employee:
+            ticket.employee = creator.getEmployeeInCompany()
+        for item in task_actions:
+            employees_ids = item.pop("employees") if "employees" in item else None
+            task_action = TaskAction(**item)
+            task_action.ticket = ticket
+            task_action.creator = creator
+            task_action.company = ticket.company
+            task_action.save()
+            if employees_ids and employees_ids is not None:
+                task_action.employees.set(employees_ids)
+
+        ticket.save()
+        return CreateTicket(ticket=ticket)
+
+class UpdateTicket(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        ticket_data = TicketInput(required=True)
+
+    ticket = graphene.Field(TicketType)
+
+    def mutate(root, info, id, image=None, ticket_data=None):
+        creator = info.context.user
+        establishment_ids = ticket_data.pop("establishments") if "establishments" in ticket_data else None
+        task_actions = ticket_data.pop("actions")
+        Ticket.objects.filter(pk=id).update(**ticket_data)
+        ticket = Ticket.objects.get(pk=id)
+        if establishment_ids and establishment_ids is not None:
+            ticket.establishments.set(establishment_ids)
+        if not ticket.folder or ticket.folder is None:
+            folder = Folder.objects.create(name=str(ticket.id)+'_'+ticket.title,creator=creator)
+            Ticket.objects.filter(pk=id).update(folder=folder)
+        if not ticket.employee:
+            ticket.employee = creator.getEmployeeInCompany()
+            ticket.save()
+        task_action_ids = [item.id for item in task_actions if item.id is not None]
+        TaskAction.objects.filter(ticket=ticket).exclude(id__in=task_action_ids).delete()
+        for item in task_actions:
+            employees_ids = item.pop("employees") if "employees" in item else None
+            if id in item or 'id' in item:
+                TaskAction.objects.filter(pk=item.id).update(**item)
+                task_action = TaskAction.objects.get(pk=item.id)
+            else:
+                task_action = TaskAction(**item)
+                task_action.ticket = ticket
+                task_action.creator = creator
+                task_action.company = ticket.company
+                task_action.save()
+            if employees_ids and employees_ids is not None:
+                task_action.employees.set(employees_ids)
+
+        return UpdateTicket(ticket=ticket)
+
+class DeleteTicket(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    ticket = graphene.Field(TicketType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            ticket = Ticket.objects.get(pk=id)
+            ticket.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteTicket(deleted=deleted, success=success, message=message, id=id)
+
+#************************************************************************
+
+# ************************************************************************
+
+
+class CreateTaskAction(graphene.Mutation):
+    class Arguments:
+        task_action_data = TaskActionInput(required=True)
+        document = Upload(required=False)
+
+    task_action = graphene.Field(TaskActionType)
+
+    def mutate(root, info, document=None, task_action_data=None):
+        creator = info.context.user
+        employees_ids = task_action_data.pop("employees") if "employees" in task_action_data else None
+        task_action = TaskAction(**task_action_data)
+        task_action.creator = creator
+        task_action.company = (
+            creator.current_company
+            if creator.current_company is not None
+            else creator.company
+        )
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = task_action.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                task_action.document = document_file
+        task_action.save()
+        folder = Folder.objects.create(
+            name=str(task_action.id) + "_", creator=creator
+        )
+        task_action.folder = folder
+        task_action.save()
+        if employees_ids and employees_ids is not None:
+            task_action.employees.set(employees_ids)
+        return CreateTaskAction(task_action=task_action)
+
+
+class UpdateTaskAction(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        task_action_data = TaskActionInput(required=True)
+        document = Upload(required=False)
+
+    task_action = graphene.Field(TaskActionType)
+
+    def mutate(root, info, id, document=None, task_action_data=None):
+        creator = info.context.user
+        employees_ids = task_action_data.pop("employees") if "employees" in task_action_data else None
+        TaskAction.objects.filter(pk=id).update(**task_action_data)
+        task_action = TaskAction.objects.get(pk=id)
+        if not task_action.folder or task_action.folder is None:
+            folder = Folder.objects.create(
+                name=str(task_action.id) + "_", creator=creator
+            )
+            TaskAction.objects.filter(pk=id).update(folder=folder)
+        if not document and task_action.document:
+            document_file = task_action.document
+            document_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = task_action.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                task_action.document = document_file
+            task_action.save()
+        if employees_ids and employees_ids is not None:
+            task_action.employees.set(employees_ids)
+        return UpdateTaskAction(task_action=task_action)
+
+
+class DeleteTaskAction(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    task_action = graphene.Field(TaskActionType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            task_action = TaskAction.objects.get(pk=id)
+            task_action.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteTaskAction(deleted=deleted, success=success, message=message, id=id)
+
+
+# *************************************************************************#
 
 #*************************************************************************#
 class WorksMutation(graphene.ObjectType):
@@ -700,3 +1032,11 @@ class WorksMutation(graphene.ObjectType):
     update_task_step = UpdateTaskStep.Field()
     sign_task_summary = SignTaskSummary.Field()
     update_task_checklist_item_status = UpdateTaskChecklistItemStatus.Field()
+
+    create_ticket = CreateTicket.Field()
+    update_ticket = UpdateTicket.Field()
+    delete_ticket = DeleteTicket.Field()
+
+    create_task_action = CreateTaskAction.Field()
+    update_task_action = UpdateTaskAction.Field()
+    delete_task_action = DeleteTaskAction.Field()
