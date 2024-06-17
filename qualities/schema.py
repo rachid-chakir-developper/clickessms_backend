@@ -65,7 +65,7 @@ class UndesirableEventFilterInput(graphene.InputObjectType):
 class UndesirableEventInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
-    title = graphene.String(required=True)
+    title = graphene.String(required=False)
     undesirable_event_type = graphene.String(required=False)
     severity = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
@@ -310,6 +310,35 @@ class UpdateUndesirableEvent(graphene.Mutation):
                     )
         return UpdateUndesirableEvent(undesirable_event=undesirable_event)
 
+class UpdateUndesirableEventFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        undesirable_event_data = UndesirableEventInput(required=True)
+
+    undesirable_event = graphene.Field(UndesirableEventType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, undesirable_event_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        undesirable_event = None
+        message = ''
+        try:
+            undesirable_event = UndesirableEvent.objects.get(pk=id)
+            UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
+            undesirable_event.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            undesirable_event=None
+            message = "Une erreur s'est produite."
+        return UpdateUndesirableEventFields(done=done, success=success, message=message, undesirable_event=undesirable_event)
+
+
+
 class UpdateUndesirableEventState(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -334,7 +363,7 @@ class UpdateUndesirableEventState(graphene.Mutation):
             success = False
             undesirable_event=None
             message = "Une erreur s'est produite."
-        return UpdateUndesirableEventState(done=done, success=success, message=message,undesirable_event=undesirable_event)
+        return UpdateUndesirableEventState(done=done, success=success, message=message, undesirable_event=undesirable_event)
 
 
 class CreateUndesirableEventTicket(graphene.Mutation):
@@ -371,7 +400,8 @@ class CreateUndesirableEventTicket(graphene.Mutation):
                     for ue_establishment in establishments:
                         if ue_establishment.establishment:
                             ticket.establishments.add(ue_establishment.establishment)
-
+                    UndesirableEvent.objects.filter(pk=id).update(status='IN_PROGRESS')
+                    undesirable_event.refresh_from_db()
                     message = 'Ticket créé avec succès avec les établissements associés.'
 
         except UndesirableEvent.DoesNotExist:
@@ -420,6 +450,7 @@ class DeleteUndesirableEvent(graphene.Mutation):
 class QualitiesMutation(graphene.ObjectType):
     create_undesirable_event = CreateUndesirableEvent.Field()
     update_undesirable_event = UpdateUndesirableEvent.Field()
+    update_undesirable_event_fields = UpdateUndesirableEventFields.Field()
     update_undesirable_event_state = UpdateUndesirableEventState.Field()
     create_undesirable_event_ticket = CreateUndesirableEventTicket.Field()
     delete_undesirable_event = DeleteUndesirableEvent.Field()

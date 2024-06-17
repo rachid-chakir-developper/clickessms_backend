@@ -5,10 +5,11 @@ import random
 # Create your models here.
 class UndesirableEvent(models.Model):
 	STATUS = [
-	    ("NEW", "Nouveau"),
+	    ("NEW", "Déclaré"),
+	    ("IN_PROGRESS", "En cours"),
+	    ("DONE", "Traité"),
 	    ("ACCEPTED", "Accepté"),
 	    ("REFUSED", "Refusé"),
-	    ("IN_PROGRESS", "En cours"),
 	    ("COMPLETED", "Terminée"),
 	    ("ON_HOLD", "En attente"),
 	    ("CANCELED", "Annulée"),
