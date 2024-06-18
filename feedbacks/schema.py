@@ -236,6 +236,10 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
             if 'taskStep' in payload and 'comment' in payload and 'task_step' in payload['comment']:
                 if str(task_step_id) != str(payload['comment']['task_step']['id']):
                     return OnCommentAdded.SKIP
+        if ticket_id and ticket_id is not None:
+            if 'taskStep' in payload and 'comment' in payload and 'ticket' in payload['comment']:
+                if str(ticket_id) != str(payload['comment']['ticket']['id']):
+                    return OnCommentAdded.SKIP
         return OnCommentAdded(comment=payload['comment'])
 
 class OnCommentDeleted(channels_graphql_ws.Subscription):
@@ -274,6 +278,10 @@ class OnCommentDeleted(channels_graphql_ws.Subscription):
         if task_step_id and task_step_id is not None:
             if 'taskStep' in payload and 'comment' in payload and 'task_step' in payload['comment']:
                 if str(task_step_id) != str(payload['comment']['task_step']['id']):
+                    return OnCommentAdded.SKIP
+        if ticket_id and ticket_id is not None:
+            if 'taskStep' in payload and 'comment' in payload and 'ticket' in payload['comment']:
+                if str(ticket_id) != str(payload['comment']['ticket']['id']):
                     return OnCommentAdded.SKIP
         return OnCommentDeleted(comment=payload['comment'])
 

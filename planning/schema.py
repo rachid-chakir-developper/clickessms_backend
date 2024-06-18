@@ -20,9 +20,10 @@ class EmployeeAbsenceType(DjangoObjectType):
     class Meta:
         model = EmployeeAbsence
         fields = "__all__"
-    employees = graphene.List(EmployeeAbsenceItemType)
-    def resolve_employees( instance, info, **kwargs ):
-        return instance.employeeabsenceitem_set.all()
+    duration = graphene.Float()
+    def resolve_duration(instance, info, **kwargs):
+        return instance.duration
+
 
 class EmployeeAbsenceNodeType(graphene.ObjectType):
     nodes = graphene.List(EmployeeAbsenceType)
@@ -38,6 +39,8 @@ class EmployeeAbsenceInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     title = graphene.String(required=False)
+    absence_type = graphene.String(required=False)
+    leave_type = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     comment = graphene.String(required=False)
@@ -46,6 +49,7 @@ class EmployeeAbsenceInput(graphene.InputObjectType):
     employees = graphene.List(graphene.Int, required=False)
     reasons = graphene.List(graphene.Int, required=False)
     other_reasons = graphene.String(required=False)
+    status = graphene.String(required=False)
 
 class PlanningQuery(graphene.ObjectType):
     employee_absences = graphene.Field(EmployeeAbsenceNodeType, employee_absence_filter= EmployeeAbsenceFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -63,7 +67,7 @@ class PlanningQuery(graphene.ObjectType):
             ending_date_time = employee_absence_filter.get('ending_date_time')
             employees = employee_absence_filter.get('employees')
             if employees:
-                employee_absences = employee_absences.filter(employeeabsenceitem__employee__id__in=employees)
+                employee_absences = employee_absences.filter(employees__employee__id__in=employees)
             if keyword:
                 employee_absences = employee_absences.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
             if starting_date_time:
