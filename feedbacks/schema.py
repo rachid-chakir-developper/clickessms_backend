@@ -6,7 +6,7 @@ from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
 from feedbacks.models import Comment, Signature, StatusChange
-from works.models import Task, TaskStep
+from works.models import Task, TaskStep, Ticket
 from medias.models import File
 from feedbacks.broadcaster import broadcastCommentAdded, broadcastCommentDeleted
 
@@ -53,8 +53,14 @@ class SignatureInput(graphene.InputObjectType):
     comment = graphene.String(required=False)
 
 class CommentsQuery(graphene.ObjectType):
+    comments = graphene.List(CommentType, offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     task_step_comments = graphene.Field(CommentNodeType, task_step_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    ticket_comments = graphene.Field(CommentNodeType, ticket_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     comment = graphene.Field(CommentType, id = graphene.ID())
+
+    def resolve_comments(root, info, offset=None, limit=None, page=None):
+        comments = Comment.objects.all()
+        return comments
 
     def resolve_task_step_comments(root, info, task_step_id, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
@@ -72,6 +78,22 @@ class CommentsQuery(graphene.ObjectType):
             task_step_comments = task_step.comments.all()
         return CommentNodeType(nodes=task_step_comments, total_count=total_count)
 
+    def resolve_ticket_comments(root, info, ticket_id, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        total_count = 0
+        try:
+            ticket = Ticket.objects.get(pk=ticket_id)
+        except Ticket.DoesNotExist:
+            raise ValueError("L'étape d'intervention spécifiée n'existe pas.")
+        total_count = ticket.comments.all().count()
+        if page:
+            offset = limit*(page-1)
+        if offset is not None and limit is not None:
+            ticket_comments = ticket.comments.all()[offset:offset+limit]
+        else:
+            ticket_comments = ticket.comments.all()
+        return CommentNodeType(nodes=ticket_comments, total_count=total_count)
+
     def resolve_comment(root, info, id):
         # We can easily optimize query count in the resolve method
         try:
@@ -87,10 +109,11 @@ class CreateComment(graphene.Mutation):
         comment_data = CommentInput(required=True)
         image = Upload(required=False)
         task_step_id = graphene.ID(required=False)
+        ticket_id = graphene.ID(required=False)
 
     comment = graphene.Field(CommentType)
 
-    def mutate(root, info, task_step_id=None, image=None, comment_data=None):
+    def mutate(root, info, task_step_id=None, ticket_id=None, image=None, comment_data=None):
         creator = info.context.user
         comment = Comment(**comment_data)
         comment.creator = creator
@@ -107,8 +130,9 @@ class CreateComment(graphene.Mutation):
         comment.save()
         broadcastCommentAdded(comment)
         if task_step_id and task_step_id is not None:
-        	task_step = TaskStep.objects.get(pk=task_step_id)
-        	task_step.comments.add(comment)
+        	TaskStep.objects.get(pk=task_step_id).comments.add(comment)
+        if ticket_id and ticket_id is not None:
+            Ticket.objects.get(pk=ticket_id).comments.add(comment)
         return CreateComment(comment=comment)
 
 class UpdateComment(graphene.Mutation):
@@ -189,16 +213,17 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
         # arg1 = graphene.String()
         # arg2 = graphene.String()
         task_step_id = graphene.ID(required=False)
+        ticket_id = graphene.ID(required=False)
 
     @staticmethod
-    def subscribe(root, info, task_step_id=None):
+    def subscribe(root, info, task_step_id=None, ticket_id=None):
         """Called when user subscribes."""
 
         # Return the list of subscription group names.
         return ["ON_COMMENT_ADDED"]
 
     @staticmethod
-    def publish(payload, info, task_step_id=None):
+    def publish(payload, info, task_step_id=None, ticket_id=None):
         """Called to notify the client."""
         #print('send -*******************')
         #print(payload)
@@ -227,16 +252,17 @@ class OnCommentDeleted(channels_graphql_ws.Subscription):
         # arg1 = graphene.String()
         # arg2 = graphene.String()
         task_step_id = graphene.ID(required=False)
+        ticket_id = graphene.ID(required=False)
 
     @staticmethod
-    def subscribe(root, info, task_step_id=None):
+    def subscribe(root, info, task_step_id=None, ticket_id=None):
         """Called when user subscribes."""
 
         # Return the list of subscription group names.
         return ["ON_COMMENT_DELETED"]
 
     @staticmethod
-    def publish(payload, info, task_step_id=None):
+    def publish(payload, info, task_step_id=None, ticket_id=None):
         """Called to notify the client."""
         #print('send -*******************')
         #print(payload)
