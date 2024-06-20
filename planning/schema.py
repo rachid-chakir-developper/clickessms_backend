@@ -116,7 +116,7 @@ class CreateEmployeeAbsence(graphene.Mutation):
         if reason_ids and reason_ids is not None:
             reasons = AbsenceReason.objects.filter(id__in=reason_ids)
             employee_absence.reasons.set(reasons)
-        employees = Employee.objects.filter(id__in=employee_ids)
+        employees = Employee.objects.filter(id__in=employee_ids if employee_ids else [creator.employee.id])
         for employee in employees:
             try:
                 employee_absence_items = EmployeeAbsenceItem.objects.get(employee__id=employee.id, employee_absence__id=employee_absence.id)
@@ -154,7 +154,7 @@ class UpdateEmployeeAbsence(graphene.Mutation):
             employee_absence.reasons.set(reasons)
 
         EmployeeAbsenceItem.objects.filter(employee_absence=employee_absence).exclude(employee__id__in=employee_ids).delete()
-        employees = Employee.objects.filter(id__in=employee_ids)
+        employees = Employee.objects.filter(id__in=employee_ids if employee_ids else [creator.employee.id])
         for employee in employees:
             try:
                 employee_absence_items = EmployeeAbsenceItem.objects.get(employee__id=employee.id, employee_absence__id=employee_absence.id)
@@ -165,6 +165,34 @@ class UpdateEmployeeAbsence(graphene.Mutation):
                         creator=creator
                     )
         return UpdateEmployeeAbsence(employee_absence=employee_absence)
+
+class UpdateEmployeeAbsenceFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        employee_absence_data = EmployeeAbsenceInput(required=True)
+
+    employee_absence = graphene.Field(EmployeeAbsenceType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, employee_absence_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        employee_absence = None
+        message = ''
+        try:
+            employee_absence = EmployeeAbsence.objects.get(pk=id)
+            EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
+            employee_absence.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            employee_absence=None
+            message = "Une erreur s'est produite."
+        return UpdateEmployeeAbsenceFields(done=done, success=success, message=message, employee_absence=employee_absence)
+
 
 class DeleteEmployeeAbsence(graphene.Mutation):
     class Arguments:
@@ -194,4 +222,5 @@ class DeleteEmployeeAbsence(graphene.Mutation):
 class PlanningMutation(graphene.ObjectType):
     create_employee_absence = CreateEmployeeAbsence.Field()
     update_employee_absence = UpdateEmployeeAbsence.Field()
+    update_employee_absence_fields = UpdateEmployeeAbsenceFields.Field()
     delete_employee_absence = DeleteEmployeeAbsence.Field()
