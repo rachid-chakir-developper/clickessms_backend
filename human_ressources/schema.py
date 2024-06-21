@@ -6,16 +6,25 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
+from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract, EmployeeContractEstablishment, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
+from companies.models import Establishment
+
+class EmployeeContractEstablishmentType(DjangoObjectType):
+    class Meta:
+        model = EmployeeContractEstablishment
+        fields = "__all__"
 
 class EmployeeContractType(DjangoObjectType):
     class Meta:
         model = EmployeeContract
         fields = "__all__"
     document = graphene.String()
+    rest_leave_days = graphene.Float()
     def resolve_document( instance, info, **kwargs ):
         return instance.document and info.context.build_absolute_uri(instance.document.file.url)
+    def resolve_rest_leave_days( instance, info, **kwargs ):
+        return instance.rest_leave_days
 
 class EmployeeContractNodeType(graphene.ObjectType):
     nodes = graphene.List(EmployeeContractType)
@@ -25,6 +34,7 @@ class EmployeeContractFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    employees = graphene.List(graphene.Int, required=False)
 
 class EmployeeType(DjangoObjectType):
     class Meta:
@@ -32,10 +42,13 @@ class EmployeeType(DjangoObjectType):
         fields = "__all__"
     photo = graphene.String()
     cover_image = graphene.String()
+    current_contract = graphene.Field(EmployeeContractType)
     def resolve_photo( instance, info, **kwargs ):
         return instance.photo and info.context.build_absolute_uri(instance.photo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
+    def resolve_current_contract( instance, info, **kwargs ):
+        return instance.current_contract
 
 class EmployeeNodeType(graphene.ObjectType):
     nodes = graphene.List(EmployeeType)
@@ -174,14 +187,16 @@ class EmployeeContractInput(graphene.InputObjectType):
     number = graphene.String(required=False)
     title = graphene.String(required=True)
     position = graphene.String(required=False)
-    salary = graphene.Float(required=True)
+    salary = graphene.Float(required=False)
     starting_date = graphene.DateTime(required=False)
     ending_date = graphene.DateTime(required=False)
     started_at = graphene.DateTime(required=False)
     ended_at = graphene.DateTime(required=False)
+    annual_leave_days = graphene.Float(required=False)
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
     contract_type_id = graphene.Int(name="contractType", required=False)
     employee_id = graphene.Int(name="employee", required=False)
 
@@ -294,6 +309,9 @@ class HumanRessourcesQuery(graphene.ObjectType):
             keyword = employee_contract_filter.get('keyword', '')
             starting_date_time = employee_contract_filter.get('starting_date_time')
             ending_date_time = employee_contract_filter.get('ending_date_time')
+            employees = employee_contract_filter.get('employees')
+            if employees:
+                employee_contracts = employee_contracts.filter(employee__id__in=employees)
             if keyword:
                 employee_contracts = employee_contracts.filter(Q(title__icontains=keyword))
             if starting_date_time:
@@ -558,6 +576,7 @@ class CreateEmployeeContract(graphene.Mutation):
 
     def mutate(root, info, document=None, employee_contract_data=None):
         creator = info.context.user
+        establishment_ids = employee_contract_data.pop("establishments")
         employee_contract = EmployeeContract(**employee_contract_data)
         employee_contract.creator = creator
         if info.context.FILES:
@@ -573,6 +592,17 @@ class CreateEmployeeContract(graphene.Mutation):
         employee_contract.save()
         folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.title,creator=creator)
         employee_contract.folder = folder
+        
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                employee_contract_establishment = EmployeeContractEstablishment.objects.get(establishment__id=establishment.id, employee_contract__id=employee_contract.id)
+            except EmployeeContractEstablishment.DoesNotExist:
+                EmployeeContractEstablishment.objects.create(
+                        employee_contract=employee_contract,
+                        establishment=establishment,
+                        creator=creator
+                    )
         employee_contract.save()
         return CreateEmployeeContract(employee_contract=employee_contract)
 
@@ -586,6 +616,7 @@ class UpdateEmployeeContract(graphene.Mutation):
 
     def mutate(root, info, id, document=None, employee_contract_data=None):
         creator = info.context.user
+        establishment_ids = employee_contract_data.pop("establishments")
         EmployeeContract.objects.filter(pk=id).update(**employee_contract_data)
         employee_contract = EmployeeContract.objects.get(pk=id)
         if not employee_contract.folder or employee_contract.folder is None:
@@ -605,6 +636,18 @@ class UpdateEmployeeContract(graphene.Mutation):
                 document_file.save()
                 employee_contract.document = document_file
             employee_contract.save()
+
+        EmployeeContractEstablishment.objects.filter(employee_contract=employee_contract).exclude(establishment__id__in=establishment_ids).delete()
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                employee_contract_establishment = EmployeeContractEstablishment.objects.get(establishment__id=establishment.id, employee_contract__id=employee_contract.id)
+            except EmployeeContractEstablishment.DoesNotExist:
+                EmployeeContractEstablishment.objects.create(
+                        employee_contract=employee_contract,
+                        establishment=establishment,
+                        creator=creator
+                    )
         return UpdateEmployeeContract(employee_contract=employee_contract)
 
 class DeleteEmployeeContract(graphene.Mutation):

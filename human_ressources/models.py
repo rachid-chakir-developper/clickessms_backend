@@ -1,6 +1,8 @@
 from django.db import models
 from datetime import datetime
 import random
+from django.utils.timezone import now
+from planning.models import EmployeeAbsenceItem
 
 # Create your models here.
 class Employee(models.Model):
@@ -67,6 +69,17 @@ class Employee(models.Model):
 
         return number
 
+    @property
+    def current_contract(self):
+        current_time = now()
+        contracts = self.employee_contracts.filter(starting_date__lte=current_time)
+        current_contracts = contracts.filter(models.Q(ending_date__isnull=True) | models.Q(ending_date__gte=current_time))
+        if current_contracts.exists():
+            return current_contracts.latest('starting_date')
+        if contracts.exists():
+            return contracts.latest('starting_date')
+        return None
+
     def __str__(self):
         return self.email
 
@@ -106,6 +119,7 @@ class EmployeeContract(models.Model):
     salary = models.FloatField(null=True)
     started_at = models.DateTimeField(null=True)
     ended_at = models.DateTimeField(null=True)
+    annual_leave_days = models.FloatField(default=25)
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
     contract_type = models.ForeignKey('data_management.EmployeeContractType', on_delete=models.SET_NULL, null=True)
@@ -117,8 +131,26 @@ class EmployeeContract(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
+    @property
+    def rest_leave_days(self):
+        # il faut revoir ça pour calculer aussi les jours reportés
+        current_year = now().year
+        absences = EmployeeAbsenceItem.objects.filter(employee=self.employee, employee_absence__starting_date_time__year=current_year)
+        total_days_taken = sum((absence.employee_absence.ending_date_time - absence.employee_absence.starting_date_time).days + 1
+            for absence in absences if absence.employee_absence.starting_date_time and absence.employee_absence.ending_date_time)
+        remaining_days = self.annual_leave_days - total_days_taken
+        return remaining_days
+
     def __str__(self):
         return str(self.id)
+
+# Create your models here.
+class EmployeeContractEstablishment(models.Model):
+    employee_contract = models.ForeignKey(EmployeeContract, on_delete=models.SET_NULL, null=True, related_name='establishments')
+    establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='employee_contract_establishment', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='employee_contract_establishment_former', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
 # Create your models here.
 class Beneficiary(models.Model):

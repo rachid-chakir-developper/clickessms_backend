@@ -67,7 +67,7 @@ class PlanningQuery(graphene.ObjectType):
             ending_date_time = employee_absence_filter.get('ending_date_time')
             employees = employee_absence_filter.get('employees')
             if employees:
-                employee_absences = employee_absences.filter(employees__employee__id__in=employees)
+                employee_absences = employee_absences.filter(employee__id__in=employees)
             if keyword:
                 employee_absences = employee_absences.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
             if starting_date_time:
@@ -185,6 +185,13 @@ class UpdateEmployeeAbsenceFields(graphene.Mutation):
         try:
             employee_absence = EmployeeAbsence.objects.get(pk=id)
             EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
+            if 'status' in employee_absence_data:
+                if employee_absence_data.status == 'APPROVED' :
+                    EmployeeAbsence.objects.filter(pk=id).update(approved_by=creator)
+                elif employee_absence_data.status == 'REJECTED' :
+                    EmployeeAbsence.objects.filter(pk=id).update(rejected_by=creator)
+                else:
+                    EmployeeAbsence.objects.filter(pk=id).update(put_on_hold_by=creator)
             employee_absence.refresh_from_db()
         except Exception as e:
             done = False
