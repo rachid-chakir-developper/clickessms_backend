@@ -6,12 +6,20 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from administratives.models import Call, Caller, CallBeneficiary, Letter, LetterBeneficiary, Meeting, MeetingEstablishment, MeetingParticipant,  MeetingBeneficiary, MeetingDecision, MeetingReviewPoint
+from administratives.models import Call, Caller, CallEstablishment, CallEmployee, CallBeneficiary, Letter, LetterEstablishment, LetterEmployee, LetterBeneficiary, Meeting, MeetingEstablishment, MeetingParticipant,  MeetingBeneficiary, MeetingDecision, MeetingReviewPoint
 from data_management.models import MeetingReason, TypeMeeting
 from medias.models import Folder, File
 from companies.models import Establishment
 from human_ressources.models import Employee, Beneficiary
 
+class CallEstablishmentType(DjangoObjectType):
+    class Meta:
+        model = CallEstablishment
+        fields = "__all__"
+class CallEmployeeType(DjangoObjectType):
+    class Meta:
+        model = CallEmployee
+        fields = "__all__"
 class CallBeneficiaryType(DjangoObjectType):
     class Meta:
         model = CallBeneficiary
@@ -28,13 +36,10 @@ class CallType(DjangoObjectType):
         fields = "__all__"
     image = graphene.String()
     caller = graphene.Field(CallerType)
-    beneficiaries = graphene.List(CallBeneficiaryType)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
     def resolve_caller(instance, info, **kwargs):
-        return instance.caller_set.all().first()
-    def resolve_beneficiaries( instance, info, **kwargs ):
-        return instance.callbeneficiary_set.all()
+        return instance.callers.all().first()
 
 class CallNodeType(graphene.ObjectType):
     nodes = graphene.List(CallType)
@@ -44,6 +49,15 @@ class CallFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+
+class LetterEstablishmentType(DjangoObjectType):
+    class Meta:
+        model = LetterEstablishment
+        fields = "__all__"
+class LetterEmployeeType(DjangoObjectType):
+    class Meta:
+        model = LetterEmployee
+        fields = "__all__"
 
 class LetterBeneficiaryType(DjangoObjectType):
     class Meta:
@@ -55,11 +69,8 @@ class LetterType(DjangoObjectType):
         model = Letter
         fields = "__all__"
     image = graphene.String()
-    beneficiaries = graphene.List(LetterBeneficiaryType)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
-    def resolve_beneficiaries( instance, info, **kwargs ):
-        return instance.letterbeneficiary_set.all()
 
 class LetterNodeType(graphene.ObjectType):
     nodes = graphene.List(LetterType)
@@ -134,6 +145,8 @@ class CallInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     employee_id = graphene.Int(name="employee", required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    employees = graphene.List(graphene.Int, required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
     caller = CallerInput(required=False)
 
@@ -148,6 +161,8 @@ class LetterInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     employee_id = graphene.Int(name="employee", required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    employees = graphene.List(graphene.Int, required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
 
 class MeetingDecisionInput(graphene.InputObjectType):
@@ -303,6 +318,8 @@ class CreateCall(graphene.Mutation):
 
     def mutate(root, info, image=None, call_data=None):
         creator = info.context.user
+        establishment_ids = call_data.pop("establishments")
+        employee_ids = call_data.pop("employees")
         beneficiary_ids = call_data.pop("beneficiaries")
         caller_data = call_data.pop("caller")
         call = Call(**call_data)
@@ -323,6 +340,26 @@ class CreateCall(graphene.Mutation):
             call.setCaller(caller_data=caller_data, creator=creator)
         folder = Folder.objects.create(name=str(call.id)+'_'+call.title,creator=creator)
         call.folder = folder
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                call_establishment = CallEstablishment.objects.get(establishment__id=establishment.id, call__id=call.id)
+            except CallEstablishment.DoesNotExist:
+                CallEstablishment.objects.create(
+                        call=call,
+                        establishment=establishment,
+                        creator=creator
+                    )
+        employees = Employee.objects.filter(id__in=employee_ids)
+        for employee in employees:
+            try:
+                call_employee = CallEmployee.objects.get(employee__id=employee.id, call__id=call.id)
+            except CallEmployee.DoesNotExist:
+                CallEmployee.objects.create(
+                        call=call,
+                        employee=employee,
+                        creator=creator
+                    )
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:
             try:
@@ -346,6 +383,8 @@ class UpdateCall(graphene.Mutation):
 
     def mutate(root, info, id, image=None, call_data=None):
         creator = info.context.user
+        establishment_ids = call_data.pop("establishments")
+        employee_ids = call_data.pop("employees")
         beneficiary_ids = call_data.pop("beneficiaries")
         caller_data = call_data.pop("caller")
         Call.objects.filter(pk=id).update(**call_data)
@@ -369,6 +408,28 @@ class UpdateCall(graphene.Mutation):
                 image_file.save()
                 call.image = image_file
             call.save()
+        CallEstablishment.objects.filter(call=call).exclude(establishment__id__in=establishment_ids).delete()
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                call_establishment = CallEstablishment.objects.get(establishment__id=establishment.id, call__id=call.id)
+            except CallEstablishment.DoesNotExist:
+                CallEstablishment.objects.create(
+                        call=call,
+                        establishment=establishment,
+                        creator=creator
+                    )
+        CallEmployee.objects.filter(call=call).exclude(employee__id__in=employee_ids).delete()
+        employees = Employee.objects.filter(id__in=employee_ids)
+        for employee in employees:
+            try:
+                call_employee = CallEmployee.objects.get(employee__id=employee.id, call__id=call.id)
+            except CallEmployee.DoesNotExist:
+                CallEmployee.objects.create(
+                        call=call,
+                        employee=employee,
+                        creator=creator
+                    )
         CallBeneficiary.objects.filter(call=call).exclude(beneficiary__id__in=beneficiary_ids).delete()
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:
@@ -446,6 +507,8 @@ class CreateLetter(graphene.Mutation):
 
     def mutate(root, info, image=None, letter_data=None):
         creator = info.context.user
+        establishment_ids = letter_data.pop("establishments")
+        employee_ids = letter_data.pop("employees")
         beneficiary_ids = letter_data.pop("beneficiaries")
         letter = Letter(**letter_data)
         letter.creator = creator
@@ -463,6 +526,26 @@ class CreateLetter(graphene.Mutation):
         letter.save()
         folder = Folder.objects.create(name=str(letter.id)+'_'+letter.title,creator=creator)
         letter.folder = folder
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                letter_establishment = LetterEstablishment.objects.get(establishment__id=establishment.id, letter__id=letter.id)
+            except LetterEstablishment.DoesNotExist:
+                LetterEstablishment.objects.create(
+                        letter=letter,
+                        establishment=establishment,
+                        creator=creator
+                    )
+        employees = Employee.objects.filter(id__in=employee_ids)
+        for employee in employees:
+            try:
+                letter_employee = LetterEmployee.objects.get(employee__id=employee.id, letter__id=letter.id)
+            except LetterEmployee.DoesNotExist:
+                LetterEmployee.objects.create(
+                        letter=letter,
+                        employee=employee,
+                        creator=creator
+                    )
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:
             try:
@@ -486,6 +569,8 @@ class UpdateLetter(graphene.Mutation):
 
     def mutate(root, info, id, image=None, letter_data=None):
         creator = info.context.user
+        establishment_ids = letter_data.pop("establishments")
+        employee_ids = letter_data.pop("employees")
         beneficiary_ids = letter_data.pop("beneficiaries")
         Letter.objects.filter(pk=id).update(**letter_data)
         letter = Letter.objects.get(pk=id)
@@ -506,6 +591,28 @@ class UpdateLetter(graphene.Mutation):
                 image_file.save()
                 letter.image = image_file
             letter.save()
+        LetterEstablishment.objects.filter(letter=letter).exclude(establishment__id__in=establishment_ids).delete()
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                letter_establishment = LetterEstablishment.objects.get(establishment__id=establishment.id, letter__id=letter.id)
+            except LetterEstablishment.DoesNotExist:
+                LetterEstablishment.objects.create(
+                        letter=letter,
+                        establishment=establishment,
+                        creator=creator
+                    )
+        LetterEmployee.objects.filter(letter=letter).exclude(employee__id__in=employee_ids).delete()
+        employees = Employee.objects.filter(id__in=employee_ids)
+        for employee in employees:
+            try:
+                letter_employee = LetterEmployee.objects.get(employee__id=employee.id, letter__id=letter.id)
+            except LetterEmployee.DoesNotExist:
+                LetterEmployee.objects.create(
+                        letter=letter,
+                        employee=employee,
+                        creator=creator
+                    )
         LetterBeneficiary.objects.filter(letter=letter).exclude(beneficiary__id__in=beneficiary_ids).delete()
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:

@@ -73,7 +73,7 @@ class Caller(models.Model):
 	name = models.CharField(max_length=255, null=True)
 	phone = models.CharField(max_length=255, null=True)
 	caller_type = models.CharField(max_length=255, null=True)
-	call = models.ForeignKey(Call, on_delete=models.SET_NULL, null=True)
+	call = models.ForeignKey(Call, on_delete=models.SET_NULL, null=True, related_name='callers')
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='call_employee_callers', null=True)
 	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='call_beneficiary_callers', null=True)
 	partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, related_name='call_partner_callers', null=True)
@@ -89,8 +89,30 @@ class Caller(models.Model):
 		return str(self.id)
 
 # Create your models here.
+class CallEstablishment(models.Model):
+	call = models.ForeignKey(Call, on_delete=models.SET_NULL, null=True, related_name='establishments')
+	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='call_establishments', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='call_establishments', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
+
+# Create your models here.
+class CallEmployee(models.Model):
+	call = models.ForeignKey(Call, on_delete=models.SET_NULL, null=True, related_name='employees')
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='call_employees', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='call_employees', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
+
+# Create your models here.
 class CallBeneficiary(models.Model):
-	call = models.ForeignKey(Call, on_delete=models.SET_NULL, null=True)
+	call = models.ForeignKey(Call, on_delete=models.SET_NULL, null=True, related_name='beneficiaries')
 	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='call_beneficiary', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='call_beneficiary_former', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -150,10 +172,32 @@ class Letter(models.Model):
 	    
 	def __str__(self):
 		return self.title
+		
+# Create your models here.
+class LetterEstablishment(models.Model):
+	letter = models.ForeignKey(Letter, on_delete=models.SET_NULL, null=True, related_name='establishments')
+	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='letter_establishments', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='letter_establishments', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
+
+# Create your models here.
+class LetterEmployee(models.Model):
+	letter = models.ForeignKey(Letter, on_delete=models.SET_NULL, null=True, related_name='employees')
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='letter_employees', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='letter_employees', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
 
 # Create your models here.
 class LetterBeneficiary(models.Model):
-	letter = models.ForeignKey(Letter, on_delete=models.SET_NULL, null=True)
+	letter = models.ForeignKey(Letter, on_delete=models.SET_NULL, null=True, related_name='beneficiaries')
 	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='letter_beneficiary', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='letter_beneficiary_former', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
