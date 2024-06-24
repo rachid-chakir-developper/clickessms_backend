@@ -1,4 +1,4 @@
-from django.conf import settings
+from robert_ia.secrets import OPENAI_API_KEY
 import graphene
 import openai
 from accounts.models import User
@@ -23,8 +23,8 @@ class UserQuestion(graphene.Mutation):
             if not question:
                 raise Exception('No question provided')
 
-            # Assurez-vous d'avoir configuré votre clé API OpenAI dans settings.py
-            openai.api_key = settings.OPENAI_API_KEY
+            # Assurez-vous d'avoir configuré votre clé API OpenAI dans secrets.py
+            openai.api_key = OPENAI_API_KEY
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",  # Utiliser le modèle Chat
                 messages=[
