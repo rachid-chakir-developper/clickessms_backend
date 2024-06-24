@@ -3,18 +3,18 @@ from datetime import datetime
 import random
 
 # Create your models here.
-class Event(models.Model):
+class TransmissionEvent(models.Model):
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255)
-	image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='event_image', null=True)
+	image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='transmission_event_image', null=True)
 	starting_date_time = models.DateTimeField(null=True)
 	ending_date_time = models.DateTimeField(null=True)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
-	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_events', null=True)
-	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_events', null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_transmission_events', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_transmission_events', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -25,7 +25,7 @@ class Event(models.Model):
 	    if not self.number:
 	        self.number = self.generate_unique_number()
 
-	    super(Event, self).save(*args, **kwargs)
+	    super(TransmissionEvent, self).save(*args, **kwargs)
 
 	def generate_unique_number(self):
 	    # Implémentez la logique de génération du numéro unique ici
@@ -40,7 +40,7 @@ class Event(models.Model):
 	    number = f'{number_prefix}{number_suffix}'
 
 	    # Vérifier s'il est unique dans la base de données
-	    while Event.objects.filter(number=number).exists():
+	    while TransmissionEvent.objects.filter(number=number).exists():
 	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
 	        number = f'{number_prefix}{number_suffix}'
 
@@ -50,10 +50,10 @@ class Event(models.Model):
 		return self.title
 
 # Create your models here.
-class EventBeneficiary(models.Model):
-	event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True)
-	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='event_beneficiary', null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='event_beneficiary_former', null=True)
+class TransmissionEventBeneficiary(models.Model):
+	transmission_event = models.ForeignKey(TransmissionEvent, on_delete=models.SET_NULL, null=True, related_name='beneficiaries')
+	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='transmission_event_beneficiary', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='transmission_event_beneficiary_former', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -64,7 +64,7 @@ class EventBeneficiary(models.Model):
 class BeneficiaryAbsence(models.Model):
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255)
-	event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True)
+	transmission_event = models.ForeignKey(TransmissionEvent, on_delete=models.SET_NULL, null=True)
 	starting_date_time = models.DateTimeField(null=True)
 	ending_date_time = models.DateTimeField(null=True)
 	reasons = models.ManyToManyField('data_management.AbsenceReason', related_name='reason_beneficiary_absences')
@@ -84,7 +84,7 @@ class BeneficiaryAbsence(models.Model):
 
 # Create your models here.
 class BeneficiaryAbsenceItem(models.Model):
-	beneficiary_absence = models.ForeignKey(BeneficiaryAbsence, on_delete=models.SET_NULL, null=True)
+	beneficiary_absence = models.ForeignKey(BeneficiaryAbsence, on_delete=models.SET_NULL, null=True, related_name='beneficiaries')
 	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='beneficiary_absence_items', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='beneficiary_absence_item_former', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)

@@ -6,14 +6,14 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from activities.models import Event, EventBeneficiary, BeneficiaryAbsence, BeneficiaryAbsenceItem
+from activities.models import TransmissionEvent, TransmissionEventBeneficiary, BeneficiaryAbsence, BeneficiaryAbsenceItem
 from data_management.models import AbsenceReason
 from medias.models import Folder, File
 from human_ressources.models import Beneficiary
 
-class EventBeneficiaryType(DjangoObjectType):
+class TransmissionEventBeneficiaryType(DjangoObjectType):
     class Meta:
-        model = EventBeneficiary
+        model = TransmissionEventBeneficiary
         fields = "__all__"
 
 class BeneficiaryAbsenceItemType(DjangoObjectType):
@@ -25,9 +25,6 @@ class BeneficiaryAbsenceType(DjangoObjectType):
     class Meta:
         model = BeneficiaryAbsence
         fields = "__all__"
-    beneficiaries = graphene.List(BeneficiaryAbsenceItemType)
-    def resolve_beneficiaries( instance, info, **kwargs ):
-        return instance.beneficiaryabsenceitem_set.all()
 
 class BeneficiaryAbsenceNodeType(graphene.ObjectType):
     nodes = graphene.List(BeneficiaryAbsenceType)
@@ -39,28 +36,25 @@ class BeneficiaryAbsenceFilterInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
 
-class EventType(DjangoObjectType):
+class TransmissionEventType(DjangoObjectType):
     class Meta:
-        model = Event
+        model = TransmissionEvent
         fields = "__all__"
     image = graphene.String()
-    beneficiaries = graphene.List(EventBeneficiaryType)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
-    def resolve_beneficiaries( instance, info, **kwargs ):
-        return instance.eventbeneficiary_set.all()
 
-class EventNodeType(graphene.ObjectType):
-    nodes = graphene.List(EventType)
+class TransmissionEventNodeType(graphene.ObjectType):
+    nodes = graphene.List(TransmissionEventType)
     total_count = graphene.Int()
 
-class EventFilterInput(graphene.InputObjectType):
+class TransmissionEventFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
 
-class EventInput(graphene.InputObjectType):
+class TransmissionEventInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     title = graphene.String(required=True)
@@ -86,44 +80,44 @@ class BeneficiaryAbsenceInput(graphene.InputObjectType):
     other_reasons = graphene.String(required=False)
 
 class ActivitiesQuery(graphene.ObjectType):
-    events = graphene.Field(EventNodeType, event_filter= EventFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
-    event = graphene.Field(EventType, id = graphene.ID())
+    transmission_events = graphene.Field(TransmissionEventNodeType, transmission_event_filter= TransmissionEventFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    transmission_event = graphene.Field(TransmissionEventType, id = graphene.ID())
     beneficiary_absences = graphene.Field(BeneficiaryAbsenceNodeType, beneficiary_absence_filter= BeneficiaryAbsenceFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     beneficiary_absence = graphene.Field(BeneficiaryAbsenceType, id = graphene.ID())
-    def resolve_events(root, info, event_filter=None, offset=None, limit=None, page=None):
+    def resolve_transmission_events(root, info, transmission_event_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        events = Event.objects.filter(company=company)
-        if event_filter:
-            keyword = event_filter.get('keyword', '')
-            starting_date_time = event_filter.get('starting_date_time')
-            ending_date_time = event_filter.get('ending_date_time')
-            beneficiaries = event_filter.get('beneficiaries')
+        transmission_events = TransmissionEvent.objects.filter(company=company)
+        if transmission_event_filter:
+            keyword = transmission_event_filter.get('keyword', '')
+            starting_date_time = transmission_event_filter.get('starting_date_time')
+            ending_date_time = transmission_event_filter.get('ending_date_time')
+            beneficiaries = transmission_event_filter.get('beneficiaries')
             if beneficiaries:
-                events = events.filter(eventbeneficiary__beneficiary__id__in=beneficiaries)
+                transmission_events = transmission_events.filter(transmission_eventbeneficiary__beneficiary__id__in=beneficiaries)
             if keyword:
-                events = events.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
+                transmission_events = transmission_events.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
             if starting_date_time:
-                events = events.filter(starting_date_time__gte=starting_date_time)
+                transmission_events = transmission_events.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
-                events = events.filter(starting_date_time__lte=ending_date_time)
-        events = events.order_by('-created_at')
-        total_count = events.count()
+                transmission_events = transmission_events.filter(starting_date_time__lte=ending_date_time)
+        transmission_events = transmission_events.order_by('-created_at')
+        total_count = transmission_events.count()
         if page:
             offset = limit * (page - 1)
         if offset is not None and limit is not None:
-            events = events[offset:offset + limit]
-        return EventNodeType(nodes=events, total_count=total_count)
+            transmission_events = transmission_events[offset:offset + limit]
+        return TransmissionEventNodeType(nodes=transmission_events, total_count=total_count)
 
-    def resolve_event(root, info, id):
+    def resolve_transmission_event(root, info, id):
         # We can easily optimize query count in the resolve method
         try:
-            event = Event.objects.get(pk=id)
-        except Event.DoesNotExist:
-            event = None
-        return event
+            transmission_event = TransmissionEvent.objects.get(pk=id)
+        except TransmissionEvent.DoesNotExist:
+            transmission_event = None
+        return transmission_event
 
     def resolve_beneficiary_absences(root, info, beneficiary_absence_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
@@ -163,125 +157,125 @@ class ActivitiesQuery(graphene.ObjectType):
 
 #************************************************************************
 
-class CreateEvent(graphene.Mutation):
+class CreateTransmissionEvent(graphene.Mutation):
     class Arguments:
-        event_data = EventInput(required=True)
+        transmission_event_data = TransmissionEventInput(required=True)
         image = Upload(required=False)
 
-    event = graphene.Field(EventType)
+    transmission_event = graphene.Field(TransmissionEventType)
 
-    def mutate(root, info, image=None, event_data=None):
+    def mutate(root, info, image=None, transmission_event_data=None):
         creator = info.context.user
-        beneficiary_ids = event_data.pop("beneficiaries")
-        event = Event(**event_data)
-        event.creator = creator
-        event.company = creator.current_company if creator.current_company is not None else creator.company
+        beneficiary_ids = transmission_event_data.pop("beneficiaries")
+        transmission_event = TransmissionEvent(**transmission_event_data)
+        transmission_event.creator = creator
+        transmission_event.company = creator.current_company if creator.current_company is not None else creator.company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
-                image_file = event.image
+                image_file = transmission_event.image
                 if not image_file:
                     image_file = File()
                     image_file.creator = creator
                 image_file.image = image
                 image_file.save()
-                event.image = image_file
-        event.save()
-        if not event.employee:
-            event.employee = creator.getEmployeeInCompany()
-        folder = Folder.objects.create(name=str(event.id)+'_'+event.title,creator=creator)
-        event.folder = folder
+                transmission_event.image = image_file
+        transmission_event.save()
+        if not transmission_event.employee:
+            transmission_event.employee = creator.getEmployeeInCompany()
+        folder = Folder.objects.create(name=str(transmission_event.id)+'_'+transmission_event.title,creator=creator)
+        transmission_event.folder = folder
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:
             try:
-                event_beneficiary = EventBeneficiary.objects.get(beneficiary__id=beneficiary.id, event__id=event.id)
-            except EventBeneficiary.DoesNotExist:
-                EventBeneficiary.objects.create(
-                        event=event,
+                transmission_event_beneficiary = TransmissionEventBeneficiary.objects.get(beneficiary__id=beneficiary.id, transmission_event__id=transmission_event.id)
+            except TransmissionEventBeneficiary.DoesNotExist:
+                TransmissionEventBeneficiary.objects.create(
+                        transmission_event=transmission_event,
                         beneficiary=beneficiary,
                         creator=creator
                     )
-        event.save()
-        return CreateEvent(event=event)
+        transmission_event.save()
+        return CreateTransmissionEvent(transmission_event=transmission_event)
 
-class UpdateEvent(graphene.Mutation):
+class UpdateTransmissionEvent(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
-        event_data = EventInput(required=True)
+        transmission_event_data = TransmissionEventInput(required=True)
         image = Upload(required=False)
 
-    event = graphene.Field(EventType)
+    transmission_event = graphene.Field(TransmissionEventType)
 
-    def mutate(root, info, id, image=None, event_data=None):
+    def mutate(root, info, id, image=None, transmission_event_data=None):
         creator = info.context.user
-        beneficiary_ids = event_data.pop("beneficiaries")
-        Event.objects.filter(pk=id).update(**event_data)
-        event = Event.objects.get(pk=id)
-        if not event.folder or event.folder is None:
-            folder = Folder.objects.create(name=str(event.id)+'_'+event.title,creator=creator)
-            Event.objects.filter(pk=id).update(folder=folder)
-        if not image and event.image:
-            image_file = event.image
+        beneficiary_ids = transmission_event_data.pop("beneficiaries")
+        TransmissionEvent.objects.filter(pk=id).update(**transmission_event_data)
+        transmission_event = TransmissionEvent.objects.get(pk=id)
+        if not transmission_event.folder or transmission_event.folder is None:
+            folder = Folder.objects.create(name=str(transmission_event.id)+'_'+transmission_event.title,creator=creator)
+            TransmissionEvent.objects.filter(pk=id).update(folder=folder)
+        if not image and transmission_event.image:
+            image_file = transmission_event.image
             image_file.delete()
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
-                image_file = event.image
+                image_file = transmission_event.image
                 if not image_file:
                     image_file = File()
                     image_file.creator = creator
                 image_file.image = image
                 image_file.save()
-                event.image = image_file
-            event.save()
-        if not event.employee:
-            event.employee = creator.getEmployeeInCompany()
-            event.save()
-        EventBeneficiary.objects.filter(event=event).exclude(beneficiary__id__in=beneficiary_ids).delete()
+                transmission_event.image = image_file
+            transmission_event.save()
+        if not transmission_event.employee:
+            transmission_event.employee = creator.getEmployeeInCompany()
+            transmission_event.save()
+        TransmissionEventBeneficiary.objects.filter(transmission_event=transmission_event).exclude(beneficiary__id__in=beneficiary_ids).delete()
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:
             try:
-                event_beneficiary = EventBeneficiary.objects.get(beneficiary__id=beneficiary.id, event__id=event.id)
-            except EventBeneficiary.DoesNotExist:
-                EventBeneficiary.objects.create(
-                        event=event,
+                transmission_event_beneficiary = TransmissionEventBeneficiary.objects.get(beneficiary__id=beneficiary.id, transmission_event__id=transmission_event.id)
+            except TransmissionEventBeneficiary.DoesNotExist:
+                TransmissionEventBeneficiary.objects.create(
+                        transmission_event=transmission_event,
                         beneficiary=beneficiary,
                         creator=creator
                     )
-        return UpdateEvent(event=event)
+        return UpdateTransmissionEvent(transmission_event=transmission_event)
 
-class UpdateEventState(graphene.Mutation):
+class UpdateTransmissionEventState(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
 
-    event = graphene.Field(EventType)
+    transmission_event = graphene.Field(TransmissionEventType)
     done = graphene.Boolean()
     success = graphene.Boolean()
     message = graphene.String()
 
-    def mutate(root, info, id, event_fields=None):
+    def mutate(root, info, id, transmission_event_fields=None):
         creator = info.context.user
         done = True
         success = True
-        event = None
+        transmission_event = None
         message = ''
         try:
-            event = Event.objects.get(pk=id)
-            Event.objects.filter(pk=id).update(is_active=not event.is_active)
-            event.refresh_from_db()
+            transmission_event = TransmissionEvent.objects.get(pk=id)
+            TransmissionEvent.objects.filter(pk=id).update(is_active=not transmission_event.is_active)
+            transmission_event.refresh_from_db()
         except Exception as e:
             done = False
             success = False
-            event=None
+            transmission_event=None
             message = "Une erreur s'est produite."
-        return UpdateEventState(done=done, success=success, message=message,event=event)
+        return UpdateTransmissionEventState(done=done, success=success, message=message,transmission_event=transmission_event)
 
 
-class DeleteEvent(graphene.Mutation):
+class DeleteTransmissionEvent(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
 
-    event = graphene.Field(EventType)
+    transmission_event = graphene.Field(TransmissionEventType)
     id = graphene.ID()
     deleted = graphene.Boolean()
     success = graphene.Boolean()
@@ -293,13 +287,13 @@ class DeleteEvent(graphene.Mutation):
         message = ''
         current_user = info.context.user
         if current_user.is_superuser:
-            event = Event.objects.get(pk=id)
-            event.delete()
+            transmission_event = TransmissionEvent.objects.get(pk=id)
+            transmission_event.delete()
             deleted = True
             success = True
         else:
             message = "Vous n'êtes pas un Superuser."
-        return DeleteEvent(deleted=deleted, success=success, message=message, id=id)
+        return DeleteTransmissionEvent(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
 
@@ -400,10 +394,10 @@ class DeleteBeneficiaryAbsence(graphene.Mutation):
         
 #*************************************************************************#
 class ActivitiesMutation(graphene.ObjectType):
-    create_event = CreateEvent.Field()
-    update_event = UpdateEvent.Field()
-    update_event_state = UpdateEventState.Field()
-    delete_event = DeleteEvent.Field()
+    create_transmission_event = CreateTransmissionEvent.Field()
+    update_transmission_event = UpdateTransmissionEvent.Field()
+    update_transmission_event_state = UpdateTransmissionEventState.Field()
+    delete_transmission_event = DeleteTransmissionEvent.Field()
 
     create_beneficiary_absence = CreateBeneficiaryAbsence.Field()
     update_beneficiary_absence = UpdateBeneficiaryAbsence.Field()
