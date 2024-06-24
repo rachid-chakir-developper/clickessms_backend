@@ -110,6 +110,11 @@ class EmployeeGroupItem(models.Model):
 
     # Create your models here.
 class EmployeeContract(models.Model):
+
+    CONTRACT_TYPES = [
+        ("CDI", "CDI"),
+        ("CDD", "CDD"),
+    ]
     number = models.CharField(max_length=255, editable=False, null=True)
     title = models.CharField(max_length=255, null=True)
     document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='employee_contrat_doucument', null=True)
@@ -122,7 +127,7 @@ class EmployeeContract(models.Model):
     annual_leave_days = models.FloatField(default=25)
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
-    contract_type = models.ForeignKey('data_management.EmployeeContractType', on_delete=models.SET_NULL, null=True)
+    contract_type = models.CharField(max_length=50, choices=CONTRACT_TYPES, default= "CDI")
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_contracts', null=True)
     is_active = models.BooleanField(default=True, null=True)
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)

@@ -197,7 +197,7 @@ class EmployeeContractInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     establishments = graphene.List(graphene.Int, required=False)
-    contract_type_id = graphene.Int(name="contractType", required=False)
+    contract_type = graphene.String(required=False)
     employee_id = graphene.Int(name="employee", required=False)
 
 class BeneficiaryAdmissionDocumentInput(graphene.InputObjectType):
