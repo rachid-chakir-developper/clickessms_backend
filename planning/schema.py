@@ -20,7 +20,10 @@ class EmployeeAbsenceType(DjangoObjectType):
     class Meta:
         model = EmployeeAbsence
         fields = "__all__"
+    document = graphene.String()
     duration = graphene.Float()
+    def resolve_document( instance, info, **kwargs ):
+        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
     def resolve_duration(instance, info, **kwargs):
         return instance.duration
 
@@ -39,10 +42,10 @@ class EmployeeAbsenceInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     title = graphene.String(required=False)
-    absence_type = graphene.String(required=False)
     leave_type = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    message = graphene.String(required=False)
     comment = graphene.String(required=False)
     observation = graphene.String(required=False)
     employee_id = graphene.Int(name="employee", required=False)
@@ -98,10 +101,11 @@ class PlanningQuery(graphene.ObjectType):
 class CreateEmployeeAbsence(graphene.Mutation):
     class Arguments:
         employee_absence_data = EmployeeAbsenceInput(required=True)
+        document = Upload(required=False)
 
     employee_absence = graphene.Field(EmployeeAbsenceType)
 
-    def mutate(root, info, employee_absence_data=None):
+    def mutate(root, info, document=None, employee_absence_data=None):
         creator = info.context.user
         employee_ids = employee_absence_data.pop("employees")
         reason_ids = employee_absence_data.pop("reasons")
@@ -110,6 +114,16 @@ class CreateEmployeeAbsence(graphene.Mutation):
         employee_absence.company = creator.current_company if creator.current_company is not None else creator.company
         folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.title,creator=creator)
         employee_absence.folder = folder
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = employee_absence.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                employee_absence.document = document_file
         employee_absence.save()
         if not employee_absence.employee:
             employee_absence.employee = creator.getEmployeeInCompany()
@@ -133,10 +147,11 @@ class UpdateEmployeeAbsence(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
         employee_absence_data = EmployeeAbsenceInput(required=True)
+        document = Upload(required=False)
 
     employee_absence = graphene.Field(EmployeeAbsenceType)
 
-    def mutate(root, info, id, image=None, employee_absence_data=None):
+    def mutate(root, info, id, document=None, employee_absence_data=None):
         creator = info.context.user
         employee_ids = employee_absence_data.pop("employees")
         reason_ids = employee_absence_data.pop("reasons")
@@ -145,6 +160,20 @@ class UpdateEmployeeAbsence(graphene.Mutation):
         if not employee_absence.folder or employee_absence.folder is None:
             folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.title,creator=creator)
             EmployeeAbsence.objects.filter(pk=id).update(folder=folder)
+        if not document and employee_absence.document:
+            document_file = employee_absence.document
+            document_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = employee_absence.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                employee_absence.document = document_file
+            employee_absence.save()
         if not employee_absence.employee:
             employee_absence.employee = creator.getEmployeeInCompany()
             employee_absence.save()

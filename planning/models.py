@@ -2,16 +2,15 @@ from django.db import models
 
 # Create your models here.
 class EmployeeAbsence(models.Model):
-	ABSENCE_TYPES = [
-        ('ABSENCE', 'Absence'),
-        ('LEAVE', 'Congé'),
-    ]
 	LEAVE_TYPE_CHOICES = [
+        ('PAID', 'Congés payés (CP)'),
+        ('UNPAID', 'Congé Sans Solde'),
+        ('RWT', 'Temps de Travail Réduit (RTT)'),
+        ('TEMPORARY', 'Congé Temporaire (CT)'),
         ('ANNUAL', 'Congé Annuel'),
         ('SICK', 'Congé Maladie'),
         ('MATERNITY', 'Congé Maternité'),
         ('PATERNITY', 'Congé Paternité'),
-        ('UNPAID', 'Congé Sans Solde'),
         ('PARENTAL', 'Congé Parental'),
         ('BEREAVEMENT', 'Congé de Décès'),
         ('MARRIAGE', 'Congé de Mariage'),
@@ -31,11 +30,11 @@ class EmployeeAbsence(models.Model):
 	ending_date_time = models.DateTimeField(null=True)
 	reasons = models.ManyToManyField('data_management.AbsenceReason', related_name='employee_absences')
 	other_reasons = models.CharField(max_length=255, null=True)
+	message = models.TextField(default='', null=True)
 	comment = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_absences', null=True)
-	absence_type = models.CharField(max_length=50, choices=ABSENCE_TYPES, default='ABSENCE')
 	leave_type = models.CharField(max_length=50, choices=LEAVE_TYPE_CHOICES, default='ABSENCE')
 	status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='PENDING')
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='employee_absences', null=True)

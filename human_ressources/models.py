@@ -121,10 +121,13 @@ class EmployeeContract(models.Model):
     starting_date = models.DateTimeField(null=True)
     ending_date = models.DateTimeField(null=True)
     position = models.CharField(max_length=255, null=True)
-    salary = models.FloatField(null=True)
+    monthly_gross_salary = models.DecimalField("Monthly Gross Salary", max_digits=10, decimal_places=2, default=0.0)
+    salary = models.DecimalField("Annual Gross Salary", max_digits=10, decimal_places=2, help_text="Optional if Monthly Gross Salary is provided", null=True, blank=True)
     started_at = models.DateTimeField(null=True)
     ended_at = models.DateTimeField(null=True)
-    annual_leave_days = models.FloatField(default=25)
+    initial_annual_leave_days = models.DecimalField("Initial Annual Leave Days (CP)", max_digits=5, decimal_places=2, default=25.0)
+    initial_rtt_days = models.DecimalField("Initial RTT Days", max_digits=5, decimal_places=2, default=10.0)
+    initial_ct_days = models.DecimalField("Initial Temporary Leave Days (CT)", max_digits=5, decimal_places=2, default=5.0)
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
     contract_type = models.CharField(max_length=50, choices=CONTRACT_TYPES, default= "CDI")
@@ -143,7 +146,7 @@ class EmployeeContract(models.Model):
         absences = EmployeeAbsenceItem.objects.filter(employee=self.employee, employee_absence__starting_date_time__year=current_year)
         total_days_taken = sum((absence.employee_absence.ending_date_time - absence.employee_absence.starting_date_time).days + 1
             for absence in absences if absence.employee_absence.starting_date_time and absence.employee_absence.ending_date_time)
-        remaining_days = self.annual_leave_days - total_days_taken
+        remaining_days = self.initial_annual_leave_days - total_days_taken
         return remaining_days
 
     def __str__(self):
