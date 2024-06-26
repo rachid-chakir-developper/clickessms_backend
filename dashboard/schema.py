@@ -9,6 +9,7 @@ from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncDate
 
 from works.schema import TaskType
+from human_ressources.schema import EmployeeType
 
 from works.models import Task, STATUS_All
 
@@ -44,6 +45,7 @@ class DashboardType(graphene.ObjectType):
     tasks_week = graphene.List(TasksWeekType)
     task_percent = graphene.List(TaskPercentType)
     tasks = graphene.List(TaskType)
+    current_employee = graphene.Field(EmployeeType)
     def resolve_budget_month(instance, info, **kwargs):
         user = info.context.user
         today = datetime.date.today()
@@ -98,6 +100,11 @@ class DashboardType(graphene.ObjectType):
         tasks = tasks.filter(starting_date_time__range=(today_start, today_end))
         tasks = tasks.order_by('starting_date_time')
         return tasks
+
+    def resolve_current_employee(root, info, **kwargs):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        return user.getEmployeeInCompany(company=user.current_company or user.company)
 
 class DashboardQuery(graphene.ObjectType):
     dashboard = graphene.Field(DashboardType)

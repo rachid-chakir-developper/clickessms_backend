@@ -15,16 +15,35 @@ class EmployeeContractEstablishmentType(DjangoObjectType):
         model = EmployeeContractEstablishment
         fields = "__all__"
 
+class EmployeeLeaveDayInfosType(graphene.ObjectType):
+    rest_paid_leave_days = graphene.Float()
+    acquired_paid_leave_days_by_month = graphene.Decimal()
+    acquired_paid_leave_days = graphene.Decimal()
+    being_acquired_paid_leave_days = graphene.Decimal()
+    reported_paid_leave_days_per_year = graphene.JSONString()
+    total_reported_paid_leave_days = graphene.Decimal()
+    rest_rwt_leave_days = graphene.Float()
+    rest_temporary_leave_days = graphene.Float()
+
 class EmployeeContractType(DjangoObjectType):
     class Meta:
         model = EmployeeContract
         fields = "__all__"
     document = graphene.String()
-    rest_leave_days = graphene.Float()
+    leave_day_infos = graphene.Field(EmployeeLeaveDayInfosType)
     def resolve_document( instance, info, **kwargs ):
         return instance.document and info.context.build_absolute_uri(instance.document.file.url)
-    def resolve_rest_leave_days( instance, info, **kwargs ):
-        return instance.rest_leave_days
+    def resolve_leave_day_infos( instance, info, **kwargs ):
+        return EmployeeLeaveDayInfosType(
+            rest_paid_leave_days=instance.rest_paid_leave_days,
+            acquired_paid_leave_days_by_month=instance.acquired_paid_leave_days_by_month,
+            acquired_paid_leave_days=instance.acquired_paid_leave_days,
+            being_acquired_paid_leave_days=instance.being_acquired_paid_leave_days,
+            reported_paid_leave_days_per_year=instance.get_reported_paid_leave_days_per_year(),
+            total_reported_paid_leave_days=instance.total_reported_paid_leave_days,
+            rest_rwt_leave_days=instance.rest_rwt_leave_days,
+            rest_temporary_leave_days=instance.rest_temporary_leave_days,
+            )
 
 class EmployeeContractNodeType(graphene.ObjectType):
     nodes = graphene.List(EmployeeContractType)
@@ -193,9 +212,9 @@ class EmployeeContractInput(graphene.InputObjectType):
     ending_date = graphene.DateTime(required=False)
     started_at = graphene.DateTime(required=False)
     ended_at = graphene.DateTime(required=False)
-    initial_annual_leave_days = graphene.Decimal(required=False)
-    initial_rtt_days = graphene.Decimal(required=False)
-    initial_ct_days = graphene.Decimal(required=False)
+    initial_paid_leave_days = graphene.Decimal(required=False)
+    initial_rwt_days = graphene.Decimal(required=False)
+    initial_temporary_days = graphene.Decimal(required=False)
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)

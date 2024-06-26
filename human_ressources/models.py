@@ -1,7 +1,8 @@
 from django.db import models
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import random
-from django.utils.timezone import now
+from django.utils import timezone
+from decimal import Decimal, ROUND_HALF_UP
 from planning.models import EmployeeAbsenceItem
 
 # Create your models here.
@@ -71,7 +72,7 @@ class Employee(models.Model):
 
     @property
     def current_contract(self):
-        current_time = now()
+        current_time = timezone.now()
         contracts = self.employee_contracts.filter(starting_date__lte=current_time)
         current_contracts = contracts.filter(models.Q(ending_date__isnull=True) | models.Q(ending_date__gte=current_time))
         if current_contracts.exists():
@@ -125,9 +126,9 @@ class EmployeeContract(models.Model):
     salary = models.DecimalField("Annual Gross Salary", max_digits=10, decimal_places=2, help_text="Optional if Monthly Gross Salary is provided", null=True, blank=True)
     started_at = models.DateTimeField(null=True)
     ended_at = models.DateTimeField(null=True)
-    initial_annual_leave_days = models.DecimalField("Initial Annual Leave Days (CP)", max_digits=5, decimal_places=2, default=25.0)
-    initial_rtt_days = models.DecimalField("Initial RTT Days", max_digits=5, decimal_places=2, default=10.0)
-    initial_ct_days = models.DecimalField("Initial Temporary Leave Days (CT)", max_digits=5, decimal_places=2, default=5.0)
+    initial_paid_leave_days = models.DecimalField("Initial Annual Leave Days (CP)", max_digits=5, decimal_places=2, default=25.0)
+    initial_rwt_days = models.DecimalField("Initial RTT Days", max_digits=5, decimal_places=2, default=10.0)
+    initial_temporary_days = models.DecimalField("Initial Temporary Leave Days (CT)", max_digits=5, decimal_places=2, default=5.0)
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
     contract_type = models.CharField(max_length=50, choices=CONTRACT_TYPES, default= "CDI")
@@ -140,15 +141,107 @@ class EmployeeContract(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     @property
-    def rest_leave_days(self):
+    def rest_paid_leave_days(self):
         # il faut revoir ça pour calculer aussi les jours reportés
-        current_year = now().year
-        absences = EmployeeAbsenceItem.objects.filter(employee=self.employee, employee_absence__starting_date_time__year=current_year)
-        total_days_taken = sum((absence.employee_absence.ending_date_time - absence.employee_absence.starting_date_time).days + 1
-            for absence in absences if absence.employee_absence.starting_date_time and absence.employee_absence.ending_date_time)
-        remaining_days = self.initial_annual_leave_days - total_days_taken
+        today = timezone.now().date()
+        current_year = today.year
+        acquisition_start = date(current_year if today.month >= 6 else current_year - 1, 6, 1)
+        acquisition_end = date(current_year if today.month >= 6 else current_year - 1, 5, 31) + timedelta(days=365)
+        absences_in_period = EmployeeAbsenceItem.objects.filter(
+            employee=self.employee,
+            employee_absence__leave_type='PAID',
+            employee_absence__status='APPROVED',
+            employee_absence__starting_date_time__gte=acquisition_start,
+            employee_absence__ending_date_time__lte=acquisition_end
+        )
+        total_days_taken = sum(absence.employee_absence.duration for absence in absences_in_period)
+        remaining_days = self.initial_paid_leave_days - total_days_taken
         return remaining_days
 
+    @property
+    def rest_rwt_leave_days(self):
+        # il faut revoir ça pour calculer aussi les jours reportés
+        current_year = timezone.now().year
+        absences_in_period = EmployeeAbsenceItem.objects.filter(
+            employee=self.employee,
+            employee_absence__leave_type='RWT',
+            employee_absence__status='APPROVED',
+            employee_absence__starting_date_time__year=current_year
+        )
+        total_days_taken = sum(absence.employee_absence.duration for absence in absences_in_period)
+        remaining_days = self.initial_rwt_days - total_days_taken
+        return remaining_days
+
+    @property
+    def rest_temporary_leave_days(self):
+        # il faut revoir ça pour calculer aussi les jours reportés
+        current_year = timezone.now().year
+        absences_in_period = EmployeeAbsenceItem.objects.filter(
+            employee=self.employee,
+            employee_absence__leave_type='TEMPORARY',
+            employee_absence__status='APPROVED',
+            employee_absence__starting_date_time__year=current_year
+        )
+        total_days_taken = sum(absence.employee_absence.duration for absence in absences_in_period)
+        remaining_days = self.initial_temporary_days - total_days_taken
+        return remaining_days
+    @property
+    def acquired_paid_leave_days_by_month(self):
+        return Decimal(self.initial_paid_leave_days / 12).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+    @property
+    def acquired_paid_leave_days(self):
+        today = timezone.now().date()
+        if today.month < 6:
+            acquisition_start = date(today.year - 1, 6, 1)
+        else:
+            acquisition_start = date(today.year, 6, 1)
+        acquisition_end = today
+        months_in_acquisition_period = ((today.year - acquisition_start.year) * 12 + today.month - acquisition_start.month)
+        if today.day == 1:
+           months_in_acquisition_period -= 1
+        days_per_month_acquisition = self.initial_paid_leave_days / 12
+        acquired_paid_leave_days = months_in_acquisition_period * days_per_month_acquisition
+        return Decimal(acquired_paid_leave_days).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+    @property
+    def being_acquired_paid_leave_days(self):
+        return Decimal(self.initial_paid_leave_days - self.acquired_paid_leave_days).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+    def get_reported_paid_leave_days_per_year(self):
+        reported_paid_leave_days_per_year = {}
+        current_date = timezone.now().date()
+        start_date = self.starting_date.date()
+        acquisition_start_year = start_date.year if start_date.month >= 6 else start_date.year - 1
+        acquisition_start = date(acquisition_start_year, 6, 1)
+        reported_paid_leave_days = 0
+        while acquisition_start < current_date:
+            acquisition_end = date(acquisition_start.year + 1, 5, 31)
+            if self.ending_date and self.ending_date.date() < acquisition_end:
+                acquisition_end = self.ending_date.date()
+            if acquisition_end > current_date:
+                break
+            months_in_period = ((acquisition_end.year - acquisition_start.year) * 12 + acquisition_end.month - acquisition_start.month) + 1
+            days_per_month_acquisition = Decimal(self.initial_paid_leave_days) / 12
+            acquired_paid_leave_days = months_in_period * days_per_month_acquisition
+            absences_in_period = EmployeeAbsenceItem.objects.filter(
+                employee=self.employee,
+                employee_absence__leave_type='PAID',
+                employee_absence__status='APPROVED',
+                employee_absence__starting_date_time__gte=acquisition_start,
+                employee_absence__ending_date_time__lte=acquisition_end
+            )
+            days_taken = sum(absence.employee_absence.duration for absence in absences_in_period)
+            remaining_days = acquired_paid_leave_days - days_taken
+            remaining_days += reported_paid_leave_days
+            rounded_remaining_days = Decimal(remaining_days).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+            if rounded_remaining_days == rounded_remaining_days.to_integral():
+                rounded_remaining_days = int(rounded_remaining_days)
+            reported_paid_leave_days_per_year[f"{acquisition_start.year}-{acquisition_start.year + 1}"] = rounded_remaining_days
+            acquisition_start = date(acquisition_start.year + 1, 6, 1)
+            reported_paid_leave_days = 0
+        return reported_paid_leave_days_per_year
+    @property
+    def total_reported_paid_leave_days(self):
+        reported_paid_leave_days = self.get_reported_paid_leave_days_per_year()
+        return Decimal(sum(reported_paid_leave_days.values())).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
     def __str__(self):
         return str(self.id)
 

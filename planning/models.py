@@ -1,4 +1,6 @@
 from django.db import models
+from datetime import timedelta, date
+import holidays
 
 # Create your models here.
 class EmployeeAbsence(models.Model):
@@ -49,8 +51,18 @@ class EmployeeAbsence(models.Model):
 	@property
 	def duration(self):
 		if self.starting_date_time and self.ending_date_time:
-			delta = self.ending_date_time - self.starting_date_time
-			return delta.days + 1 if delta.days >= 0 else 0
+			start_date = self.starting_date_time.date()
+			end_date = self.ending_date_time.date()
+			if end_date < start_date:
+				return 0
+			fr_holidays = holidays.France(years=range(start_date.year, end_date.year + 1))
+			total_days = 0
+			current_date = start_date
+			while current_date <= end_date:
+				if current_date.weekday() < 5 and current_date not in fr_holidays:
+					total_days += 1
+				current_date += timedelta(days=1)
+			return total_days
 		return 0
 
 	def __str__(self):
