@@ -368,7 +368,7 @@ class WorksQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        task_actions = TaskAction.objects.filter(company=company)
+        task_actions = TaskAction.objects.filter(company=company, employees=user.getEmployeeInCompany())
         if task_action_filter:
             keyword = task_action_filter.get('keyword', '')
             starting_date_time = task_action_filter.get('starting_date_time')
@@ -382,7 +382,7 @@ class WorksQuery(graphene.ObjectType):
                 task_actions = task_actions.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
                 task_actions = task_actions.filter(starting_date_time__lte=ending_date_time)
-        task_actions = task_actions.order_by('-created_at')
+        task_actions = task_actions.order_by('-due_date')
         total_count = task_actions.count()
         if page:
             offset = limit * (page - 1)

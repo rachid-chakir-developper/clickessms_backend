@@ -8,10 +8,12 @@ from django.conf import settings
 from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncDate
 
-from works.schema import TaskType
+from works.schema import TaskType,TaskActionType
 from human_ressources.schema import EmployeeType
+from qualities.schema import UndesirableEventType
 
-from works.models import Task, STATUS_All
+from works.models import Task, STATUS_All, TaskAction
+from qualities.models import UndesirableEvent
 
 class BudgetTaskType(graphene.ObjectType):
     name = graphene.String()
@@ -19,6 +21,10 @@ class BudgetTaskType(graphene.ObjectType):
     spendings = graphene.Float()
 
 class TaskPercentType(graphene.ObjectType):
+    label = graphene.String()
+    value = graphene.Float()
+
+class UndesirableEventPercentType(graphene.ObjectType):
     label = graphene.String()
     value = graphene.Float()
 
@@ -38,6 +44,10 @@ class TasksWeekType(graphene.ObjectType):
     day = graphene.String()
     count = graphene.Float()
 
+class UndesirableEventsWeekType(graphene.ObjectType):
+    day = graphene.String()
+    count = graphene.Float()
+
 class DashboardType(graphene.ObjectType):
     budget_month = graphene.Field(BudgetMonthType)
     spendings_month = graphene.Field(SpendingsMonthType)
@@ -45,6 +55,10 @@ class DashboardType(graphene.ObjectType):
     tasks_week = graphene.List(TasksWeekType)
     task_percent = graphene.List(TaskPercentType)
     tasks = graphene.List(TaskType)
+    task_actions = graphene.List(TaskActionType)
+    undesirable_events = graphene.List(UndesirableEventType)
+    undesirable_event_percent = graphene.List(UndesirableEventPercentType)
+    undesirable_events_week = graphene.List(UndesirableEventsWeekType)
     current_employee = graphene.Field(EmployeeType)
     def resolve_budget_month(instance, info, **kwargs):
         user = info.context.user
@@ -85,6 +99,20 @@ class DashboardType(graphene.ObjectType):
         for task in tasks:
             tasks_week[task['day'].weekday()].count = task['count']
         return tasks_week
+        
+    def resolve_undesirable_events_week ( instance, info, **kwargs ):
+        date = datetime.date.today()
+        start_week = date - datetime.timedelta(date.weekday())
+        end_week = start_week + datetime.timedelta(7)
+        undesirable_events_week = []
+        for i, day in enumerate(settings.DAYS):
+            item = UndesirableEventsWeekType(day = day,  count = 0)
+            undesirable_events_week.append(item)
+        undesirable_events = UndesirableEvent.objects.filter(starting_date_time__range=[start_week, end_week]).annotate(day=TruncDate('starting_date_time')).values('day').annotate(count=Count("status"))
+        for undesirable_event in undesirable_events:
+            undesirable_events_week[undesirable_event['day'].weekday()].count = undesirable_event['count']
+        return undesirable_events_week
+
 
     def resolve_task_percent(instance, info, **kwargs):
         task_percent = Task.objects.all().values('status').annotate(value=Count('status'))
@@ -100,6 +128,18 @@ class DashboardType(graphene.ObjectType):
         tasks = tasks.filter(starting_date_time__range=(today_start, today_end))
         tasks = tasks.order_by('starting_date_time')
         return tasks
+
+    def resolve_task_actions(root, info, **kwargs):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        return TaskAction.objects.filter(company=user.current_company or user.company, employees=user.getEmployeeInCompany()).exclude(status="DONE").order_by('-due_date')[0:10]
+
+    def resolve_undesirable_events(root, info, **kwargs):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        undesirable_events = UndesirableEvent.objects.filter(company=user.current_company or user.company, status="NEW")
+        undesirable_events = undesirable_events.order_by('-created_at')
+        return undesirable_events
 
     def resolve_current_employee(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
