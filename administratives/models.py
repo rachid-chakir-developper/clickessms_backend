@@ -1,7 +1,9 @@
 from django.db import models
 from datetime import datetime
+from django.utils import timezone
 import random
 from data_management.models import PhoneNumber, HomeAddress
+from qualities.models import UndesirableEvent
 
 # Create your models here.
 class Call(models.Model):
@@ -17,6 +19,7 @@ class Call(models.Model):
 	duration = models.FloatField(null=True)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
+	is_create_undesirable_event_from = models.BooleanField(default=False, null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_calls', null=True)
@@ -25,7 +28,22 @@ class Call(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
-    
+
+	def create_undesirable_event(self):
+		if self.is_create_undesirable_event_from and (not self.undesirable_events or self.undesirable_events is None):
+			undesirable_event = UndesirableEvent.objects.create(
+				title=f"Événement créé à partir d'un appel {self.title}",
+				starting_date_time=timezone.now(),
+				ending_date_time=timezone.now() + timezone.timedelta(hours=1),
+				call=self,
+				company=self.company,
+				creator=self.creator,
+				employee=self.employee,
+				)
+			self.save()
+			return undesirable_event
+		return None
+
 	def save(self, *args, **kwargs):
 	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
 	    if not self.number:

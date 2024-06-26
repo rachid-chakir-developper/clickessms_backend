@@ -11,6 +11,8 @@ from data_management.models import MeetingReason, TypeMeeting
 from medias.models import Folder, File
 from companies.models import Establishment
 from human_ressources.models import Employee, Beneficiary
+from qualities.models import UndesirableEvent
+from qualities.schema import UndesirableEventType
 
 class CallEstablishmentType(DjangoObjectType):
     class Meta:
@@ -29,6 +31,9 @@ class CallerType(DjangoObjectType):
     class Meta:
         model = Caller
         fields = "__all__"
+    undesirable_event = graphene.Field(UndesirableEventType)
+    def resolve_undesirable_event(instance, info, **kwargs):
+        return instance.undesirable_events.first()
 
 class CallType(DjangoObjectType):
     class Meta:
@@ -144,6 +149,7 @@ class CallInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
+    is_create_undesirable_event_from = graphene.Boolean(required=False)
     employee_id = graphene.Int(name="employee", required=False)
     establishments = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)

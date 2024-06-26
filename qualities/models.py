@@ -45,6 +45,7 @@ class UndesirableEvent(models.Model):
 	normal_types = models.ManyToManyField('data_management.UndesirableEventNormalType', related_name='normal_type_undesirable_events')
 	serious_types = models.ManyToManyField('data_management.UndesirableEventSeriousType', related_name='serious_type_undesirable_events')
 	frequency = models.ForeignKey('data_management.UndesirableEventFrequency', on_delete=models.SET_NULL, related_name='frequency_undesirable_events', null=True)
+	call = models.ForeignKey('administratives.Call', on_delete=models.SET_NULL, null=True, related_name='undesirable_events')
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_undesirable_events', null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_undesirable_events', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
