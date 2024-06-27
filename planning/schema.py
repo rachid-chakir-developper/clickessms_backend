@@ -126,7 +126,7 @@ class CreateEmployeeAbsence(graphene.Mutation):
                 employee_absence.document = document_file
         employee_absence.save()
         if not employee_absence.employee:
-            employee_absence.employee = creator.getEmployeeInCompany()
+            employee_absence.employee = creator.get_employee_in_company()
         if reason_ids and reason_ids is not None:
             reasons = AbsenceReason.objects.filter(id__in=reason_ids)
             employee_absence.reasons.set(reasons)
@@ -175,7 +175,7 @@ class UpdateEmployeeAbsence(graphene.Mutation):
                 employee_absence.document = document_file
             employee_absence.save()
         if not employee_absence.employee:
-            employee_absence.employee = creator.getEmployeeInCompany()
+            employee_absence.employee = creator.get_employee_in_company()
             employee_absence.save()
 
         if reason_ids and reason_ids is not None:

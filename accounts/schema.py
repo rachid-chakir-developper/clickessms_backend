@@ -10,7 +10,7 @@ from django.contrib.auth.models import Group, Permission
 
 from django.db.models import Q
 
-from accounts.models import User, UserCompany, Device
+from accounts.models import Role, User, UserCompany, Device
 from medias.models import File
 
 from human_ressources.schema import EmployeeType
@@ -18,6 +18,11 @@ from partnerships.schema import PartnerType, FinancierType
 from purchases.schema import SupplierType
 
 from accounts.broadcaster import broadcastUserUpdated, broadcastUserCurrentLocalisationAsked
+
+class RoleType(DjangoObjectType):
+    class Meta:
+        model = Role
+        fields = "__all__"
 
 class UserCompanyType(DjangoObjectType):
     class Meta:
@@ -35,6 +40,7 @@ class UserType(DjangoObjectType):
     archived = graphene.Boolean()
     verified = graphene.Boolean()
     secondary_email = graphene.String()
+    roles = graphene.List(graphene.String)
     employee = graphene.Field(EmployeeType)
     partner = graphene.Field(PartnerType)
     financier = graphene.Field(FinancierType)
@@ -52,18 +58,25 @@ class UserType(DjangoObjectType):
         return instance.status.verified
     def resolve_secondary_email(instance, info):
         return instance.status.secondary_email
+    def resolve_roles(instance, info):
+        user = info.context.user
+        roles = instance.get_roles_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.roles
+        if len(roles) > 0:
+            return [role.name for role in roles]
+        else:
+            return ['SUPER_ADMIN'] if instance.is_superuser else ['EMPLOYEE']
     def resolve_employee(instance, info):
         user = info.context.user
-        return instance.getEmployeeInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.employee
+        return instance.get_employee_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.employee
     def resolve_partner(instance, info):
         user = info.context.user
-        return instance.getPartnerInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.partner
+        return instance.get_partner_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.partner
     def resolve_financier(instance, info):
         user = info.context.user
-        return instance.getFinancierInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.financier
+        return instance.get_financier_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.financier
     def resolve_supplier(instance, info):
         user = info.context.user
-        return instance.getSupplierInCompany(company=user.current_company or user.company) if user.is_authenticated else instance.supplier
+        return instance.get_supplier_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.supplier
     def resolve_companies(instance, info):
         return instance.managed_companies.all()
 
@@ -262,13 +275,13 @@ class CreateUser(graphene.Mutation):
         user.company = creator.company
         user.save()
         if employee_id:
-            user.setEmployeeForCompany(employee_id=employee_id)
+            user.set_employee_for_company(employee_id=employee_id)
         if partner_id:
-            user.setPartnerForCompany(partner_id=partner_id)
+            user.set_partner_for_company(partner_id=partner_id)
         if financier_id:
-            user.setFinancierForCompany(financier_id=financier_id)
+            user.set_financier_for_company(financier_id=financier_id)
         if supplier_id:
-            user.setSupplierForCompany(supplier_id=supplier_id)
+            user.set_supplier_for_company(supplier_id=supplier_id)
         if user_groups is not None:
             groups = Group.objects.filter(id__in=user_groups)
             user.groups.set(groups)
@@ -329,10 +342,10 @@ class UpdateUser(graphene.Mutation):
             raise ValueError("Les mots de passe ne correspondent pas")
         User.objects.filter(pk=id).update(**user_data)
         user = User.objects.get(pk=id)
-        user.setEmployeeForCompany(employee_id=employee_id)
-        user.setPartnerForCompany(partner_id=partner_id)
-        user.setFinancierForCompany(financier_id=financier_id)
-        user.setSupplierForCompany(supplier_id=supplier_id)
+        user.set_employee_for_company(employee_id=employee_id)
+        user.set_partner_for_company(partner_id=partner_id)
+        user.set_financier_for_company(financier_id=financier_id)
+        user.set_supplier_for_company(supplier_id=supplier_id)
         if user.status.verified is False:
             user.status.verified = True
             user.status.save(update_fields=["verified"])

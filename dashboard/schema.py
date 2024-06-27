@@ -95,13 +95,13 @@ class DashboardType(graphene.ObjectType):
     def resolve_tasks(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        tasks = Task.objects.filter(company=user.current_company or user.company, workers__employee=user.getEmployeeInCompany()).order_by('-created_at')
+        tasks = Task.objects.filter(company=user.current_company or user.company, workers__employee=user.get_employee_in_company()).order_by('-created_at')
         return tasks
 
     def resolve_task_actions(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        return TaskAction.objects.filter(company=user.current_company or user.company, employees=user.getEmployeeInCompany()).exclude(status="DONE").order_by('-due_date')[0:10]
+        return TaskAction.objects.filter(company=user.current_company or user.company, employees=user.get_employee_in_company()).exclude(status="DONE").order_by('-due_date')[0:10]
 
     def resolve_undesirable_events(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
@@ -113,7 +113,7 @@ class DashboardType(graphene.ObjectType):
     def resolve_current_employee(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        return user.getEmployeeInCompany(company=user.current_company or user.company)
+        return user.get_employee_in_company(company=user.current_company or user.company)
 
 class DashboardQuery(graphene.ObjectType):
     dashboard = graphene.Field(DashboardType)

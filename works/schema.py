@@ -330,7 +330,7 @@ class WorksQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        task_actions = TaskAction.objects.filter(company=company, employees=user.getEmployeeInCompany())
+        task_actions = TaskAction.objects.filter(company=company, employees=user.get_employee_in_company())
         if task_action_filter:
             keyword = task_action_filter.get('keyword', '')
             starting_date_time = task_action_filter.get('starting_date_time')
@@ -797,7 +797,7 @@ class CreateTicket(graphene.Mutation):
         folder = Folder.objects.create(name=str(ticket.id)+'_'+ticket.title,creator=creator)
         ticket.folder = folder
         if not ticket.employee:
-            ticket.employee = creator.getEmployeeInCompany()
+            ticket.employee = creator.get_employee_in_company()
         for item in task_actions:
             employees_ids = item.pop("employees") if "employees" in item else None
             task_action = TaskAction(**item)
@@ -830,7 +830,7 @@ class UpdateTicket(graphene.Mutation):
             folder = Folder.objects.create(name=str(ticket.id)+'_'+ticket.title,creator=creator)
             Ticket.objects.filter(pk=id).update(folder=folder)
         if not ticket.employee:
-            ticket.employee = creator.getEmployeeInCompany()
+            ticket.employee = creator.get_employee_in_company()
             ticket.save()
         task_action_ids = [item.id for item in task_actions if item.id is not None]
         TaskAction.objects.filter(ticket=ticket).exclude(id__in=task_action_ids).delete()

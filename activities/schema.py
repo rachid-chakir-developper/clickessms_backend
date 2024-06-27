@@ -182,7 +182,7 @@ class CreateTransmissionEvent(graphene.Mutation):
                 transmission_event.image = image_file
         transmission_event.save()
         if not transmission_event.employee:
-            transmission_event.employee = creator.getEmployeeInCompany()
+            transmission_event.employee = creator.get_employee_in_company()
         folder = Folder.objects.create(name=str(transmission_event.id)+'_'+transmission_event.title,creator=creator)
         transmission_event.folder = folder
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
@@ -229,7 +229,7 @@ class UpdateTransmissionEvent(graphene.Mutation):
                 transmission_event.image = image_file
             transmission_event.save()
         if not transmission_event.employee:
-            transmission_event.employee = creator.getEmployeeInCompany()
+            transmission_event.employee = creator.get_employee_in_company()
             transmission_event.save()
         TransmissionEventBeneficiary.objects.filter(transmission_event=transmission_event).exclude(beneficiary__id__in=beneficiary_ids).delete()
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
@@ -314,7 +314,7 @@ class CreateBeneficiaryAbsence(graphene.Mutation):
         beneficiary_absence.folder = folder
         beneficiary_absence.save()
         if not beneficiary_absence.employee:
-            beneficiary_absence.employee = creator.getEmployeeInCompany()
+            beneficiary_absence.employee = creator.get_employee_in_company()
         if reason_ids and reason_ids is not None:
             reasons = AbsenceReason.objects.filter(id__in=reason_ids)
             beneficiary_absence.reasons.set(reasons)
@@ -348,7 +348,7 @@ class UpdateBeneficiaryAbsence(graphene.Mutation):
             folder = Folder.objects.create(name=str(beneficiary_absence.id)+'_'+beneficiary_absence.title,creator=creator)
             BeneficiaryAbsence.objects.filter(pk=id).update(folder=folder)
         if not beneficiary_absence.employee:
-            beneficiary_absence.employee = creator.getEmployeeInCompany()
+            beneficiary_absence.employee = creator.get_employee_in_company()
             beneficiary_absence.save()
 
         if reason_ids and reason_ids is not None:

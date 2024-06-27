@@ -2,6 +2,21 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 # Create your models here.
+class Role(models.Model):
+    ROLE_CHOICES = [
+        ('ADMIN', 'Admin'),
+        ('MANAGER', 'Manager'),
+        ('QUALITY_MANAGER', 'Responsable Qualité'),
+        ('FACILITY_MANAGER', 'Responsable Services Généraux'),
+        ('EMPLOYEE', 'Employee'),
+        ('MECHANIC', 'Garagiste'),
+    ]
+    name = models.CharField(max_length=100, choices=ROLE_CHOICES, unique=True)
+    description = models.TextField(null=True, blank=True)
+    def __str__(self):
+        return self.name
+
+# Create your models here.
 class User(AbstractUser):
 
     ACCOUNT_TYPES = [
@@ -32,28 +47,30 @@ class User(AbstractUser):
     updated_at = models.DateTimeField(auto_now=True, null=True)
     number_current_openai_tokens = models.PositiveIntegerField(default=5, null=False)
 
+    roles = models.ManyToManyField(Role, related_name='users', blank=True)
+
     USERNAME_FIELD = "username"
     EMAIL_FIELD = "email"
 
-    def addCompany(self, company):
+    def add_company(self, company):
         if not self.managed_companies.filter(company=company).exists():
             UserCompany.objects.create(user=self, company=company)
             return True
         return False
 
-    def removeCompany(self, company):
+    def remove_company(self, company):
         user_company = self.managed_companies.filter(company=company).first()
         if user_company:
             user_company.delete()
             return True
         return False
 
-    def getEmployeeInCompany(self, company=None):
+    def get_employee_in_company(self, company=None):
         company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
         return user_company.employee if user_company and user_company.employee else self.employee
 
-    def setEmployeeForCompany(self, employee_id, company=None):
+    def set_employee_for_company(self, employee_id, company=None):
         from human_ressources.models import Employee
         company = company or self.current_company or self.company
         try:
@@ -64,12 +81,12 @@ class User(AbstractUser):
         user_company.employee = employee
         user_company.save()
 
-    def getPartnerInCompany(self, company=None):
+    def get_partner_in_company(self, company=None):
         company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
         return user_company.partner if user_company and user_company.partner else self.partner
 
-    def setPartnerForCompany(self, partner_id, company=None):
+    def set_partner_for_company(self, partner_id, company=None):
         from partnerships.models import Partner
         company = company or self.current_company or self.company
         try:
@@ -80,12 +97,12 @@ class User(AbstractUser):
         user_company.partner = partner
         user_company.save()
 
-    def getFinancierInCompany(self, company=None):
+    def get_financier_in_company(self, company=None):
         company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
         return user_company.financier if user_company and user_company.financier else self.financier
 
-    def setFinancierForCompany(self, financier_id, company=None):
+    def set_financier_for_company(self, financier_id, company=None):
         from partnerships.models import Financier
         company = company or self.current_company or self.company
         try:
@@ -96,12 +113,12 @@ class User(AbstractUser):
         user_company.financier = financier
         user_company.save()
 
-    def getSupplierInCompany(self, company=None):
+    def get_supplier_in_company(self, company=None):
         company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
         return user_company.supplier if user_company and user_company.supplier else self.supplier
 
-    def setSupplierForCompany(self, supplier_id, company=None):
+    def set_supplier_for_company(self, supplier_id, company=None):
         from purchases.models import Supplier
         company = company or self.current_company or self.company
         try:
@@ -112,8 +129,38 @@ class User(AbstractUser):
         user_company.supplier = supplier
         user_company.save()
 
+    def get_roles_in_company(self, company=None):
+        company = company or self.current_company or self.company
+        user_company = self.managed_companies.filter(company=company).first()
+        return user_company.roles.all() if user_company and user_company.roles else self.roles
+    def has_role_in_company(self, role_name, company=None):
+        company = company or self.current_company or self.company
+        user_company = self.managed_companies.filter(company=company).first()
+        return user_company.roles.filter(name=role_name).exists() if user_company else False
+    def add_role_in_company(self, role_name, company=None):
+        company = company or self.current_company or self.company
+        role, created = Role.objects.get_or_create(name=role_name)
+        user_company, created = self.managed_companies.get_or_create(company=company)
+        user_company.roles.add(role)
+    def remove_role_in_company(self, role_name, company=None):
+        company = company or self.current_company or self.company
+        try:
+            role = Role.objects.get(name=role_name)
+            user_company = self.managed_companies.filter(company=company).first()
+            if user_company:
+                if role in user_company.roles.all():
+                    user_company.roles.remove(role)
+                    user_company.save()
+                    return True
+        except Role.DoesNotExist:
+            return False
+        return False
+
+
 class UserCompany(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='managed_companies', null=True)
+    roles = models.ManyToManyField(Role, related_name='managed_companies', blank=True)
+
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, null=True)
     partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, null=True)
     financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True)

@@ -710,7 +710,7 @@ class CreateMeeting(graphene.Mutation):
         folder = Folder.objects.create(name=str(meeting.id)+'_'+meeting.title,creator=creator)
         meeting.folder = folder
         if not meeting.employee:
-            meeting.employee = creator.getEmployeeInCompany()
+            meeting.employee = creator.get_employee_in_company()
         if reason_ids and reason_ids is not None:
             meeting.reasons.set(reason_ids)
         if absent_participants_ids and absent_participants_ids is not None:
@@ -796,7 +796,7 @@ class UpdateMeeting(graphene.Mutation):
             folder = Folder.objects.create(name=str(meeting.id)+'_'+meeting.title,creator=creator)
             Meeting.objects.filter(pk=id).update(folder=folder)
         if not meeting.employee:
-            meeting.employee = creator.getEmployeeInCompany()
+            meeting.employee = creator.get_employee_in_company()
             meeting.save()
         if absent_participants_ids and absent_participants_ids is not None:
             meeting.absent_participants.set(absent_participants_ids)
