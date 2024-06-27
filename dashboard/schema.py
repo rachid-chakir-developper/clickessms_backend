@@ -95,7 +95,7 @@ class DashboardType(graphene.ObjectType):
     def resolve_tasks(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        tasks = Task.objects.filter(company=user.current_company or user.company, employees=user.getEmployeeInCompany()).order_by('-created_at')
+        tasks = Task.objects.filter(company=user.current_company or user.company, workers__employee=user.getEmployeeInCompany()).order_by('-created_at')
         return tasks
 
     def resolve_task_actions(root, info, **kwargs):
