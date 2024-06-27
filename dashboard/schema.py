@@ -60,33 +60,6 @@ class DashboardType(graphene.ObjectType):
     undesirable_event_percent = graphene.List(UndesirableEventPercentType)
     undesirable_events_week = graphene.List(UndesirableEventsWeekType)
     current_employee = graphene.Field(EmployeeType)
-    def resolve_budget_month(instance, info, **kwargs):
-        user = info.context.user
-        today = datetime.date.today()
-        budget_month = BudgetMonthType(
-            date=settings.MONTHS[today.month - 1],
-            budget=Task.objects.filter(starting_date_time__month=today.month).aggregate(Sum('estimated_budget'))['estimated_budget__sum'] or 0
-        )
-        return budget_month
-
-    def resolve_spendings_month(instance, info, **kwargs):
-        user = info.context.user
-        today = datetime.date.today()
-        spendings_month = SpendingsMonthType(
-            date=settings.MONTHS[today.month - 1],
-            spendings=Task.objects.filter(starting_date_time__month=today.month, status=STATUS_All['FINISHED']).aggregate(Sum('estimated_budget'))['estimated_budget__sum'] or 0
-        )
-        return spendings_month
-
-    def resolve_revenue_month(instance, info, **kwargs):
-        user = info.context.user
-        today = datetime.date.today()
-        revenue_month = RevenueMonthType(
-            date=settings.MONTHS[today.month - 1],
-            revenue=Task.objects.filter(starting_date_time__month=today.month, status=STATUS_All['FINISHED']).aggregate(Sum('total_price_ttc'))['total_price_ttc__sum'] or 0
-        )
-        return revenue_month
-
     def resolve_tasks_week ( instance, info, **kwargs ):
         date = datetime.date.today()
         start_week = date - datetime.timedelta(date.weekday())
@@ -122,11 +95,7 @@ class DashboardType(graphene.ObjectType):
     def resolve_tasks(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        tasks = Task.objects.all()
-        today_start = datetime.datetime.combine(datetime.date.today(), datetime.time.min)
-        today_end = datetime.datetime.combine(datetime.date.today(), datetime.time.max)
-        tasks = tasks.filter(starting_date_time__range=(today_start, today_end))
-        tasks = tasks.order_by('starting_date_time')
+        tasks = Task.objects.filter(company=user.current_company or user.company, employees=user.getEmployeeInCompany()).order_by('-created_at')
         return tasks
 
     def resolve_task_actions(root, info, **kwargs):

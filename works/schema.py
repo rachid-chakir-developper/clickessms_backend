@@ -7,8 +7,9 @@ from datetime import date, datetime, time
 
 from django.db.models import Q
 
-from works.models import Task, TaskWorker, TaskMaterial, TaskVehicle, TaskChecklistItem, TaskStep, STEP_TYPES_LABELS, STEP_TYPES_ALL, STATUS_All, Ticket, TaskAction
+from works.models import Task, TaskEstablishment, TaskWorker, TaskMaterial, TaskVehicle, TaskChecklistItem, TaskStep, STEP_TYPES_LABELS, STEP_TYPES_ALL, STATUS_All, Ticket, TaskAction
 from human_ressources.models import Employee
+from companies.models import Establishment
 from vehicles.models import Vehicle
 from stocks.models import Material
 from medias.models import Folder, File
@@ -56,6 +57,11 @@ class TaskChecklistItemType(DjangoObjectType):
         model = TaskChecklistItem
         fields = "__all__"
 
+class TaskEstablishmentType(DjangoObjectType):
+    class Meta:
+        model = TaskEstablishment
+        fields = "__all__"
+
 class TaskWorkerType(DjangoObjectType):
     class Meta:
         model = TaskWorker
@@ -80,29 +86,10 @@ class TaskType(DjangoObjectType):
     class Meta:
         model = Task
         fields = "__all__"
-    image = graphene.String()
-    task_checklist = graphene.List(TaskChecklistItemType)
-    workers = graphene.List(TaskWorkerType)
-    vehicles = graphene.List(TaskVehicleType)
-    materials = graphene.List(TaskMaterialType)
-    task_steps = graphene.List(TaskStepType)
-    def resolve_image( instance, info, **kwargs ):
-        return instance.image and info.context.build_absolute_uri(instance.image.image.url)
-    def resolve_task_checklist( instance, info, **kwargs ):
-        return instance.taskchecklistitem_set.all()
-    def resolve_workers( instance, info, **kwargs ):
-        return instance.taskworker_set.all()
-    def resolve_vehicles( instance, info, **kwargs ):
-        return instance.taskvehicle_set.all()
-    def resolve_materials( instance, info, **kwargs ):
-        return instance.taskmaterial_set.all()
-    def resolve_task_steps( instance, info, **kwargs ):
-        return instance.taskstep_set.all()
 
 class TaskNodeType(graphene.ObjectType):
     nodes = graphene.List(TaskType)
     total_count = graphene.Int()
-
 
 class TaskActionInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -139,7 +126,7 @@ class TaskChecklistItemInput(graphene.InputObjectType):
 class TaskInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
-    name = graphene.String(required=True)
+    name = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     estimated_budget = graphene.Float(required=False)
@@ -149,26 +136,7 @@ class TaskInput(graphene.InputObjectType):
     country = graphene.String(required=False)
     zip_code = graphene.String(required=False)
     address = graphene.String(required=False)
-    # client infos start
-    client_name = graphene.String(required=False)
-    client_task_number = graphene.String(required=False)
-    email = graphene.String(required=False)
-    mobile = graphene.String(required=False)
-    fix = graphene.String(required=False)
-    billing_address = graphene.String(required=False)
-    site_owner_name = graphene.String(required=False)
-    site_tenant_name = graphene.String(required=False)
-    # ****************************
-    # contractor infos start
-    contractor_name = graphene.String(required=False)
-    contractor_tel = graphene.String(required=False)
-    contractor_email = graphene.String(required=False)
-    # ****************************
-    # receiver infos start
-    receiver_name = graphene.String(required=False)
-    receiver_tel = graphene.String(required=False)
-    receiver_email = graphene.String(required=False)
-    # ****************************
+    additional_address = graphene.String(required=False)
     # Intérvenant Véhicules matérails infos start
     workers_infos = graphene.String(required=False)
     vehicles_infos = graphene.String(required=False)
@@ -179,15 +147,9 @@ class TaskInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     priority = graphene.String(required=False)
     work_level = graphene.String(required=False)
-    total_price_ht = graphene.Float(required=False)
-    tva = graphene.Float(required=False)
-    discount = graphene.Float(required=False)
-    total_price_ttc = graphene.Float(required=False)
-    is_display_price = graphene.Boolean(required=False)
-    is_from_quote = graphene.Boolean(required=False)
     is_active = graphene.Boolean(required=False)
     status = graphene.String(required=False)
-    client_id = graphene.Int(name="client", required=False)
+    establishments = graphene.List(graphene.Int, required=False)
     workers = graphene.List(graphene.Int, required=False)
     vehicles = graphene.List(graphene.Int, required=False)
     materials = graphene.List(graphene.Int, required=False)
@@ -403,12 +365,12 @@ class WorksQuery(graphene.ObjectType):
 class CreateTask(graphene.Mutation):
     class Arguments:
         task_data = TaskInput(required=True)
-        image = Upload(required=False)
 
     task = graphene.Field(TaskType)
 
-    def mutate(root, info, image=None, task_data=None):
+    def mutate(root, info, task_data=None):
         creator = info.context.user
+        establishment_ids = task_data.pop("establishments")
         worker_ids = task_data.pop("workers")
         vehicle_ids = task_data.pop("vehicles")
         material_ids = task_data.pop("materials")
@@ -416,17 +378,6 @@ class CreateTask(graphene.Mutation):
         task = Task(**task_data)
         task.creator = creator
         task.company = creator.current_company if creator.current_company is not None else creator.company
-        if info.context.FILES:
-            # file1 = info.context.FILES['1']
-            if image and isinstance(image, UploadedFile):
-                image_file = task.image
-                if not image_file:
-                    image_file = File()
-                    image_file.creator = creator
-                image_file.image = image
-                image_file.save()
-                task.image = image_file
-        task.calculer_total_ttc()
         task.save()
         folder = Folder.objects.create(name=str(task.id)+'_'+task.name,creator=creator)
         task.folder = folder
@@ -455,6 +406,16 @@ class CreateTask(graphene.Mutation):
             "message": "Vous avez une nouvelle tâche assignée."
         }
         push_notification_to_employees(notification=push_notification_data, employees=employees)
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                task_establishment = TaskEstablishment.objects.get(establishment__id=establishment.id, task__id=task.id)
+            except TaskEstablishment.DoesNotExist:
+                TaskEstablishment.objects.create(
+                        task=task,
+                        establishment=establishment,
+                        creator=creator
+                    )
         vehicles = Vehicle.objects.filter(id__in=vehicle_ids)
         for vehicle in vehicles:
             try:
@@ -497,19 +458,18 @@ class UpdateTask(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
         task_data = TaskInput(required=True)
-        image = Upload(required=False)
 
     task = graphene.Field(TaskType)
 
-    def mutate(root, info, id, image=None, task_data=None):
+    def mutate(root, info, id, task_data=None):
         creator = info.context.user
+        establishment_ids = task_data.pop("establishments")
         worker_ids = task_data.pop("workers")
         vehicle_ids = task_data.pop("vehicles")
         material_ids = task_data.pop("materials")
         task_checklist = task_data.pop("task_checklist")
         Task.objects.filter(pk=id).update(**task_data)
         task = Task.objects.get(pk=id)
-        task.calculer_total_ttc()
         task.save()
         if not task.folder or task.folder is None:
             folder = Folder.objects.create(name=str(task.id)+'_'+task.name,creator=creator)
@@ -542,6 +502,17 @@ class UpdateTask(graphene.Mutation):
             "message": "Vous avez une nouvelle tâche assignée."
         }
         push_notification_to_employees(notification=push_notification_data, employees=employees_to_notify)
+        TaskEstablishment.objects.filter(task=task).exclude(establishment__id__in=establishment_ids).delete()
+        establishments = Establishment.objects.filter(id__in=establishment_ids)
+        for establishment in establishments:
+            try:
+                task_establishment = TaskEstablishment.objects.get(establishment__id=establishment.id, task__id=task.id)
+            except TaskEstablishment.DoesNotExist:
+                TaskEstablishment.objects.create(
+                        task=task,
+                        establishment=establishment,
+                        creator=creator
+                    )
         TaskVehicle.objects.filter(task=task).exclude(vehicle__id__in=vehicle_ids).delete()
         vehicles = Vehicle.objects.filter(id__in=vehicle_ids)
         for vehicle in vehicles:
@@ -571,20 +542,6 @@ class UpdateTask(graphene.Mutation):
                 task_checklist_item = TaskChecklistItem(**item)
                 task_checklist_item.task = task
                 task_checklist_item.save()
-        if not image and task.image:
-            image_file = task.image
-            image_file.delete()
-        if info.context.FILES:
-            # file1 = info.context.FILES['1']
-            if image and isinstance(image, UploadedFile):
-                image_file = task.image
-                if not image_file:
-                    image_file = File()
-                    image_file.creator = creator
-                image_file.image = image
-                image_file.save()
-                task.image = image_file
-            task.save()
         # Créez trois TaskStep pour chaque type
         for step_type in STEP_TYPES_LABELS:
             try:
@@ -602,27 +559,29 @@ class UpdateTask(graphene.Mutation):
 class UpdateTaskFields(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
-        task_fields = TaskFieldInput(required=False)
+        task_data = TaskInput(required=True)
 
     task = graphene.Field(TaskType)
     done = graphene.Boolean()
     success = graphene.Boolean()
     message = graphene.String()
 
-    def mutate(root, info, id, task_fields=None):
+    def mutate(root, info, id, task_data=None):
         creator = info.context.user
         done = True
         success = True
         task = None
         message = ''
         try:
-            Task.objects.filter(pk=id).update(**task_fields)
             task = Task.objects.get(pk=id)
+            Task.objects.filter(pk=id).update(**task_data)
+            task.refresh_from_db()
         except Exception as e:
             done = False
             success = False
+            task=None
             message = "Une erreur s'est produite."
-        return UpdateTaskFields(done=done, success=success, message=message,task=task)
+        return UpdateTaskFields(done=done, success=success, message=message, task=task)
 
 class UpdateTaskState(graphene.Mutation):
     class Arguments:

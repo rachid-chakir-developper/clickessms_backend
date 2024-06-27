@@ -1,7 +1,5 @@
 from django.db import models
 
-from works.models import STATUS
-
 # Create your models here.
 class Comment(models.Model):
 	text = models.TextField(default='', null=True)
@@ -40,7 +38,7 @@ class Signature(models.Model):
 
 class StatusChange(models.Model):
     undesirable_event = models.ForeignKey('qualities.UndesirableEvent', on_delete=models.CASCADE, related_name='status_changes')
-    status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
+    name = models.CharField(max_length=255, null=True, default= "NEW")
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
     
