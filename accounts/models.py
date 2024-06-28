@@ -5,7 +5,7 @@ from django.contrib.auth.models import AbstractUser
 class Role(models.Model):
     ROLE_CHOICES = [
         ('ADMIN', 'Admin'),
-        ('MANAGER', 'Manager'),
+        ('MANAGER', 'Employé'),
         ('QUALITY_MANAGER', 'Responsable Qualité'),
         ('FACILITY_MANAGER', 'Responsable Services Généraux'),
         ('EMPLOYEE', 'Employee'),
@@ -129,10 +129,21 @@ class User(AbstractUser):
         user_company.supplier = supplier
         user_company.save()
 
+    @property
+    def user_roles(self):
+        if len(self.roles) > 0:
+            return [role.name for role in self.roles]
+        else:
+            return ['SUPER_ADMIN'] if instance.is_superuser else ['EMPLOYEE']
+
     def get_roles_in_company(self, company=None):
         company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
-        return user_company.roles.all() if user_company and user_company.roles else self.roles
+        roles = user_company.roles.all() if user_company and user_company.roles else self.roles
+        if len(roles) > 0:
+            return [role.name for role in roles]
+        else:
+            return ['SUPER_ADMIN', 'EMPLOYEE'] if self.is_superuser else ['EMPLOYEE']
     def has_role_in_company(self, role_name, company=None):
         company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
@@ -142,6 +153,17 @@ class User(AbstractUser):
         role, created = Role.objects.get_or_create(name=role_name)
         user_company, created = self.managed_companies.get_or_create(company=company)
         user_company.roles.add(role)
+    def set_roles_in_company(self, roles_names=None, company=None):
+        if roles_names is not None:
+            company = company or self.current_company or self.company
+            user_company = self.managed_companies.filter(company=company).first()
+            roles = user_company.roles.all() if user_company else self.roles.all()
+            for role in roles:
+                if role.name not in roles_names:
+                    user_company.roles.remove(role)
+            for role_name in roles_names:
+                self.add_role_in_company(role_name=role_name, company=company)
+
     def remove_role_in_company(self, role_name, company=None):
         company = company or self.current_company or self.company
         try:

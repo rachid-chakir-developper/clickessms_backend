@@ -60,11 +60,7 @@ class UserType(DjangoObjectType):
         return instance.status.secondary_email
     def resolve_roles(instance, info):
         user = info.context.user
-        roles = instance.get_roles_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.roles
-        if len(roles) > 0:
-            return [role.name for role in roles]
-        else:
-            return ['SUPER_ADMIN'] if instance.is_superuser else ['EMPLOYEE']
+        return instance.get_roles_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.user_roles
     def resolve_employee(instance, info):
         user = info.context.user
         return instance.get_employee_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.employee
@@ -107,16 +103,17 @@ class PermissionType(DjangoObjectType):
 class UserInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
-    first_name = graphene.String(required=True)
-    last_name = graphene.String(required=True)
-    username = graphene.String(required=True)
-    email = graphene.String(required=True)
+    first_name = graphene.String(required=False)
+    last_name = graphene.String(required=False)
+    username = graphene.String(required=False)
+    email = graphene.String(required=False)
     password1 = graphene.String(required=False)
     password2 = graphene.String(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     is_cgu_accepted = graphene.Boolean(required=False)
+    roles = graphene.List(graphene.String, required=False)
     employee_id = graphene.Int(name="employee", required=False)
     partner_id = graphene.Int(name="partner", required=False)
     financier_id = graphene.Int(name="financier", required=False)
@@ -256,6 +253,7 @@ class CreateUser(graphene.Mutation):
 
     def mutate(root, info, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
+        roles = user_data.pop("roles") if ('roles' in user_data) else None
         employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
         partner_id = user_data.pop("partner_id") if ('partner_id' in user_data) else None
         financier_id = user_data.pop("financier_id") if ('financier_id' in user_data) else None
@@ -274,6 +272,8 @@ class CreateUser(graphene.Mutation):
         user.creator = creator
         user.company = creator.company
         user.save()
+        if roles:
+            user.set_roles_in_company(roles_names=roles)
         if employee_id:
             user.set_employee_for_company(employee_id=employee_id)
         if partner_id:
@@ -327,6 +327,7 @@ class UpdateUser(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
+        roles = user_data.pop("roles") if ('roles' in user_data) else None
         employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
         partner_id = user_data.pop("partner_id") if ('partner_id' in user_data) else None
         financier_id = user_data.pop("financier_id") if ('financier_id' in user_data) else None
@@ -342,6 +343,7 @@ class UpdateUser(graphene.Mutation):
             raise ValueError("Les mots de passe ne correspondent pas")
         User.objects.filter(pk=id).update(**user_data)
         user = User.objects.get(pk=id)
+        user.set_roles_in_company(roles_names=roles)
         user.set_employee_for_company(employee_id=employee_id)
         user.set_partner_for_company(partner_id=partner_id)
         user.set_financier_for_company(financier_id=financier_id)
@@ -414,6 +416,36 @@ class UpdateUserState(graphene.Mutation):
             user=None
             message = "Une erreur s'est produite."
         return UpdateUserState(done=done, success=success, message=message,user=user)
+
+class UpdateUserFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        user_data = UserInput(required=True)
+
+    user = graphene.Field(UserType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, user_data=None):
+        creator = info.context.user
+        roles = user_data.pop("roles") if ('roles' in user_data) else None
+        done = True
+        success = True
+        user = None
+        message = ''
+        try:
+            user = User.objects.get(pk=id)
+            User.objects.filter(pk=id).update(**user_data)
+            user.set_roles_in_company(roles_names=roles)
+            user.refresh_from_db()
+        except Exception as e:
+            print(f'Exception UpdateUserFields: {e}')
+            done = False
+            success = False
+            user=None
+            message = "Une erreur s'est produite."
+        return UpdateUserFields(done=done, success=success, message=message, user=user)
 
 class addBasicInfos(graphene.Mutation):
     class Arguments:
@@ -654,6 +686,7 @@ class UserMutation(graphene.ObjectType):
     create_user = CreateUser.Field()
     update_user = UpdateUser.Field()
     update_user_state = UpdateUserState.Field()
+    update_user_fields = UpdateUserFields.Field()
     add_basic_infos = addBasicInfos.Field()
     update_user_current_localisation = UpdateUserCurrentLocalisation.Field()
     delete_user = DeleteUser.Field()
