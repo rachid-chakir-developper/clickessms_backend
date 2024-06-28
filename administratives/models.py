@@ -345,3 +345,20 @@ class MeetingBeneficiary(models.Model):
 
 	def __str__(self):
 		return str(self.id)
+
+
+# Create your models here.
+class FrameDocument(models.Model):
+	number = models.CharField(max_length=255, editable=False, null=True)
+	name = models.CharField(max_length=255)
+	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='frame_documents', null=True)
+	document_type = models.ForeignKey('data_management.DocumentType', on_delete=models.SET_NULL, related_name='frame_documents', null=True)
+	description = models.TextField(default='', null=True)
+	is_active = models.BooleanField(default=True, null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='frame_documents', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='frame_documents', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+

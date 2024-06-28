@@ -619,11 +619,6 @@ class CreateBalance(graphene.Mutation):
                 document_file.save()
                 balance.document = document_file
         balance.save()
-        folder = Folder.objects.create(
-            name=str(balance.id) + "_" + balance.name, creator=creator
-        )
-        balance.folder = folder
-        balance.save()
         return CreateBalance(balance=balance)
 
 
@@ -639,11 +634,6 @@ class UpdateBalance(graphene.Mutation):
         creator = info.context.user
         Balance.objects.filter(pk=id).update(**balance_data)
         balance = Balance.objects.get(pk=id)
-        if not balance.folder or balance.folder is None:
-            folder = Folder.objects.create(
-                name=str(balance.id) + "_" + balance.name, creator=creator
-            )
-            Balance.objects.filter(pk=id).update(folder=folder)
         if not document and balance.document:
             document_file = balance.document
             document_file.delete()

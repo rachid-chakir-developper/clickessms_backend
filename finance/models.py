@@ -196,7 +196,6 @@ class Balance(models.Model):
         related_name="bank_account_balances",
         null=True,
     )
-    folder = models.ForeignKey("medias.Folder", on_delete=models.SET_NULL, null=True)
     creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)

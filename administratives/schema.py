@@ -6,13 +6,14 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from administratives.models import Call, Caller, CallEstablishment, CallEmployee, CallBeneficiary, Letter, LetterEstablishment, LetterEmployee, LetterBeneficiary, Meeting, MeetingEstablishment, MeetingParticipant,  MeetingBeneficiary, MeetingDecision, MeetingReviewPoint
+from administratives.models import Call, Caller, CallEstablishment, CallEmployee, CallBeneficiary, Letter, LetterEstablishment, LetterEmployee, LetterBeneficiary, Meeting, MeetingEstablishment, MeetingParticipant,  MeetingBeneficiary, MeetingDecision, MeetingReviewPoint, FrameDocument
 from data_management.models import MeetingReason, TypeMeeting
 from medias.models import Folder, File
 from companies.models import Establishment
 from human_ressources.models import Employee, Beneficiary
 from qualities.models import UndesirableEvent
 from qualities.schema import UndesirableEventType
+
 
 class CallEstablishmentType(DjangoObjectType):
     class Meta:
@@ -120,6 +121,30 @@ class MeetingNodeType(graphene.ObjectType):
     nodes = graphene.List(MeetingType)
     total_count = graphene.Int()
 
+
+class FrameDocumentType(DjangoObjectType):
+    class Meta:
+        model = FrameDocument
+        fields = "__all__"
+
+    document = graphene.String()
+
+    def resolve_document(instance, info, **kwargs):
+        return instance.document and info.context.build_absolute_uri(
+            instance.document.file.url
+        )
+
+
+class FrameDocumentNodeType(graphene.ObjectType):
+    nodes = graphene.List(FrameDocumentType)
+    total_count = graphene.Int()
+
+
+class FrameDocumentFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    
 class MeetingFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
@@ -206,7 +231,16 @@ class MeetingInput(graphene.InputObjectType):
     other_reasons = graphene.String(required=False)
     meeting_decisions = graphene.List(MeetingDecisionInput, required=False)
     meeting_review_points = graphene.List(MeetingReviewPointInput, required=False)
-    
+
+class FrameDocumentInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    name = graphene.String(required=False)
+    description = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    document_type_id = graphene.Int(name="documentType", required=False)
+
 class AdministrativesQuery(graphene.ObjectType):
     calls = graphene.Field(CallNodeType, call_filter= CallFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     call = graphene.Field(CallType, id = graphene.ID())
@@ -214,6 +248,14 @@ class AdministrativesQuery(graphene.ObjectType):
     letter = graphene.Field(LetterType, id = graphene.ID())
     meetings = graphene.Field(MeetingNodeType, meeting_filter= MeetingFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     meeting = graphene.Field(MeetingType, id = graphene.ID())
+    frame_documents = graphene.Field(
+        FrameDocumentNodeType,
+        frame_document_filter=FrameDocumentFilterInput(required=False),
+        offset=graphene.Int(required=False),
+        limit=graphene.Int(required=False),
+        page=graphene.Int(required=False),
+    )
+    frame_document = graphene.Field(FrameDocumentType, id=graphene.ID())
     def resolve_calls(root, info, call_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -312,6 +354,43 @@ class AdministrativesQuery(graphene.ObjectType):
         except Meeting.DoesNotExist:
             meeting = None
         return meeting
+    def resolve_frame_documents(
+        root, info, frame_document_filter=None, offset=None, limit=None, page=None
+    ):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = (
+            user.current_company if user.current_company is not None else user.company
+        )
+        total_count = 0
+        frame_documents = FrameDocument.objects.filter(company=company)
+        if frame_document_filter:
+            keyword = frame_document_filter.get("keyword", "")
+            starting_date_time = frame_document_filter.get("starting_date_time")
+            ending_date_time = frame_document_filter.get("ending_date_time")
+            if keyword:
+                frame_documents = frame_documents.filter(
+                    Q(name__icontains=keyword)
+                )
+            if starting_date_time:
+                frame_documents = frame_documents.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                frame_documents = frame_documents.filter(created_at__lte=ending_date_time)
+        frame_documents = frame_documents.order_by("-created_at")
+        total_count = frame_documents.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            frame_documents = frame_documents[offset : offset + limit]
+        return FrameDocumentNodeType(nodes=frame_documents, total_count=total_count)
+
+    def resolve_frame_document(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            frame_document = FrameDocument.objects.get(pk=id)
+        except FrameDocument.DoesNotExist:
+            frame_document = None
+        return frame_document
 
 #************************************************************************
 
@@ -901,6 +980,94 @@ class DeleteMeeting(graphene.Mutation):
         return DeleteMeeting(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
+# ************************************************************************
+
+
+class CreateFrameDocument(graphene.Mutation):
+    class Arguments:
+        frame_document_data = FrameDocumentInput(required=True)
+        document = Upload(required=False)
+
+    frame_document = graphene.Field(FrameDocumentType)
+
+    def mutate(root, info, document=None, frame_document_data=None):
+        creator = info.context.user
+        frame_document = FrameDocument(**frame_document_data)
+        frame_document.creator = creator
+        frame_document.company = (
+            creator.current_company
+            if creator.current_company is not None
+            else creator.company
+        )
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = frame_document.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                frame_document.document = document_file
+        frame_document.save()
+        return CreateFrameDocument(frame_document=frame_document)
+
+
+class UpdateFrameDocument(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        frame_document_data = FrameDocumentInput(required=True)
+        document = Upload(required=False)
+
+    frame_document = graphene.Field(FrameDocumentType)
+
+    def mutate(root, info, id, document=None, frame_document_data=None):
+        creator = info.context.user
+        FrameDocument.objects.filter(pk=id).update(**frame_document_data)
+        frame_document = FrameDocument.objects.get(pk=id)
+        if not document and frame_document.document:
+            document_file = frame_document.document
+            document_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = frame_document.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                frame_document.document = document_file
+            frame_document.save()
+        return UpdateFrameDocument(frame_document=frame_document)
+
+
+class DeleteFrameDocument(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    frame_document = graphene.Field(FrameDocumentType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            frame_document = FrameDocument.objects.get(pk=id)
+            frame_document.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteFrameDocument(deleted=deleted, success=success, message=message, id=id)
+
+
+# *************************************************************************#
 
 #*************************************************************************#
 
@@ -918,3 +1085,7 @@ class AdministrativesMutation(graphene.ObjectType):
     create_meeting = CreateMeeting.Field()
     update_meeting = UpdateMeeting.Field()
     delete_meeting = DeleteMeeting.Field()
+
+    create_frame_document = CreateFrameDocument.Field()
+    update_frame_document = UpdateFrameDocument.Field()
+    delete_frame_document = DeleteFrameDocument.Field()

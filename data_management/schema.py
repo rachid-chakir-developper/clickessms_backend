@@ -4,7 +4,7 @@ from graphql_jwt.decorators import login_required
 
 from django.apps import apps
 
-from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, VehicleBrand, VehicleModel
+from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel
 
         
 class HumanGenderType(DjangoObjectType):
@@ -81,6 +81,10 @@ class MeetingReasonType(DjangoObjectType):
 class TypeMeetingType(DjangoObjectType):
     class Meta:
         model = TypeMeeting
+        fields = "__all__"
+class DocumentTypeType(DjangoObjectType):
+    class Meta:
+        model = DocumentType
         fields = "__all__"
         
 class VehicleBrandType(DjangoObjectType):
