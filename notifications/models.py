@@ -34,3 +34,39 @@ class Notification(models.Model):
 		
 	def __str__(self):
 		return self.message
+
+class MessageNotification(models.Model):
+	MSG_NOTIF_TYPES = [
+        ('SYSTEM', 'Système'),
+        ('REMINDER', 'Rappel'),
+        ('MESSAGE', 'Message'),
+        ('TASK', 'Tâche'),
+        ('EVENT', 'Événement'),
+        ('NEWS', 'Actualités'),
+        ('WARNING', 'Avertissement'),
+        ('PROMOTION', 'Promotion'),
+        ('UPDATE', 'Mise à jour'),
+        ('FEEDBACK', 'Commentaires'),
+        ('ERROR', 'Erreur'),
+    ]
+	message_notification_type = models.CharField(max_length=50, choices=MSG_NOTIF_TYPES, default= "SYSTEM")
+	title = models.CharField(max_length=255, null=True)
+	image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='message_notifications', null=True)
+	message = models.TextField(null=True)
+	is_active = models.BooleanField(default=True, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='message_notifications', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	class Meta:
+		ordering = ['-created_at']
+		
+	def __str__(self):
+		return self.title
+
+class MessageNotificationEstablishment(models.Model):
+	message_notification = models.ForeignKey(MessageNotification, on_delete=models.SET_NULL, null=True, related_name='establishments')
+	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='message_notification_establishments', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='message_notification_establishments', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)

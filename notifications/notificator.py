@@ -5,7 +5,7 @@ import json
 
 from django.db.models import Q
 
-from notifications.models import Notification
+from notifications.models import Notification, MessageNotification
 from accounts.models import Device
 import notifications
 
@@ -32,6 +32,27 @@ def broadcastNotificationsSeen(not_seen_count=0):
 		)
 	except:
 		pass
+def broadcastMessageNotificationAdded(message_notification):
+    try:
+        message_notifications.schema.OnMessageNotificationAdded.broadcast(
+        # Subscription group to notify clients in.
+            group="ON_MSG_NOTIF_ADDED",
+            # Dict delivered to the `publish` method.
+            payload=message_notification,
+        )
+    except Exception as e:
+        pass
+
+def broadcastMessageNotificationsSeen(not_seen_count=0):
+    try:
+        message_notifications.schema.OnMessageNotificationsSeen.broadcast(
+        # Subscription group to notify clients in.
+            group="ON_MSG_NOTIFS_SEEN",
+            # Dict delivered to the `publish` method.
+            payload={'not_seen_count' : not_seen_count},
+        )
+    except:
+        pass
 
 def push_notification(notification=None, device_tokens=[]):
 	try:

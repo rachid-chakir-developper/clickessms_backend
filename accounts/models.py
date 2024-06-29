@@ -130,21 +130,30 @@ class User(AbstractUser):
         user_company.supplier = supplier
         user_company.save()
 
+    def sort_roles(self, roles):
+        ROLE_ORDER = {role[0]: index for index, role in enumerate(Role.ROLE_CHOICES)}
+        return sorted(roles, key=lambda role: ROLE_ORDER.get(role, len(ROLE_ORDER)))
+
     @property
     def user_roles(self):
-        if len(self.roles) > 0:
-            return [role.name for role in self.roles]
-        else:
-            return ['SUPER_ADMIN'] if instance.is_superuser else ['EMPLOYEE']
+        roles = [role.name for role in self.roles] if self.roles.exists() else []
+        if self.is_superuser and 'SUPER_ADMIN' not in roles:
+            roles.append('SUPER_ADMIN')
+        elif not roles:
+            roles.append('EMPLOYEE')
+        return self.sort_roles(roles)
 
     def get_roles_in_company(self, company=None):
         company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
-        roles = user_company.roles.all() if user_company and user_company.roles else self.roles
-        if len(roles) > 0:
-            return [role.name for role in roles]
-        else:
-            return ['SUPER_ADMIN', 'EMPLOYEE'] if self.is_superuser else ['EMPLOYEE']
+        roles = [role.name for role in user_company.roles.all()] if user_company and user_company.roles.exists() else []
+        if self.is_superuser and 'SUPER_ADMIN' not in roles:
+            roles.append('SUPER_ADMIN')
+        elif not roles:
+            roles.append('EMPLOYEE')
+        return self.sort_roles(roles)
+
+
     def has_role_in_company(self, role_name, company=None):
         company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
