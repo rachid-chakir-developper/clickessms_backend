@@ -8,7 +8,11 @@ class Role(models.Model):
         ('ADMIN', 'Admin'),
         ('MANAGER', 'Employé'),
         ('QUALITY_MANAGER', 'Responsable Qualité'),
+        ('ACTIVITY_MANAGER', 'Responsable Activité'),
+        ('ADMINISTRATIVE_MANAGER', 'Responsable Administratif'),
+        ('HR_MANAGER', 'Responsable RH'),
         ('FACILITY_MANAGER', 'Responsable Services Généraux'),
+        ('FINANCE_MANAGER', 'Responsable Finance'),
         ('EMPLOYEE', 'Employee'),
         ('MECHANIC', 'Garagiste'),
     ]
@@ -153,11 +157,18 @@ class User(AbstractUser):
             roles.append('EMPLOYEE')
         return self.sort_roles(roles)
 
-
     def has_role_in_company(self, role_name, company=None):
         company = company or self.current_company or self.company
         user_company = self.managed_companies.filter(company=company).first()
-        return user_company.roles.filter(name=role_name).exists() if user_company else False
+        return user_company.roles.filter(name=role_name).exists() if user_company else self.roles.filter(name=role_name).exists()
+
+    def has_roles_in_company(self, roles_names=None, company=None):
+        if not roles_names:
+            return False
+        company = company or self.current_company or self.company
+        user_company = self.managed_companies.filter(company=company).first()
+        return user_company.roles.filter(name__in=roles_names).exists() if user_company else self.roles.filter(name__in=roles_names).exists()
+
     def add_role_in_company(self, role_name, company=None):
         company = company or self.current_company or self.company
         role, created = Role.objects.get_or_create(name=role_name)
@@ -187,6 +198,33 @@ class User(AbstractUser):
         except Role.DoesNotExist:
             return False
         return False
+    def can_manage_quality(self, user=None):
+        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'QUALITY_MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+    def can_manage_activity(self, user=None):
+        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'ACTIVITY_MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+    def can_manage_administration(self, user=None):
+        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'ADMINISTRATIVE_MANAGER']
+    def can_manage_human_ressources(self, user=None):
+        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'HR_MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+    def can_manage_finance(self, user=None):
+        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'FINANCE_MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+    def can_manage_facility(self, user=None):
+        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'FACILITY_MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+    @classmethod
+    def get_quality_managers_in_user_company(cls, user=None, company=None):
+        company = company or user.current_company or user.company
+        quality_managers = cls.objects.filter(
+            managed_companies__roles__name='QUALITY_MANAGER',
+            managed_companies__company=company
+        ).distinct()
+        if not quality_managers.exists():
+            quality_managers = cls.objects.filter(roles__name='QUALITY_MANAGER', company=company).distinct()
+        return quality_managers
 
 
 class UserCompany(models.Model):

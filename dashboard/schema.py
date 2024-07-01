@@ -74,6 +74,8 @@ class DashboardType(graphene.ObjectType):
         return tasks_week
         
     def resolve_undesirable_events_week ( instance, info, **kwargs ):
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
         date = datetime.date.today()
         start_week = date - datetime.timedelta(date.weekday())
         end_week = start_week + datetime.timedelta(7)
@@ -81,7 +83,10 @@ class DashboardType(graphene.ObjectType):
         for i, day in enumerate(settings.DAYS):
             item = UndesirableEventsWeekType(day = day,  count = 0)
             undesirable_events_week.append(item)
-        undesirable_events = UndesirableEvent.objects.filter(starting_date_time__range=[start_week, end_week]).annotate(day=TruncDate('starting_date_time')).values('day').annotate(count=Count("status"))
+        undesirable_events = UndesirableEvent.objects.filter(company=company)
+        if not user.can_manage_quality():
+            undesirable_events = undesirable_events.filter(creator=user)
+        undesirable_events = undesirable_events.filter(starting_date_time__range=[start_week, end_week]).annotate(day=TruncDate('starting_date_time')).values('day').annotate(count=Count("status"))
         for undesirable_event in undesirable_events:
             undesirable_events_week[undesirable_event['day'].weekday()].count = undesirable_event['count']
         return undesirable_events_week
@@ -101,19 +106,24 @@ class DashboardType(graphene.ObjectType):
     def resolve_task_actions(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        return TaskAction.objects.filter(company=user.current_company or user.company, employees=user.get_employee_in_company()).exclude(status="DONE").order_by('-due_date')[0:10]
+        company = user.current_company if user.current_company is not None else user.company
+        return TaskAction.objects.filter(company=company, employees=user.get_employee_in_company()).exclude(status="DONE").order_by('-due_date')[0:10]
 
     def resolve_undesirable_events(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        undesirable_events = UndesirableEvent.objects.filter(company=user.current_company or user.company, status="NEW")
+        company = user.current_company if user.current_company is not None else user.company
+        undesirable_events = UndesirableEvent.objects.filter(company=company, status="NEW")
+        if not user.can_manage_quality():
+            undesirable_events = undesirable_events.filter(creator=user)
         undesirable_events = undesirable_events.order_by('-created_at')
         return undesirable_events
 
     def resolve_current_employee(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        return user.get_employee_in_company(company=user.current_company or user.company)
+        company = user.current_company if user.current_company is not None else user.company
+        return user.get_employee_in_company(company=company)
 
 class DashboardQuery(graphene.ObjectType):
     dashboard = graphene.Field(DashboardType)

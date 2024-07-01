@@ -13,6 +13,7 @@ from companies.models import Establishment
 from human_ressources.models import Employee, Beneficiary
 from qualities.models import UndesirableEvent
 from qualities.schema import UndesirableEventType
+from notifications.notificator import notify_employee_meeting_decision
 
 
 class CallEstablishmentType(DjangoObjectType):
@@ -839,6 +840,10 @@ class CreateMeeting(graphene.Mutation):
             meeting_decision.save()
             if employees_ids and employees_ids is not None:
                 meeting_decision.employees.set(employees_ids)
+                for employee in meeting_decision.employees.all():
+                    employee_user = employee.employee_user.all().first()
+                    if employee_user:
+                        notify_employee_meeting_decision(sender=creator, recipient=employee_user, meeting_decision=meeting_decision)
             if for_voters_ids and for_voters_ids is not None:
                 meeting_decision.for_voters.set(for_voters_ids)
             if against_voters_ids and against_voters_ids is not None:
@@ -938,6 +943,10 @@ class UpdateMeeting(graphene.Mutation):
                 meeting_decision.save()
             if employees_ids and employees_ids is not None:
                 meeting_decision.employees.set(employees_ids)
+                for employee in meeting_decision.employees.all():
+                    employee_user = employee.employee_user.all().first()
+                    if employee_user:
+                        notify_employee_meeting_decision(sender=creator, recipient=employee_user, meeting_decision=meeting_decision)
             if for_voters_ids and for_voters_ids is not None:
                 meeting_decision.for_voters.set(for_voters_ids)
             if against_voters_ids and against_voters_ids is not None:

@@ -87,16 +87,16 @@ class NotificationsQuery(graphene.ObjectType):
 
     def resolve_notifications(root, info, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
         total_count = 0
         not_seen_count = 0
-        total_count = Notification.objects.all().count()
-        not_seen_count = Notification.objects.filter(is_seen=False).count()
+        notifications = Notification.objects.filter(recipient=user)
+        total_count = notifications.count()
+        not_seen_count = notifications.filter(is_seen=False).count()
         if page:
-            offset = limit*(page-1)
+            offset = limit * (page - 1)
         if offset is not None and limit is not None:
-            notifications = Notification.objects.all()[offset:offset+limit]
-        else:
-            notifications = Notification.objects.all()
+            notifications = notifications[offset : offset + limit]
         return NotificationNodeType(nodes=notifications, total_count=total_count, not_seen_count=not_seen_count)
 
     def resolve_notification(root, info, id):
@@ -398,6 +398,9 @@ class OnNotificationAdded(channels_graphql_ws.Subscription):
         # if you wish to suppress the notification to a particular
         # client. For example, this allows to avoid notifications for
         # the actions made by this particular client.
+        user = info.context.user
+        if str(user.id) != str(payload.recipient.id):
+            return OnNotificationAdded.SKIP
         return OnNotificationAdded(notification=payload)
 
 

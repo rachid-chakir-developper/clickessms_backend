@@ -90,6 +90,8 @@ class ActivitiesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         transmission_events = TransmissionEvent.objects.filter(company=company)
+        if not user.can_manage_activity():
+            transmission_events = transmission_events.filter(creator=user)
         if transmission_event_filter:
             keyword = transmission_event_filter.get('keyword', '')
             starting_date_time = transmission_event_filter.get('starting_date_time')
@@ -125,6 +127,8 @@ class ActivitiesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         beneficiary_absences = BeneficiaryAbsence.objects.filter(company=company)
+        if not user.can_manage_activity():
+            beneficiary_absences = beneficiary_absences.filter(creator=user)
         if beneficiary_absence_filter:
             keyword = beneficiary_absence_filter.get('keyword', '')
             starting_date_time = beneficiary_absence_filter.get('starting_date_time')

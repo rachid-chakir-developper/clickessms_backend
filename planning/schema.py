@@ -64,6 +64,8 @@ class PlanningQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         employee_absences = EmployeeAbsence.objects.filter(company=company)
+        if not user.can_manage_human_ressources():
+            employee_absences = employee_absences.filter(creator=user)
         if employee_absence_filter:
             keyword = employee_absence_filter.get('keyword', '')
             starting_date_time = employee_absence_filter.get('starting_date_time')

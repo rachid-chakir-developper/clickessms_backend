@@ -14,6 +14,7 @@ class SGIGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
         """New client connection handler."""
         # You can `raise` from here to reject the connection.
         print("New client connected!")
+        print(self.scope.get("user"))
         context = ScopeAsContext(self.scope)
         context.build_absolute_uri = self.build_absolute_uri
         try:

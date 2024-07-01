@@ -282,6 +282,8 @@ class VehiclesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         vehicle_inspections = VehicleInspection.objects.filter(company=company)
+        if not user.can_manage_facility():
+            vehicle_inspections = vehicle_inspections.filter(creator=user)
         if vehicle_inspection_filter:
             keyword = vehicle_inspection_filter.get('keyword', '')
             starting_date_time = vehicle_inspection_filter.get('starting_date_time')
@@ -318,6 +320,8 @@ class VehiclesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         vehicle_technical_inspections = VehicleTechnicalInspection.objects.filter(company=company)
+        if not user.can_manage_facility():
+            vehicle_technical_inspections = vehicle_technical_inspections.filter(creator=user)
         if vehicle_technical_inspection_filter:
             keyword = vehicle_technical_inspection_filter.get('keyword', '')
             starting_date_time = vehicle_technical_inspection_filter.get('starting_date_time')
@@ -354,6 +358,8 @@ class VehiclesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         vehicle_repairs = VehicleRepair.objects.filter(company=company)
+        if not user.can_manage_facility():
+            vehicle_repairs = vehicle_repairs.filter(creator=user)
         if vehicle_repair_filter:
             keyword = vehicle_repair_filter.get('keyword', '')
             starting_date_time = vehicle_repair_filter.get('starting_date_time')

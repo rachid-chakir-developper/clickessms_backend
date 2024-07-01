@@ -8,6 +8,9 @@ NOTIF_TYPES_ALL = {
     "GO_TO_TASK" : "GO_TO_TASK",
     "TASK_STARTED" : "TASK_STARTED",
     "TASK_FINISHED" : "TASK_FINISHED",
+    "EI_ADDED": "EI_ADDED",
+    "TASK_ACTION_ADDED": "TASK_ACTION_ADDED",
+    "MEETING_DECISION_ADDED": "MEETING_DECISION_ADDED",
 }
 class Notification(models.Model):
 	NOTIF_TYPES = [
@@ -15,7 +18,10 @@ class Notification(models.Model):
         ("ADDED_TO_TASK", "Affecté à une intérvention"),
         ("GO_TO_TASK", "Départ vers l'intérvention"),
         ("TASK_STARTED", "L'intérvention commencée"),
-        ("TASK_FINISHED", "L'intérvention terminée")
+        ("TASK_FINISHED", "L'intérvention terminée"),
+        ("EI_ADDED", "Événement indésirable déclaré"),
+        ("TASK_ACTION_ADDED", "Affecté à une action"),
+        ("MEETING_DECISION_ADDED", "Affecté à une décision"),
     ]
 	sender = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='notification_sender', null=True)
 	recipient = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='notification_recipient', null=True)
@@ -25,6 +31,9 @@ class Notification(models.Model):
 	is_read = models.BooleanField(default=False, null=True)
 	is_seen = models.BooleanField(default=False, null=True)
 	task = models.ForeignKey('works.Task', on_delete=models.SET_NULL, null=True)
+	undesirable_event = models.ForeignKey('qualities.UndesirableEvent', on_delete=models.SET_NULL, null=True, related_name='notifications')
+	task_action = models.ForeignKey('works.TaskAction', on_delete=models.SET_NULL, null=True, related_name='notifications')
+	meeting_decision = models.ForeignKey('administratives.MeetingDecision', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_notifications', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

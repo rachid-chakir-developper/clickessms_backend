@@ -22,6 +22,42 @@ def notify(notification_data):
 	except Exception as e:
 		pass
 
+def notify_managers_undesirable_event(sender, recipient, undesirable_event):
+    """Helper function to create notification data."""
+    notification_data = {
+        "sender": sender,
+        "recipient": recipient,
+        "notification_type": "EI_ADDED",
+        "title": "Événement indésirable déclaré",
+        "message": "Un événement indésirable a été déclaré.",
+        "undesirable_event": undesirable_event,
+    }
+    notify(notification_data)
+
+def notify_employee_task_action(sender, recipient, task_action):
+    """Helper function to create notification data."""
+    notification_data = {
+        "sender": sender,
+        "recipient": recipient,
+        "notification_type": "TASK_ACTION_ADDED",
+        "title": "Nouvelle action assignée",
+        "message": "Vous avez une nouvelle action assignée.",
+        "task_action": task_action,
+    }
+    notify(notification_data)
+
+def notify_employee_meeting_decision(sender, recipient, meeting_decision):
+    """Helper function to create notification data."""
+    notification_data = {
+        "sender": sender,
+        "recipient": recipient,
+        "notification_type": "MEETING_DECISION_ADDED",
+        "title": "Nouvelle décision assignée",
+        "message": "Vous avez une nouvelle décision assignée.",
+        "meeting_decision": meeting_decision,
+    }
+    notify(notification_data)
+
 def broadcastNotificationsSeen(not_seen_count=0):
 	try:
 		notifications.schema.OnNotificationsSeen.broadcast(

@@ -14,6 +14,9 @@ from human_ressources.models import Employee, Beneficiary
 
 from works.models import Ticket
 from works.schema import TicketType
+from accounts.models import User
+
+from notifications.notificator import notify_managers_undesirable_event
 
 
 class UndesirableEventEmployeeType(DjangoObjectType):
@@ -97,6 +100,8 @@ class QualitiesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         undesirable_events = UndesirableEvent.objects.filter(company=company)
+        if not user.can_manage_quality():
+            undesirable_events = undesirable_events.filter(creator=user)
         if undesirable_event_filter:
             keyword = undesirable_event_filter.get('keyword', '')
             starting_date_time = undesirable_event_filter.get('starting_date_time')
@@ -183,6 +188,14 @@ class CreateUndesirableEvent(graphene.Mutation):
                         establishment=establishment,
                         creator=creator
                     )
+                managers = establishment.managers.all()
+                for manager in managers:
+                    employee_user = manager.employee.employee_user.all().first()
+                    if employee_user:
+                        notify_managers_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
+        quality_managers = User.get_quality_managers_in_user_company(user=creator)
+        for quality_manager in quality_managers:
+            notify_managers_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event)
 
         employees = Employee.objects.filter(id__in=employee_ids)
         for employee in employees:
@@ -273,6 +286,14 @@ class UpdateUndesirableEvent(graphene.Mutation):
                         establishment=establishment,
                         creator=creator
                     )
+                managers = establishment.managers.all()
+                for manager in managers:
+                    employee_user = manager.employee.employee_user.all().first()
+                    if employee_user:
+                        notify_managers_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
+                quality_managers = User.get_quality_managers_in_user_company(user=creator)
+                for quality_manager in quality_managers:
+                    notify_managers_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event)
 
         UndesirableEventEmployee.objects.filter(undesirable_event=undesirable_event).exclude(employee__id__in=employee_ids).delete()
         employees = Employee.objects.filter(id__in=employee_ids)

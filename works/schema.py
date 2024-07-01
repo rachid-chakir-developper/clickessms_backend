@@ -14,7 +14,7 @@ from vehicles.models import Vehicle
 from stocks.models import Material
 from medias.models import Folder, File
 from feedbacks.models import Comment, Signature
-from notifications.notificator import notify, push_notification_to_employees
+from notifications.notificator import notify, push_notification_to_employees, notify_employee_task_action
 from feedbacks.google_calendar import create_calendar_event_task, update_calendar_event_task, delete_calendar_event_task
 
 from feedbacks.schema import SignatureInput
@@ -198,6 +198,8 @@ class WorksQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         tasks = Task.objects.filter(company=company)
+        if not user.can_manage_facility():
+            tasks = tasks.filter(creator=user)
         if task_filter:
             keyword = task_filter.get('keyword', '')
             starting_date_time = task_filter.get('starting_date_time')
@@ -297,6 +299,8 @@ class WorksQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         tickets = Ticket.objects.filter(company=company)
+        if not user.can_manage_quality():
+            tickets = tickets.filter(creator=user)
         if ticket_filter:
             keyword = ticket_filter.get('keyword', '')
             starting_date_time = ticket_filter.get('starting_date_time')
@@ -807,6 +811,10 @@ class CreateTicket(graphene.Mutation):
             task_action.save()
             if employees_ids and employees_ids is not None:
                 task_action.employees.set(employees_ids)
+                for employee in task_action.employees.all():
+                    employee_user = employee.employee_user.all().first()
+                    if employee_user:
+                        notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action)
 
         ticket.save()
         return CreateTicket(ticket=ticket)
@@ -847,6 +855,10 @@ class UpdateTicket(graphene.Mutation):
                 task_action.save()
             if employees_ids and employees_ids is not None:
                 task_action.employees.set(employees_ids)
+                for employee in task_action.employees.all():
+                    employee_user = employee.employee_user.all().first()
+                    if employee_user:
+                        notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action)
 
         return UpdateTicket(ticket=ticket)
 
