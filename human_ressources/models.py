@@ -11,6 +11,7 @@ class Employee(models.Model):
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     email = models.EmailField(blank=False, max_length=255, verbose_name="email")
+    social_security_number = models.CharField(max_length=15, blank=True, null=True)
     photo = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='employee_photo', null=True)
     cover_image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='employee_cover_image', null=True)
     position = models.CharField(max_length=255, null=True)
