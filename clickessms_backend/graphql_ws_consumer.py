@@ -1,5 +1,18 @@
 import channels_graphql_ws
 from channels_graphql_ws.scope_as_context import ScopeAsContext
+from channels.db import database_sync_to_async
+from django.contrib.auth.models import AnonymousUser
+from graphql_jwt.utils import jwt_decode
+from django.contrib.auth import get_user_model
+
+@database_sync_to_async
+def get_user(username):
+    try:
+        user = get_user_model().objects.get(username=username)
+        return user
+
+    except User.DoesNotExist:
+        return AnonymousUser()
 
 class SGIGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
     """Channels WebSocket consumer which provides GraphQL API."""
@@ -14,8 +27,16 @@ class SGIGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
         """New client connection handler."""
         # You can `raise` from here to reject the connection.
         print("New client connected!")
-        print(self.scope.get("user"))
         context = ScopeAsContext(self.scope)
+        if 'JWT' in payload:
+            # Decode the token
+            decoded_data = jwt_decode(payload['JWT'])
+
+            # Inject the user
+            context.user = await get_user(username=decoded_data['username'])
+
+        else:
+            context.user = AnonymousUser
         context.build_absolute_uri = self.build_absolute_uri
         try:
             headers = self.scope.get('headers', [])
