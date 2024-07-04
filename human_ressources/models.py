@@ -70,7 +70,10 @@ class Employee(models.Model):
             number = f'{number_prefix}{number_suffix}'
 
         return number
-
+    @property
+    def user(self):
+        managed_company = self.managed_companies.filter(company=self.company).first()
+        return managed_company.user if managed_company else self.employee_user.all().first()
     @property
     def current_contract(self):
         current_time = timezone.now()

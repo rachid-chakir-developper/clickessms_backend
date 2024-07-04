@@ -199,7 +199,7 @@ class WorksQuery(graphene.ObjectType):
         total_count = 0
         tasks = Task.objects.filter(company=company)
         if not user.can_manage_facility():
-            tasks = tasks.filter(creator=user)
+            tasks = tasks.filter(Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
         if task_filter:
             keyword = task_filter.get('keyword', '')
             starting_date_time = task_filter.get('starting_date_time')
@@ -398,7 +398,7 @@ class CreateTask(graphene.Mutation):
                     )
                 notification_data = {
                     "sender": creator,
-                    "recipient": employee.employee_user.all().first(),
+                    "recipient": employee.user,
                     "notification_type": "ADDED_TO_TASK",
                     "title": "Nouvelle tâche assignée",
                     "message": "Vous avez une nouvelle tâche assignée.",
@@ -492,7 +492,7 @@ class UpdateTask(graphene.Mutation):
                     )
                 notification_data = {
                     "sender": creator,
-                    "recipient": employee.employee_user.all().first(),
+                    "recipient": employee.user,
                     "notification_type": "ADDED_TO_TASK",
                     "title": "Nouvelle tâche assignée",
                     "message": "Vous avez une nouvelle tâche assignée.",
@@ -794,7 +794,8 @@ class CreateTicket(graphene.Mutation):
         task_actions = ticket_data.pop("actions")
         ticket = Ticket(**ticket_data)
         ticket.creator = creator
-        ticket.company = creator.current_company if creator.current_company is not None else creator.company
+        company = creator.current_company if creator.current_company is not None else creator.company
+        ticket.company = company
         ticket.save()
         if establishment_ids and establishment_ids is not None:
             ticket.establishments.set(establishment_ids)
@@ -812,7 +813,7 @@ class CreateTicket(graphene.Mutation):
             if employees_ids and employees_ids is not None:
                 task_action.employees.set(employees_ids)
                 for employee in task_action.employees.all():
-                    employee_user = employee.employee_user.all().first()
+                    employee_user = employee.user
                     if employee_user:
                         notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action)
 
@@ -856,7 +857,7 @@ class UpdateTicket(graphene.Mutation):
             if employees_ids and employees_ids is not None:
                 task_action.employees.set(employees_ids)
                 for employee in task_action.employees.all():
-                    employee_user = employee.employee_user.all().first()
+                    employee_user = employee.user
                     if employee_user:
                         notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action)
 

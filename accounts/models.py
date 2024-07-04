@@ -243,9 +243,9 @@ class UserCompany(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='managed_companies', null=True)
     roles = models.ManyToManyField(Role, related_name='managed_companies', blank=True)
 
-    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, null=True)
-    partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, null=True)
-    financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True)
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
+    partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
+    financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
     supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, null=True)
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)

@@ -4,12 +4,16 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
+from django.core.exceptions import PermissionDenied
+
 from django.db.models import Q
 
 from planning.models import EmployeeAbsence, EmployeeAbsenceItem
 from data_management.models import AbsenceReason
 from medias.models import Folder, File
 from human_ressources.models import Employee
+
+from notifications.notificator import notify_employee_absence
 
 class EmployeeAbsenceItemType(DjangoObjectType):
     class Meta:
@@ -132,7 +136,10 @@ class CreateEmployeeAbsence(graphene.Mutation):
         if reason_ids and reason_ids is not None:
             reasons = AbsenceReason.objects.filter(id__in=reason_ids)
             employee_absence.reasons.set(reasons)
-        employees = Employee.objects.filter(id__in=employee_ids if employee_ids else [creator.employee.id])
+        if not creator.can_manage_human_ressources():
+            employees = [creator.get_employee_in_company()]
+        else:
+            employees = Employee.objects.filter(id__in=employee_ids) if employee_ids else [creator.get_employee_in_company()]
         for employee in employees:
             try:
                 employee_absence_items = EmployeeAbsenceItem.objects.get(employee__id=employee.id, employee_absence__id=employee_absence.id)
@@ -157,8 +164,11 @@ class UpdateEmployeeAbsence(graphene.Mutation):
         creator = info.context.user
         employee_ids = employee_absence_data.pop("employees")
         reason_ids = employee_absence_data.pop("reasons")
-        EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
         employee_absence = EmployeeAbsence.objects.get(pk=id)
+        if not creator.can_manage_human_ressources() and employee_absence.status != 'PENDING':
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
+        EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
+        employee_absence.refresh_from_db()
         if not employee_absence.folder or employee_absence.folder is None:
             folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.title,creator=creator)
             EmployeeAbsence.objects.filter(pk=id).update(folder=folder)
@@ -185,7 +195,7 @@ class UpdateEmployeeAbsence(graphene.Mutation):
             employee_absence.reasons.set(reasons)
 
         EmployeeAbsenceItem.objects.filter(employee_absence=employee_absence).exclude(employee__id__in=employee_ids).delete()
-        employees = Employee.objects.filter(id__in=employee_ids if employee_ids else [creator.employee.id])
+        employees = Employee.objects.filter(id__in=employee_ids) if employee_ids else [creator.get_employee_in_company()]
         for employee in employees:
             try:
                 employee_absence_items = EmployeeAbsenceItem.objects.get(employee__id=employee.id, employee_absence__id=employee_absence.id)
@@ -213,16 +223,23 @@ class UpdateEmployeeAbsenceFields(graphene.Mutation):
         success = True
         employee_absence = None
         message = ''
+        if not creator.can_manage_human_ressources() and employee_absence.status != 'PENDING':
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
         try:
             employee_absence = EmployeeAbsence.objects.get(pk=id)
             EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
-            if 'status' in employee_absence_data:
+            if 'status' in employee_absence_data and creator.can_manage_human_ressources():
                 if employee_absence_data.status == 'APPROVED' :
                     EmployeeAbsence.objects.filter(pk=id).update(approved_by=creator)
                 elif employee_absence_data.status == 'REJECTED' :
                     EmployeeAbsence.objects.filter(pk=id).update(rejected_by=creator)
                 else:
                     EmployeeAbsence.objects.filter(pk=id).update(put_on_hold_by=creator)
+                employee_absence.refresh_from_db()
+                for employee in employee_absence.employees.all():
+                    employee_user = employee.employee.user
+                    if employee_user:
+                        notify_employee_absence(sender=creator, recipient=employee_user, employee_absence=employee_absence)
             employee_absence.refresh_from_db()
         except Exception as e:
             done = False

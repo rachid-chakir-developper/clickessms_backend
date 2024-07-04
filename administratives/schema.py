@@ -841,7 +841,7 @@ class CreateMeeting(graphene.Mutation):
             if employees_ids and employees_ids is not None:
                 meeting_decision.employees.set(employees_ids)
                 for employee in meeting_decision.employees.all():
-                    employee_user = employee.employee_user.all().first()
+                    employee_user = employee.user
                     if employee_user:
                         notify_employee_meeting_decision(sender=creator, recipient=employee_user, meeting_decision=meeting_decision)
             if for_voters_ids and for_voters_ids is not None:
@@ -944,7 +944,7 @@ class UpdateMeeting(graphene.Mutation):
             if employees_ids and employees_ids is not None:
                 meeting_decision.employees.set(employees_ids)
                 for employee in meeting_decision.employees.all():
-                    employee_user = employee.employee_user.all().first()
+                    employee_user = employee.user
                     if employee_user:
                         notify_employee_meeting_decision(sender=creator, recipient=employee_user, meeting_decision=meeting_decision)
             if for_voters_ids and for_voters_ids is not None:

@@ -190,7 +190,7 @@ class CreateUndesirableEvent(graphene.Mutation):
                     )
                 managers = establishment.managers.all()
                 for manager in managers:
-                    employee_user = manager.employee.employee_user.all().first()
+                    employee_user = manager.employee.user
                     if employee_user:
                         notify_managers_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
         quality_managers = User.get_quality_managers_in_user_company(user=creator)
@@ -288,7 +288,7 @@ class UpdateUndesirableEvent(graphene.Mutation):
                     )
                 managers = establishment.managers.all()
                 for manager in managers:
-                    employee_user = manager.employee.employee_user.all().first()
+                    employee_user = manager.employee.user
                     if employee_user:
                         notify_managers_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
                 quality_managers = User.get_quality_managers_in_user_company(user=creator)

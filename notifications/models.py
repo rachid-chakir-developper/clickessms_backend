@@ -11,6 +11,12 @@ NOTIF_TYPES_ALL = {
     "EI_ADDED": "EI_ADDED",
     "TASK_ACTION_ADDED": "TASK_ACTION_ADDED",
     "MEETING_DECISION_ADDED": "MEETING_DECISION_ADDED",
+
+    "EMPLOYEE_ABSENCE_ADDED": "EMPLOYEE_ABSENCE_ADDED",
+    "EMPLOYEE_ABSENCE_UPDATED": "EMPLOYEE_ABSENCE_UPDATED",
+    "EMPLOYEE_ABSENCE_PENDING": "EMPLOYEE_ABSENCE_PENDING",
+    "EMPLOYEE_ABSENCE_APPROVED": "EMPLOYEE_ABSENCE_APPROVED",
+    "EMPLOYEE_ABSENCE_REJECTED": "EMPLOYEE_ABSENCE_REJECTED",
 }
 class Notification(models.Model):
 	NOTIF_TYPES = [
@@ -22,6 +28,12 @@ class Notification(models.Model):
         ("EI_ADDED", "Événement indésirable déclaré"),
         ("TASK_ACTION_ADDED", "Affecté à une action"),
         ("MEETING_DECISION_ADDED", "Affecté à une décision"),
+
+        ("EMPLOYEE_ABSENCE_ADDED", "Nouvelle demande de congé ajoutée"),
+        ("EMPLOYEE_ABSENCE_UPDATED", "Demande de congé mise à jour"),
+        ("EMPLOYEE_ABSENCE_PENDING", "Demande de congé en attente de décision"),
+        ("EMPLOYEE_ABSENCE_APPROVED", "Demande de congé approuvée"),
+        ("EMPLOYEE_ABSENCE_REJECTED", "Demande de congé rejetée"),
     ]
 	sender = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='notification_sender', null=True)
 	recipient = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='notification_recipient', null=True)
@@ -34,6 +46,7 @@ class Notification(models.Model):
 	undesirable_event = models.ForeignKey('qualities.UndesirableEvent', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	task_action = models.ForeignKey('works.TaskAction', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	meeting_decision = models.ForeignKey('administratives.MeetingDecision', on_delete=models.SET_NULL, null=True, related_name='notifications')
+	employee_absence = models.ForeignKey('planning.EmployeeAbsence', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_notifications', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

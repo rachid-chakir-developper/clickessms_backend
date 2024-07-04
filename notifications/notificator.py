@@ -10,6 +10,7 @@ from accounts.models import Device
 import notifications
 
 def notify(notification_data):
+	print(notification_data)
 	notification = Notification.objects.create(**notification_data)
 	try:
 		notifications.schema.OnNotificationAdded.broadcast(
@@ -45,6 +46,41 @@ def notify_employee_task_action(sender, recipient, task_action):
         "task_action": task_action,
     }
     notify(notification_data)
+
+def notify_employee_absence(sender, recipient, employee_absence, action=None):
+	print(f'notify_employee_absence: status: {employee_absence.status}')
+	if action:
+		notification_type = "EMPLOYEE_ABSENCE_ADDED"
+		title = "Nouvelle demande de congé ajoutée."
+		message = "Une nouvelle demande de congé a été soumise."
+		if action == 'UPDATED':
+			notification_type = "EMPLOYEE_ABSENCE_UPDATED"
+			title = "Demande de congé mise à jour."
+			message = "Votre demande de congé a été mise à jour."
+	else:
+		if employee_absence.status == 'PENDING':
+			notification_type = "EMPLOYEE_ABSENCE_PENDING"
+			title = "Demande de congé en attente de décision."
+			message = "Votre demande de congé est en attente de décision."
+		if employee_absence.status == 'APPROVED':
+			print(f'APPROVED heere: {employee_absence.status}')
+			notification_type = "EMPLOYEE_ABSENCE_APPROVED"
+			title = "Demande de congé approuvée."
+			message = "Votre demande de congé a été approuvée."
+		elif employee_absence.status == 'REJECTED':
+			print(f'REJECTED heere: {employee_absence.status}')
+			notification_type = "EMPLOYEE_ABSENCE_REJECTED"
+			title = "Demande de congé rejetée."
+			message = "Votre demande de congé a été rejetée."
+		notification_data = {
+	        "sender": sender,
+	        "recipient": recipient,
+	        "notification_type": notification_type,
+	        "title": title,
+	        "message": message,
+	        "employee_absence": employee_absence,
+	    }
+	notify(notification_data)
 
 def notify_employee_meeting_decision(sender, recipient, meeting_decision):
     """Helper function to create notification data."""
