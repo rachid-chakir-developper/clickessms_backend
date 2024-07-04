@@ -81,6 +81,7 @@ class UndesirableEventInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     other_notified_persons = graphene.String(required=False)
+    concerned_families = graphene.String(required=False)
     status = graphene.String(required=False)
     normal_types = graphene.List(graphene.Int, required=False)
     serious_types = graphene.List(graphene.Int, required=False)
