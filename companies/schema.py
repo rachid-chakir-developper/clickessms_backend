@@ -188,7 +188,7 @@ class CompanyQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         establishments = Establishment.objects.filter(company=company)
-        if id_parent and int(id_parent) > 0:
+        if id_parent:
             establishments = establishments.filter(establishment_parent__id=id_parent if int(id_parent) > 0 else None)
         if establishment_filter:
             keyword = establishment_filter.get('keyword', '')

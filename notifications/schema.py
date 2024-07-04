@@ -35,21 +35,15 @@ class MessageNotificationType(DjangoObjectType):
         fields = "__all__"
 
     image = graphene.String()
-    balance = graphene.Decimal()
 
     def resolve_image(instance, info, **kwargs):
         return instance.image and info.context.build_absolute_uri(
             instance.image.image.url
         )
 
-    def resolve_balance(instance, info, **kwargs):
-        return instance.current_balance
-
-
 class MessageNotificationNodeType(graphene.ObjectType):
     nodes = graphene.List(MessageNotificationType)
     total_count = graphene.Int()
-
 
 class MessageNotificationFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)

@@ -44,3 +44,30 @@ class StatusChange(models.Model):
     
     def __str__(self):
     	return self.status
+
+class Feedback(models.Model):
+	FEEDBACK_MODULES = [
+        ('APP', 'Application'),
+        ('REMINDER', 'Rappel'),
+        ('MESSAGE', 'Message'),
+        ('TASK', 'Tâche'),
+        ('EVENT', 'Événement'),
+        ('NEWS', 'Actualités'),
+        ('WARNING', 'Avertissement'),
+        ('PROMOTION', 'Promotion'),
+        ('UPDATE', 'Mise à jour'),
+        ('FEEDBACK', 'Commentaires'),
+        ('ERROR', 'Erreur'),
+    ]
+	feedback_module = models.CharField(max_length=50, choices=FEEDBACK_MODULES, default= "APP")
+	title = models.CharField(max_length=255, null=True)
+	image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='feedbacks', null=True)
+	message = models.TextField(null=True)
+	is_active = models.BooleanField(default=True, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='feedbacks', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='feedbacks', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return self.title
