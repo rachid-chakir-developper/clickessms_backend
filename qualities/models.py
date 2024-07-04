@@ -43,6 +43,7 @@ class UndesirableEvent(models.Model):
 	concerned_families = models.TextField(default='', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
+	other_types = models.TextField(default='', null=True)
 	normal_types = models.ManyToManyField('data_management.UndesirableEventNormalType', related_name='normal_type_undesirable_events')
 	serious_types = models.ManyToManyField('data_management.UndesirableEventSeriousType', related_name='serious_type_undesirable_events')
 	frequency = models.ForeignKey('data_management.UndesirableEventFrequency', on_delete=models.SET_NULL, related_name='frequency_undesirable_events', null=True)
