@@ -23,17 +23,33 @@ def notify(notification_data):
 	except Exception as e:
 		pass
 
-def notify_managers_undesirable_event(sender, recipient, undesirable_event):
-    """Helper function to create notification data."""
-    notification_data = {
+def notify_undesirable_event(sender, recipient, undesirable_event, action=None):
+	if action:
+		notification_type = "EI_ADDED"
+		title = "Événement indésirable déclaré"
+		message = "Un événement indésirable a été déclaré."
+		if action == 'UPDATED':
+			notification_type = "EI_UPDATED"
+			title = "Demande de congé mise à jour."
+			message = "Votre demande de congé a été mise à jour."
+	else:
+		if undesirable_event.status == 'IN_PROGRESS':
+			notification_type = "EI_IN_PROGRESS"
+			title = "Demande de congé en attente de décision."
+			message = "Votre demande de congé est en attente de décision."
+		if undesirable_event.status == 'DONE':
+			notification_type = "EI_DONE"
+			title = "Demande de congé approuvée."
+			message = "Votre demande de congé a été approuvée."
+	notification_data = {
         "sender": sender,
         "recipient": recipient,
-        "notification_type": "EI_ADDED",
-        "title": "Événement indésirable déclaré",
-        "message": "Un événement indésirable a été déclaré.",
+        "notification_type": notification_type,
+        "title": title,
+        "message": message,
         "undesirable_event": undesirable_event,
     }
-    notify(notification_data)
+	notify(notification_data)
 
 def notify_employee_task_action(sender, recipient, task_action):
     """Helper function to create notification data."""
@@ -48,7 +64,6 @@ def notify_employee_task_action(sender, recipient, task_action):
     notify(notification_data)
 
 def notify_employee_absence(sender, recipient, employee_absence, action=None):
-	print(f'notify_employee_absence: status: {employee_absence.status}')
 	if action:
 		notification_type = "EMPLOYEE_ABSENCE_ADDED"
 		title = "Nouvelle demande de congé ajoutée."
@@ -63,23 +78,21 @@ def notify_employee_absence(sender, recipient, employee_absence, action=None):
 			title = "Demande de congé en attente de décision."
 			message = "Votre demande de congé est en attente de décision."
 		if employee_absence.status == 'APPROVED':
-			print(f'APPROVED heere: {employee_absence.status}')
 			notification_type = "EMPLOYEE_ABSENCE_APPROVED"
 			title = "Demande de congé approuvée."
 			message = "Votre demande de congé a été approuvée."
 		elif employee_absence.status == 'REJECTED':
-			print(f'REJECTED heere: {employee_absence.status}')
 			notification_type = "EMPLOYEE_ABSENCE_REJECTED"
 			title = "Demande de congé rejetée."
 			message = "Votre demande de congé a été rejetée."
-		notification_data = {
-	        "sender": sender,
-	        "recipient": recipient,
-	        "notification_type": notification_type,
-	        "title": title,
-	        "message": message,
-	        "employee_absence": employee_absence,
-	    }
+	notification_data = {
+        "sender": sender,
+        "recipient": recipient,
+        "notification_type": notification_type,
+        "title": title,
+        "message": message,
+        "employee_absence": employee_absence,
+    }
 	notify(notification_data)
 
 def notify_employee_meeting_decision(sender, recipient, meeting_decision):

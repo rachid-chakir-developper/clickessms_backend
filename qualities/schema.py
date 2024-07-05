@@ -16,7 +16,7 @@ from works.models import Ticket
 from works.schema import TicketType
 from accounts.models import User
 
-from notifications.notificator import notify_managers_undesirable_event
+from notifications.notificator import notify_undesirable_event
 
 
 class UndesirableEventEmployeeType(DjangoObjectType):
@@ -194,10 +194,10 @@ class CreateUndesirableEvent(graphene.Mutation):
                 for manager in managers:
                     employee_user = manager.employee.user
                     if employee_user:
-                        notify_managers_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
+                        notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
         quality_managers = User.get_quality_managers_in_user_company(user=creator)
         for quality_manager in quality_managers:
-            notify_managers_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event)
+            notify_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event)
 
         employees = Employee.objects.filter(id__in=employee_ids)
         for employee in employees:
@@ -292,10 +292,10 @@ class UpdateUndesirableEvent(graphene.Mutation):
                 for manager in managers:
                     employee_user = manager.employee.user
                     if employee_user:
-                        notify_managers_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
+                        notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
                 quality_managers = User.get_quality_managers_in_user_company(user=creator)
                 for quality_manager in quality_managers:
-                    notify_managers_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event)
+                    notify_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event)
 
         UndesirableEventEmployee.objects.filter(undesirable_event=undesirable_event).exclude(employee__id__in=employee_ids).delete()
         employees = Employee.objects.filter(id__in=employee_ids)
