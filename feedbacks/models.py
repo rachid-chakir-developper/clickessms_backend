@@ -48,16 +48,21 @@ class StatusChange(models.Model):
 class Feedback(models.Model):
 	FEEDBACK_MODULES = [
         ('APP', 'Application'),
-        ('REMINDER', 'Rappel'),
-        ('MESSAGE', 'Message'),
-        ('TASK', 'Tâche'),
-        ('EVENT', 'Événement'),
-        ('NEWS', 'Actualités'),
-        ('WARNING', 'Avertissement'),
-        ('PROMOTION', 'Promotion'),
-        ('UPDATE', 'Mise à jour'),
-        ('FEEDBACK', 'Commentaires'),
-        ('ERROR', 'Erreur'),
+        ('DASHBOARD', 'Tableau de bord'),
+        ('QUALITY', 'Qualité'),
+        ('ACTIVITY', 'Activité'),
+        ('HR', 'Ressources Humaines'),
+        ('ADMINISTRATIF', 'Administratif'),
+        ('FACILITY', 'Services Généraux'),
+        ('FINANCE', 'Finance'),
+        ('IT', 'Informatique'),
+        ('PURCHASE', 'Achat'),
+        ('GOVERNANCE', 'Gouvernance'),
+        ('CSE', 'CSE'),
+        ('LEGAL', 'Juridiques'),
+        ('RESOURCES', 'Ressources'),
+        ('USERS', 'Utilisateurs'),
+        ('SETTINGS', 'Paramètres'),
     ]
 	feedback_module = models.CharField(max_length=50, choices=FEEDBACK_MODULES, default= "APP")
 	title = models.CharField(max_length=255, null=True)

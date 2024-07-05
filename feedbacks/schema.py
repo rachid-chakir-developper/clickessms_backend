@@ -147,17 +147,15 @@ class CommentsQuery(graphene.ObjectType):
             user.current_company if user.current_company is not None else user.company
         )
         total_count = 0
-        feedbacks = Feedback.objects.filter(company=company)
+        feedbacks = Feedback.objects.all()
+        if not user.is_superuser:
+            feedbacks = feedbacks.filter(creator=user)
         if feedback_filter:
             keyword = feedback_filter.get("keyword", "")
             starting_date_time = feedback_filter.get("starting_date_time")
             ending_date_time = feedback_filter.get("ending_date_time")
             if keyword:
-                feedbacks = feedbacks.filter(
-                    Q(name__icontains=keyword)
-                    | Q(registration_number__icontains=keyword)
-                    | Q(driver_name__icontains=keyword)
-                )
+                feedbacks = feedbacks.filter(title__icontains=keyword)
             if starting_date_time:
                 feedbacks = feedbacks.filter(created_at__gte=starting_date_time)
             if ending_date_time:
