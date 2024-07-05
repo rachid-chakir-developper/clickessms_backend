@@ -194,10 +194,10 @@ class CreateUndesirableEvent(graphene.Mutation):
                 for manager in managers:
                     employee_user = manager.employee.user
                     if employee_user:
-                        notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
+                        notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event, action='ADDED')
         quality_managers = User.get_quality_managers_in_user_company(user=creator)
         for quality_manager in quality_managers:
-            notify_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event)
+            notify_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event, action='ADDED')
 
         employees = Employee.objects.filter(id__in=employee_ids)
         for employee in employees:
@@ -292,10 +292,7 @@ class UpdateUndesirableEvent(graphene.Mutation):
                 for manager in managers:
                     employee_user = manager.employee.user
                     if employee_user:
-                        notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
-                quality_managers = User.get_quality_managers_in_user_company(user=creator)
-                for quality_manager in quality_managers:
-                    notify_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event)
+                        notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event, action='ADDED')
 
         UndesirableEventEmployee.objects.filter(undesirable_event=undesirable_event).exclude(employee__id__in=employee_ids).delete()
         employees = Employee.objects.filter(id__in=employee_ids)
@@ -353,6 +350,11 @@ class UpdateUndesirableEventFields(graphene.Mutation):
             undesirable_event = UndesirableEvent.objects.get(pk=id)
             UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
             undesirable_event.refresh_from_db()
+            if 'status' in undesirable_event_data and creator.can_manage_quality():
+                employee_user = undesirable_event.employee.user if undesirable_event.employee else undesirable_event.creator
+                if employee_user:
+                    notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
+            undesirable_event.refresh_from_db()
         except Exception as e:
             done = False
             success = False
@@ -403,7 +405,8 @@ class CreateUndesirableEventTicket(graphene.Mutation):
         success = True
         message = ''
         ticket = None
-
+        if not creator.can_manage_quality():
+            raise PermissionDenied("Impossible d'analyser : vous n'avez pas les droits nécessaires.")
         try:
             undesirable_event = UndesirableEvent.objects.get(pk=id)
             if Ticket.objects.filter(undesirable_event=undesirable_event).exists():
@@ -426,6 +429,9 @@ class CreateUndesirableEventTicket(graphene.Mutation):
                     UndesirableEvent.objects.filter(pk=id).update(status='IN_PROGRESS')
                     undesirable_event.refresh_from_db()
                     message = 'Ticket créé avec succès avec les établissements associés.'
+            employee_user = undesirable_event.employee.user if undesirable_event.employee else undesirable_event.creator
+            if employee_user:
+                notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
 
         except UndesirableEvent.DoesNotExist:
             success = False

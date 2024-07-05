@@ -228,6 +228,7 @@ class UpdateEmployeeAbsenceFields(graphene.Mutation):
         try:
             employee_absence = EmployeeAbsence.objects.get(pk=id)
             EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
+            employee_absence.refresh_from_db()
             if 'status' in employee_absence_data and creator.can_manage_human_ressources():
                 if employee_absence_data.status == 'APPROVED' :
                     EmployeeAbsence.objects.filter(pk=id).update(approved_by=creator)

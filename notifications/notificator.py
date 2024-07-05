@@ -10,7 +10,6 @@ from accounts.models import Device
 import notifications
 
 def notify(notification_data):
-	print(notification_data)
 	notification = Notification.objects.create(**notification_data)
 	try:
 		notifications.schema.OnNotificationAdded.broadcast(
@@ -24,23 +23,29 @@ def notify(notification_data):
 		pass
 
 def notify_undesirable_event(sender, recipient, undesirable_event, action=None):
+	if sender==recipient:
+		return 0
 	if action:
 		notification_type = "EI_ADDED"
 		title = "Événement indésirable déclaré"
 		message = "Un événement indésirable a été déclaré."
 		if action == 'UPDATED':
 			notification_type = "EI_UPDATED"
-			title = "Demande de congé mise à jour."
-			message = "Votre demande de congé a été mise à jour."
+			title = "Événement indésirable mise à jour."
+			message = "Votre événement indésirable a été mise à jour."
 	else:
+		if undesirable_event.status == 'NEW':
+			notification_type = "EI_NEW"
+			title = "Événement indésirable remis comme déclaré."
+			message = "Votre événement indésirable est remis comme déclaré."
 		if undesirable_event.status == 'IN_PROGRESS':
 			notification_type = "EI_IN_PROGRESS"
-			title = "Demande de congé en attente de décision."
-			message = "Votre demande de congé est en attente de décision."
+			title = "Événement indésirable en cours de traitement."
+			message = "Votre événement indésirable est en cours de traitement."
 		if undesirable_event.status == 'DONE':
 			notification_type = "EI_DONE"
-			title = "Demande de congé approuvée."
-			message = "Votre demande de congé a été approuvée."
+			title = "Événement indésirable traité."
+			message = "Votre événement indésirable a été traité."
 	notification_data = {
         "sender": sender,
         "recipient": recipient,
@@ -52,8 +57,9 @@ def notify_undesirable_event(sender, recipient, undesirable_event, action=None):
 	notify(notification_data)
 
 def notify_employee_task_action(sender, recipient, task_action):
-    """Helper function to create notification data."""
-    notification_data = {
+	if sender==recipient:
+		return 0
+	notification_data = {
         "sender": sender,
         "recipient": recipient,
         "notification_type": "TASK_ACTION_ADDED",
@@ -61,9 +67,11 @@ def notify_employee_task_action(sender, recipient, task_action):
         "message": "Vous avez une nouvelle action assignée.",
         "task_action": task_action,
     }
-    notify(notification_data)
+	notify(notification_data)
 
 def notify_employee_absence(sender, recipient, employee_absence, action=None):
+	if sender==recipient:
+		return 0
 	if action:
 		notification_type = "EMPLOYEE_ABSENCE_ADDED"
 		title = "Nouvelle demande de congé ajoutée."
@@ -96,8 +104,9 @@ def notify_employee_absence(sender, recipient, employee_absence, action=None):
 	notify(notification_data)
 
 def notify_employee_meeting_decision(sender, recipient, meeting_decision):
-    """Helper function to create notification data."""
-    notification_data = {
+	if sender==recipient:
+		return 0
+	notification_data = {
         "sender": sender,
         "recipient": recipient,
         "notification_type": "MEETING_DECISION_ADDED",
@@ -105,7 +114,7 @@ def notify_employee_meeting_decision(sender, recipient, meeting_decision):
         "message": "Vous avez une nouvelle décision assignée.",
         "meeting_decision": meeting_decision,
     }
-    notify(notification_data)
+	notify(notification_data)
 
 def broadcastNotificationsSeen(not_seen_count=0):
 	try:
