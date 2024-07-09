@@ -59,9 +59,15 @@ class EmployeeType(DjangoObjectType):
     class Meta:
         model = Employee
         fields = "__all__"
+    first_name = graphene.String()
+    last_name = graphene.String()
     photo = graphene.String()
     cover_image = graphene.String()
     current_contract = graphene.Field(EmployeeContractType)
+    def resolve_first_name( instance, info, **kwargs ):
+        return instance.first_name and instance.first_name.capitalize()
+    def resolve_last_name( instance, info, **kwargs ):
+        return instance.last_name and instance.last_name.upper()
     def resolve_photo( instance, info, **kwargs ):
         return instance.photo and info.context.build_absolute_uri(instance.photo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
@@ -121,8 +127,17 @@ class BeneficiaryType(DjangoObjectType):
     class Meta:
         model = Beneficiary
         fields = "__all__"
+    first_name = graphene.String()
+    preferred_name = graphene.String()
+    last_name = graphene.String()
     photo = graphene.String()
     cover_image = graphene.String()
+    def resolve_first_name( instance, info, **kwargs ):
+        return instance.first_name and instance.first_name.capitalize()
+    def resolve_preferred_name( instance, info, **kwargs ):
+        return instance.preferred_name and instance.preferred_name.upper()
+    def resolve_last_name( instance, info, **kwargs ):
+        return instance.last_name and instance.last_name.upper()
     def resolve_photo( instance, info, **kwargs ):
         return instance.photo and info.context.build_absolute_uri(instance.photo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):

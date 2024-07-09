@@ -101,7 +101,7 @@ class QualitiesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        undesirable_events = UndesirableEvent.objects.filter(company=company)
+        undesirable_events = UndesirableEvent.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_quality():
             undesirable_events = undesirable_events.filter(creator=user)
         if undesirable_event_filter:
@@ -464,18 +464,21 @@ class DeleteUndesirableEvent(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            undesirable_event = UndesirableEvent.objects.get(pk=id)
-            undesirable_event.delete()
+        undesirable_event = UndesirableEvent.objects.get(pk=id)
+        if current_user.can_manage_quality() or (undesirable_event.creator == current_user and not undesirable_event.tickets.first()):
+            # undesirable_event = UndesirableEvent.objects.get(pk=id)
+            # undesirable_event.delete()
+            UndesirableEvent.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            deleted = False
+            success = False
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteUndesirableEvent(deleted=deleted, success=success, message=message, id=id)
         
-#*************************************************************************#  
+#*********************************************************************************************************************#
 
-#*************************************************************************#
 class QualitiesMutation(graphene.ObjectType):
     create_undesirable_event = CreateUndesirableEvent.Field()
     update_undesirable_event = UpdateUndesirableEvent.Field()

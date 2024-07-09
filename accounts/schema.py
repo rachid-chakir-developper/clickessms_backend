@@ -34,6 +34,8 @@ class UserType(DjangoObjectType):
         model = User
         fields = "__all__"
     pk = graphene.Int()
+    first_name = graphene.String()
+    last_name = graphene.String()
     photo = graphene.String()
     photo = graphene.String()
     cover_image = graphene.String()
@@ -46,6 +48,10 @@ class UserType(DjangoObjectType):
     financier = graphene.Field(FinancierType)
     supplier = graphene.Field(SupplierType)
     companies = graphene.List(UserCompanyType)
+    def resolve_first_name( instance, info, **kwargs ):
+        return instance.first_name and instance.first_name.capitalize()
+    def resolve_last_name( instance, info, **kwargs ):
+        return instance.last_name and instance.last_name.upper()
     def resolve_pk(instance, info):
         return instance.pk
     def resolve_photo( instance, info, **kwargs ):

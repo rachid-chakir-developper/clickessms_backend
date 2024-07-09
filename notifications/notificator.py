@@ -137,13 +137,13 @@ def broadcastMessageNotificationAdded(message_notification):
     except Exception as e:
         pass
 
-def broadcastMessageNotificationsSeen(not_seen_count=0):
+def broadcastMessageNotificationsRead(not_read_count=0):
     try:
-        message_notifications.schema.OnMessageNotificationsSeen.broadcast(
+        message_notifications.schema.OnMessageNotificationsRead.broadcast(
         # Subscription group to notify clients in.
-            group="ON_MSG_NOTIFS_SEEN",
+            group="ON_MSG_NOTIFS_READ",
             # Dict delivered to the `publish` method.
-            payload={'not_seen_count' : not_seen_count},
+            payload={'not_read_count' : not_read_count},
         )
     except:
         pass

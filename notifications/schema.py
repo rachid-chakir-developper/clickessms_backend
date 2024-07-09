@@ -5,8 +5,8 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from notifications.models import Notification, MessageNotification, MessageNotificationEstablishment
-from notifications.notificator import broadcastNotificationsSeen
+from notifications.models import Notification, MessageNotification, MessageNotificationEstablishment, MessageNotificationUserStatus
+from notifications.notificator import broadcastNotificationsSeen, broadcastMessageNotificationsRead
 
 from companies.models import Establishment
 from medias.models import Folder, File
@@ -35,11 +35,15 @@ class MessageNotificationType(DjangoObjectType):
         fields = "__all__"
 
     image = graphene.String()
+    is_read = graphene.Boolean()
 
     def resolve_image(instance, info, **kwargs):
         return instance.image and info.context.build_absolute_uri(
             instance.image.image.url
         )
+    def resolve_is_read(instance, info, **kwargs):
+        user = info.context.user
+        return instance.message_notification_statuses.filter(user=user, is_read=True).exists() if not user.is_anonymous else False
 
 class MessageNotificationNodeType(graphene.ObjectType):
     nodes = graphene.List(MessageNotificationType)
@@ -259,6 +263,7 @@ class UpdateMessageNotification(graphene.Mutation):
         creator = info.context.user
         establishment_ids = message_notification_data.pop("establishments")
         MessageNotification.objects.filter(pk=id).update(**message_notification_data)
+        MessageNotificationUserStatus.objects.filter(message_notification__id=id).update(is_read=False)
         message_notification = MessageNotification.objects.get(pk=id)
         if not image and message_notification.image:
             image_file = message_notification.image
@@ -319,6 +324,37 @@ class UpdateMessageNotificationState(graphene.Mutation):
             done=done, success=success, message=message, message_notification=message_notification
         )
 
+class MarkMessageNotificationsAsRead(graphene.Mutation):
+    class Arguments:
+        ids = graphene.List(graphene.ID)
+        is_read = graphene.Boolean(required=False)
+    
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, ids, is_read=None):
+        user = info.context.user
+        done = True
+        success = True
+        message = ''
+        try:
+            message_notifications = MessageNotification.objects.filter(id__in=ids)
+            for message_notification in message_notifications:
+                notification_status, created = MessageNotificationUserStatus.objects.get_or_create(
+                    user=user,
+                    message_notification=message_notification
+                    )
+                notification_status.is_read = True
+                notification_status.save()
+            not_read_count = MessageNotification.objects.filter(is_read=False).count()
+            # broadcastMessageNotificationsRead(not_read_count=not_read_count)
+        except Exception as e:
+            done = False
+            success = False
+            message = "Une erreur s'est produite."
+        return MarkMessageNotificationsAsRead(done=done, success=success, message=message)
+
 
 class DeleteMessageNotification(graphene.Mutation):
     class Arguments:
@@ -357,6 +393,7 @@ class NotificationsMutation(graphene.ObjectType):
     create_message_notification = CreateMessageNotification.Field()
     update_message_notification = UpdateMessageNotification.Field()
     update_message_notification_state = UpdateMessageNotificationState.Field()
+    mark_message_notifications_as_read = MarkMessageNotificationsAsRead.Field()
     delete_message_notification = DeleteMessageNotification.Field()
 
 #**************************************Subscription**********************************
@@ -468,7 +505,7 @@ class OnMessageNotificationAdded(channels_graphql_ws.Subscription):
         return OnMessageNotificationAdded(message_notification=payload)
 
 
-class OnMessageNotificationsSeen(channels_graphql_ws.Subscription):
+class OnMessageNotificationsRead(channels_graphql_ws.Subscription):
     """Simple GraphQL subscription."""
 
     # Leave only latest 64 messages in the server queue.
@@ -476,7 +513,7 @@ class OnMessageNotificationsSeen(channels_graphql_ws.Subscription):
 
     # Subscription payload.
     total_count = graphene.Int()
-    not_seen_count = graphene.Int()
+    not_read_count = graphene.Int()
 
     class Arguments:
         """That is how subscription arguments are defined."""
@@ -488,7 +525,7 @@ class OnMessageNotificationsSeen(channels_graphql_ws.Subscription):
         """Called when user subscribes."""
 
         # Return the list of subscription group names.
-        return ["ON_MSG_NOTIFS_SEEN"]
+        return ["ON_MSG_NOTIFS_READ"]
 
     @staticmethod
     def publish(payload, info):
@@ -500,7 +537,7 @@ class OnMessageNotificationsSeen(channels_graphql_ws.Subscription):
         # if you wish to suppress the message_notification to a particular
         # client. For example, this allows to avoid message_notifications for
         # the actions made by this particular client.
-        return OnMessageNotificationsSeen(not_seen_count=payload['not_seen_count'])
+        return OnMessageNotificationsRead(not_read_count=payload['not_read_count'])
 
 #***********************************************************************************
 
@@ -509,4 +546,4 @@ class NotificationsSubscription(graphene.ObjectType):
     on_notifications_seen = OnNotificationsSeen.Field()
 
     on_message_notification_added = OnMessageNotificationAdded.Field()
-    on_message_notifications_seen = OnMessageNotificationsSeen.Field()
+    on_message_notifications_read = OnMessageNotificationsRead.Field()

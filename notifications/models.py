@@ -99,3 +99,13 @@ class MessageNotificationEstablishment(models.Model):
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='message_notification_establishments', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+class MessageNotificationUserStatus(models.Model):
+	message_notification = models.ForeignKey(MessageNotification, on_delete=models.SET_NULL, null=True, related_name='message_notification_statuses')
+	user = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='message_notification_statuses', null=True)
+	is_read = models.BooleanField(default=False)
+	read_at = models.DateTimeField(auto_now_add=True, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+	class Meta:
+		unique_together = ('message_notification', 'user')
