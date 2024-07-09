@@ -5,6 +5,7 @@ from graphql_jwt.decorators import login_required
 from django.apps import apps
 
 from django.db.models import Q
+import openpyxl
 
 from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel
 
@@ -166,8 +167,44 @@ class DeleteData(graphene.Mutation):
         data.delete()
         return DeleteData(deleted=True)
 
+#**************************************************************************************************
+
+def import_data(model, file, fields):
+    wb = openpyxl.load_workbook(file, data_only=True)
+    ws = wb.active
+    headers = [cell.value for cell in ws[1]]
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        row_data = dict(zip(headers, row))
+        data = {field: row_data[field] for field in fields if field in row_data}
+        model.objects.create(**data)
+
+class ImportDataMutation(graphene.Mutation):
+    class Arguments:
+        model_data = graphene.String(required=True)
+        file = graphene.String(required=True)
+        fields = graphene.List(graphene.String, required=True)
+
+    count_elements = 0
+    success = graphene.Boolean()
+
+    def mutate(self, info, model_data, file, fields):
+        success = True
+        try:
+            if model_data == 'Employee' or model_data == 'Beneficiary':
+                model_app = 'human_ressources'
+            else:
+                success = False
+            model = apps.get_model(model_app, model_data)
+            count_elements = import_data(model=model, file=file, fields=fields)
+        except Exception as e:
+            success = False
+        return ImportDataMutation(success=success, count_elements=count_elements)
+
+#**************************************************************************************************
 
 class DataMutation(graphene.ObjectType):
     create_data = CreateData.Field()
     update_data = UpdateData.Field()
     delete_data = DeleteData.Field()
+
+    import_data = ImportDataMutation.Field()

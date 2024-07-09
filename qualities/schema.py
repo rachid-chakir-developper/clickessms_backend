@@ -112,11 +112,11 @@ class QualitiesQuery(graphene.ObjectType):
             establishments = undesirable_event_filter.get('establishments')
             employees = undesirable_event_filter.get('employees')
             if beneficiaries:
-                undesirable_events = undesirable_events.filter(undesirableeventbeneficiary__beneficiary__id__in=beneficiaries)
+                undesirable_events = undesirable_events.filter(beneficiaries__beneficiary__id__in=beneficiaries)
             if establishments:
-                undesirable_events = undesirable_events.filter(undesirableeventestablishment__establishment__id__in=establishments)
+                undesirable_events = undesirable_events.filter(establishments__establishment__id__in=establishments)
             if employees:
-                undesirable_events = undesirable_events.filter(undesirableeventemployee__employee__id__in=employees)
+                undesirable_events = undesirable_events.filter(employees__employee__id__in=employees)
             if keyword:
                 undesirable_events = undesirable_events.filter(Q(title__icontains=keyword))
             if starting_date_time:
