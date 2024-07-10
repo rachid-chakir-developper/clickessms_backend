@@ -3,6 +3,8 @@ from graphene_django import DjangoObjectType
 from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
+from django.core.exceptions import PermissionDenied
+from graphql import GraphQLError
 
 from django.db.models import Q
 from django.db import transaction
@@ -104,6 +106,8 @@ class QualitiesQuery(graphene.ObjectType):
         undesirable_events = UndesirableEvent.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_quality():
             undesirable_events = undesirable_events.filter(creator=user)
+        else:
+            undesirable_events = undesirable_events.exclude(Q(status='DRAFT') & ~Q(creator=user))
         if undesirable_event_filter:
             keyword = undesirable_event_filter.get('keyword', '')
             starting_date_time = undesirable_event_filter.get('starting_date_time')
@@ -190,14 +194,6 @@ class CreateUndesirableEvent(graphene.Mutation):
                         establishment=establishment,
                         creator=creator
                     )
-                managers = establishment.managers.all()
-                for manager in managers:
-                    employee_user = manager.employee.user
-                    if employee_user:
-                        notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event, action='ADDED')
-        quality_managers = User.get_quality_managers_in_user_company(user=creator)
-        for quality_manager in quality_managers:
-            notify_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event, action='ADDED')
 
         employees = Employee.objects.filter(id__in=employee_ids)
         for employee in employees:
@@ -248,8 +244,10 @@ class UpdateUndesirableEvent(graphene.Mutation):
         notified_person_ids = undesirable_event_data.pop("notified_persons")
         normal_type_ids = undesirable_event_data.pop("normal_types")
         serious_type_ids = undesirable_event_data.pop("serious_types")
-        UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
         undesirable_event = UndesirableEvent.objects.get(pk=id)
+        is_draft = True if undesirable_event.status == 'DRAFT' else False
+        UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
+        undesirable_event.refresh_from_db()
         if not undesirable_event.folder or undesirable_event.folder is None:
             folder = Folder.objects.create(name=str(undesirable_event.id)+'_'+undesirable_event.title,creator=creator)
             UndesirableEvent.objects.filter(pk=id).update(folder=folder)
@@ -288,11 +286,20 @@ class UpdateUndesirableEvent(graphene.Mutation):
                         establishment=establishment,
                         creator=creator
                     )
-                managers = establishment.managers.all()
+
+        if is_draft and undesirable_event.frequency:
+            UndesirableEvent.objects.filter(pk=id).update(status='NEW')
+            undesirable_event.refresh_from_db()
+            undesirable_event_establishments = undesirable_event.establishments.all()
+            for undesirable_event_establishment in undesirable_event_establishments:
+                managers = undesirable_event_establishment.establishment.managers.all()
                 for manager in managers:
                     employee_user = manager.employee.user
                     if employee_user:
                         notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event, action='ADDED')
+            quality_managers = User.get_quality_managers_in_user_company(user=creator)
+            for quality_manager in quality_managers:
+                notify_undesirable_event(sender=creator, recipient=quality_manager, undesirable_event=undesirable_event, action='ADDED')
 
         UndesirableEventEmployee.objects.filter(undesirable_event=undesirable_event).exclude(employee__id__in=employee_ids).delete()
         employees = Employee.objects.filter(id__in=employee_ids)
@@ -409,14 +416,16 @@ class CreateUndesirableEventTicket(graphene.Mutation):
             raise PermissionDenied("Impossible d'analyser : vous n'avez pas les droits nécessaires.")
         try:
             undesirable_event = UndesirableEvent.objects.get(pk=id)
+            if undesirable_event.status == 'DRAFT':
+                raise GraphQLError("Impossible d'analyser un événement indésirable en brouillon.")
             if Ticket.objects.filter(undesirable_event=undesirable_event).exists():
                 ticket = Ticket.objects.filter(undesirable_event=undesirable_event).first()
                 message = "Un ticket pour cet événement indésirable existe déjà."
             else:
                 with transaction.atomic():
                     ticket = Ticket.objects.create(
-                        title=f'Ticket pour {undesirable_event.title}',
-                        description=f'Créé à partir de l\'événement indésirable : {undesirable_event.title}',
+                        title=f'{undesirable_event.title}',
+                        description='',
                         employee=creator.get_employee_in_company(),
                         undesirable_event=undesirable_event,
                         company=creator.current_company if creator.current_company is not None else creator.company,

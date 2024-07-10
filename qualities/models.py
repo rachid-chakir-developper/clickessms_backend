@@ -5,6 +5,7 @@ import random
 # Create your models here.
 class UndesirableEvent(models.Model):
 	STATUS = [
+	    ("DRAFT", "Brouillon"),
 	    ("NEW", "Déclaré"),
 	    ("IN_PROGRESS", "En cours"),
 	    ("DONE", "Traité"),
@@ -42,7 +43,7 @@ class UndesirableEvent(models.Model):
 	other_notified_persons = models.TextField(default='', null=True)
 	concerned_families = models.TextField(default='', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
-	status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
+	status = models.CharField(max_length=50, choices=STATUS, default= "DRAFT")
 	other_types = models.TextField(default='', null=True)
 	normal_types = models.ManyToManyField('data_management.UndesirableEventNormalType', related_name='normal_type_undesirable_events')
 	serious_types = models.ManyToManyField('data_management.UndesirableEventSeriousType', related_name='serious_type_undesirable_events')
