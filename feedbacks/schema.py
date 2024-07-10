@@ -439,8 +439,8 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
                 if str(task_step_id) != str(payload['comment']['task_step']['id']):
                     return OnCommentAdded.SKIP
         if ticket_id and ticket_id is not None:
-            if 'taskStep' in payload and 'comment' in payload and 'ticket' in payload['comment']:
-                if str(ticket_id) != str(payload['comment']['ticket']['id']):
+            if 'comment' in payload and payload['comment'].tickets.first():
+                if str(ticket_id) != str(payload['comment'].tickets.first().id):
                     return OnCommentAdded.SKIP
         return OnCommentAdded(comment=payload['comment'])
 

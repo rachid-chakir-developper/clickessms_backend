@@ -83,7 +83,7 @@ class DashboardType(graphene.ObjectType):
         for i, day in enumerate(settings.DAYS):
             item = UndesirableEventsWeekType(day = day,  count = 0)
             undesirable_events_week.append(item)
-        undesirable_events = UndesirableEvent.objects.filter(company=company)
+        undesirable_events = UndesirableEvent.objects.filter(company=company).exclude(status='DRAFT')
         if not user.can_manage_quality():
             undesirable_events = undesirable_events.filter(creator=user)
         undesirable_events = undesirable_events.filter(starting_date_time__range=[start_week, end_week]).annotate(day=TruncDate('starting_date_time')).values('day').annotate(count=Count("status"))
