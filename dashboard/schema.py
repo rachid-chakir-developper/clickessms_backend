@@ -85,7 +85,10 @@ class DashboardType(graphene.ObjectType):
             undesirable_events_week.append(item)
         undesirable_events = UndesirableEvent.objects.filter(company=company).exclude(status='DRAFT')
         if not user.can_manage_quality():
-            undesirable_events = undesirable_events.filter(creator=user)
+            if user.is_manager():
+                undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                undesirable_events = undesirable_events.filter(creator=user)
         undesirable_events = undesirable_events.filter(starting_date_time__range=[start_week, end_week]).annotate(day=TruncDate('starting_date_time')).values('day').annotate(count=Count("status"))
         for undesirable_event in undesirable_events:
             undesirable_events_week[undesirable_event['day'].weekday()].count = undesirable_event['count']
@@ -115,7 +118,10 @@ class DashboardType(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         undesirable_events = UndesirableEvent.objects.filter(company=company, status="NEW")
         if not user.can_manage_quality():
-            undesirable_events = undesirable_events.filter(creator=user)
+            if user.is_manager():
+                undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                undesirable_events = undesirable_events.filter(creator=user)
         undesirable_events = undesirable_events.order_by('-created_at')
         return undesirable_events
 
