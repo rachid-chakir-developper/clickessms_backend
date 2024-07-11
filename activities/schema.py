@@ -395,13 +395,15 @@ class DeleteBeneficiaryAbsence(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id)
-            beneficiary_absence.delete()
+        beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id)
+        if current_user.can_manage_activity() or current_user.is_manager() or beneficiary_absence.creator == current_user:
+            # beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id)
+            # beneficiary_absence.delete()
+            BeneficiaryAbsence.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteBeneficiaryAbsence(deleted=deleted, success=success, message=message, id=id)
         
 #*************************************************************************#
