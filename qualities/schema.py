@@ -105,7 +105,10 @@ class QualitiesQuery(graphene.ObjectType):
         total_count = 0
         undesirable_events = UndesirableEvent.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_quality():
-            undesirable_events = undesirable_events.filter(creator=user)
+            if user.is_manager():
+                undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
+            else:
+                undesirable_events = undesirable_events.filter(creator=user)
         else:
             undesirable_events = undesirable_events.exclude(Q(status='DRAFT') & ~Q(creator=user))
         if undesirable_event_filter:
@@ -357,7 +360,7 @@ class UpdateUndesirableEventFields(graphene.Mutation):
             undesirable_event = UndesirableEvent.objects.get(pk=id)
             UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
             undesirable_event.refresh_from_db()
-            if 'status' in undesirable_event_data and creator.can_manage_quality():
+            if 'status' in undesirable_event_data and (creator.can_manage_quality() or creator.is_manager()):
                 employee_user = undesirable_event.employee.user if undesirable_event.employee else undesirable_event.creator
                 if employee_user:
                     notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
@@ -412,7 +415,7 @@ class CreateUndesirableEventTicket(graphene.Mutation):
         success = True
         message = ''
         ticket = None
-        if not creator.can_manage_quality():
+        if not creator.can_manage_quality() and not creator.is_manager():
             raise PermissionDenied("Impossible d'analyser : vous n'avez pas les droits nécessaires.")
         try:
             undesirable_event = UndesirableEvent.objects.get(pk=id)
@@ -474,7 +477,7 @@ class DeleteUndesirableEvent(graphene.Mutation):
         message = ''
         current_user = info.context.user
         undesirable_event = UndesirableEvent.objects.get(pk=id)
-        if current_user.can_manage_quality() or (undesirable_event.creator == current_user and not undesirable_event.tickets.first()):
+        if current_user.can_manage_quality() or current_user.is_manager() or (undesirable_event.creator == current_user and not undesirable_event.tickets.first()):
             # undesirable_event = UndesirableEvent.objects.get(pk=id)
             # undesirable_event.delete()
             UndesirableEvent.objects.filter(pk=id).update(is_deleted=True)

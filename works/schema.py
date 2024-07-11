@@ -300,7 +300,10 @@ class WorksQuery(graphene.ObjectType):
         total_count = 0
         tickets = Ticket.objects.filter(company=company)
         if not user.can_manage_quality():
-            tickets = tickets.filter(creator=user)
+            if user.is_manager():
+                tickets = tickets.filter(Q(establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
+            else:
+                tickets = tickets.filter(creator=user)
         if ticket_filter:
             keyword = ticket_filter.get('keyword', '')
             starting_date_time = ticket_filter.get('starting_date_time')
@@ -905,13 +908,15 @@ class DeleteTicket(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            ticket = Ticket.objects.get(pk=id)
-            ticket.delete()
+        ticket = Ticket.objects.get(pk=id)
+        if current_user.can_manage_quality() or current_user.is_manager() or ticket.creator == current_user:
+            # ticket = Ticket.objects.get(pk=id)
+            # ticket.delete()
+            Ticket.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteTicket(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************

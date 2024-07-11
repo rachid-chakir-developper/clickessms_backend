@@ -198,34 +198,37 @@ class User(AbstractUser):
         except Role.DoesNotExist:
             return False
         return False
+    def is_manager(self, user=None):
+        roles = ['MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def can_manage_quality(self, user=None):
         if self.is_superuser:
             return True
-        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'QUALITY_MANAGER']
+        roles = ['SUPER_ADMIN', 'ADMIN' ,'QUALITY_MANAGER']
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def can_manage_activity(self, user=None):
         if self.is_superuser:
             return True
-        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'ACTIVITY_MANAGER']
+        roles = ['SUPER_ADMIN', 'ADMIN' ,'ACTIVITY_MANAGER']
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def can_manage_administration(self, user=None):
         if self.is_superuser:
             return True
-        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'ADMINISTRATIVE_MANAGER']
+        roles = ['SUPER_ADMIN', 'ADMIN' ,'ADMINISTRATIVE_MANAGER']
     def can_manage_human_ressources(self, user=None):
         if self.is_superuser:
             return True
-        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'HR_MANAGER']
+        roles = ['SUPER_ADMIN', 'ADMIN' ,'HR_MANAGER']
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def can_manage_finance(self, user=None):
         if self.is_superuser:
             return True
-        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'FINANCE_MANAGER']
+        roles = ['SUPER_ADMIN', 'ADMIN' ,'FINANCE_MANAGER']
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def can_manage_facility(self, user=None):
         if self.is_superuser:
             return True
-        roles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER' ,'FACILITY_MANAGER']
+        roles = ['SUPER_ADMIN', 'ADMIN' ,'FACILITY_MANAGER']
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     @classmethod
     def get_quality_managers_in_user_company(cls, user=None, company=None):
