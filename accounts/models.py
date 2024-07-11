@@ -230,6 +230,11 @@ class User(AbstractUser):
             return True
         roles = ['SUPER_ADMIN', 'ADMIN' ,'FACILITY_MANAGER']
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+    def can_manage_parking(self, user=None):
+        if self.is_superuser:
+            return True
+        roles = ['SUPER_ADMIN', 'ADMIN' ,'FACILITY_MANAGER', 'MECHANIC']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     @classmethod
     def get_quality_managers_in_user_company(cls, user=None, company=None):
         company = company or user.current_company or user.company

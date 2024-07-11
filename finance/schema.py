@@ -184,6 +184,11 @@ class FinanceQuery(graphene.ObjectType):
         )
         total_count = 0
         decision_documents = DecisionDocument.objects.filter(company=company)
+        if not user.can_manage_finance():
+            if user.is_manager():
+                decision_documents = decision_documents.filter(Q(decision_document_items__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                decision_documents = decision_documents.filter(creator=user)
         if decision_document_filter:
             keyword = decision_document_filter.get("keyword", "")
             starting_date_time = decision_document_filter.get("starting_date_time")
@@ -229,6 +234,11 @@ class FinanceQuery(graphene.ObjectType):
         )
         total_count = 0
         bank_accounts = BankAccount.objects.filter(company=company)
+        if not user.can_manage_finance():
+            if user.is_manager():
+                bank_accounts = bank_accounts.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                bank_accounts = bank_accounts.filter(creator=user)
         if bank_account_filter:
             keyword = bank_account_filter.get("keyword", "")
             starting_date_time = bank_account_filter.get("starting_date_time")
@@ -269,6 +279,11 @@ class FinanceQuery(graphene.ObjectType):
         )
         total_count = 0
         balances = Balance.objects.filter(bank_account__company=company)
+        if not user.can_manage_finance():
+            if user.is_manager():
+                balances = balances.filter(Q(bank_account__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                balances = balances.filter(creator=user)
         if balance_filter:
             keyword = balance_filter.get("keyword", "")
             starting_date_time = balance_filter.get("starting_date_time")
