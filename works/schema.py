@@ -199,7 +199,10 @@ class WorksQuery(graphene.ObjectType):
         total_count = 0
         tasks = Task.objects.filter(company=company)
         if not user.can_manage_facility():
-            tasks = tasks.filter(Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
+            if user.is_manager():
+                tasks = tasks.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
+            else:
+                tasks = tasks.filter(Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
         if task_filter:
             keyword = task_filter.get('keyword', '')
             starting_date_time = task_filter.get('starting_date_time')
@@ -213,7 +216,7 @@ class WorksQuery(graphene.ObjectType):
                 tasks = tasks.filter(starting_date_time__lte=ending_date_time)
             if statuses:
                 tasks = tasks.filter(status__in=statuses)
-        tasks = tasks.order_by('-created_at')
+        tasks = tasks.order_by('-created_at').distinct()
         total_count = tasks.count()
         if page:
             offset = limit * (page - 1)
@@ -244,7 +247,7 @@ class WorksQuery(graphene.ObjectType):
             today_start = datetime.combine(date.today(), time.min)
             today_end = datetime.combine(date.today(), time.max)
             my_tasks = my_tasks.filter(starting_date_time__range=(today_start, today_end))
-        my_tasks = my_tasks.order_by('starting_date_time')
+        my_tasks = my_tasks.order_by('starting_date_time').distinct()
         total_count = my_tasks.count()
         if page:
             offset = limit * (page - 1)
@@ -317,7 +320,7 @@ class WorksQuery(graphene.ObjectType):
                 tickets = tickets.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
                 tickets = tickets.filter(starting_date_time__lte=ending_date_time)
-        tickets = tickets.order_by('-created_at')
+        tickets = tickets.order_by('-created_at').distinct()
         total_count = tickets.count()
         if page:
             offset = limit * (page - 1)
@@ -351,7 +354,7 @@ class WorksQuery(graphene.ObjectType):
                 task_actions = task_actions.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
                 task_actions = task_actions.filter(starting_date_time__lte=ending_date_time)
-        task_actions = task_actions.order_by('-due_date')
+        task_actions = task_actions.order_by('-due_date').distinct()
         total_count = task_actions.count()
         if page:
             offset = limit * (page - 1)

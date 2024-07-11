@@ -263,6 +263,11 @@ class AdministrativesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         calls = Call.objects.filter(company=company)
+        if not user.can_manage_administration():
+            if user.is_manager():
+                calls = calls.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                calls = calls.filter(creator=user)
         if call_filter:
             keyword = call_filter.get('keyword', '')
             starting_date_time = call_filter.get('starting_date_time')
@@ -273,7 +278,7 @@ class AdministrativesQuery(graphene.ObjectType):
                 calls = calls.filter(entry_date_time__gte=starting_date_time)
             if ending_date_time:
                 calls = calls.filter(entry_date_time__lte=ending_date_time)
-        calls = calls.order_by('-created_at')
+        calls = calls.order_by('-created_at').distinct()
         total_count = calls.count()
         if page:
             offset = limit * (page - 1)
@@ -294,6 +299,11 @@ class AdministrativesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         letters = Letter.objects.filter(company=company)
+        if not user.can_manage_administration():
+            if user.is_manager():
+                letters = letters.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                letters = letters.filter(creator=user)
         if letter_filter:
             keyword = letter_filter.get('keyword', '')
             starting_date_time = letter_filter.get('starting_date_time')
@@ -304,7 +314,7 @@ class AdministrativesQuery(graphene.ObjectType):
                 letters = letters.filter(entry_date_time__gte=starting_date_time)
             if ending_date_time:
                 letters = letters.filter(entry_date_time__lte=ending_date_time)
-        letters = letters.order_by('-created_at')
+        letters = letters.order_by('-created_at').distinct()
         total_count = letters.count()
         if page:
             offset = limit * (page - 1)
@@ -326,6 +336,11 @@ class AdministrativesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         meetings = Meeting.objects.filter(company=company)
+        if not user.can_manage_administration():
+            if user.is_manager():
+                meetings = meetings.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                meetings = meetings.filter(creator=user)
         if meeting_filter:
             keyword = meeting_filter.get('keyword', '')
             starting_date_time = meeting_filter.get('starting_date_time')
@@ -340,7 +355,7 @@ class AdministrativesQuery(graphene.ObjectType):
                 meetings = meetings.filter(starting_date_time__lte=ending_date_time)
         else:
             meetings = meetings.filter(Q(meeting_mode='SIMPLE') | Q(meeting_mode='') | Q(meeting_mode=None))
-        meetings = meetings.order_by('-created_at')
+        meetings = meetings.order_by('-created_at').distinct()
         total_count = meetings.count()
         if page:
             offset = limit * (page - 1)
@@ -377,7 +392,7 @@ class AdministrativesQuery(graphene.ObjectType):
                 frame_documents = frame_documents.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 frame_documents = frame_documents.filter(created_at__lte=ending_date_time)
-        frame_documents = frame_documents.order_by("-created_at")
+        frame_documents = frame_documents.order_by("-created_at").distinct()
         total_count = frame_documents.count()
         if page:
             offset = limit * (page - 1)

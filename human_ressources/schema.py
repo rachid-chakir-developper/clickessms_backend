@@ -311,11 +311,11 @@ class HumanRessourcesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         employees = Employee.objects.filter(company__id=id_company) if id_company else Employee.objects.filter(company=company)
-        if not user.can_manage_administration():
-            if user.is_manager():
-                employees = employees.filter(Q(employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
-            else:
-                employees = employees.filter(creator=user)
+        # if not user.can_manage_administration():
+        #     if user.is_manager():
+        #         employees = employees.filter(Q(employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+        #     else:
+        #         employees = employees.filter(creator=user)
         if employee_filter:
             keyword = employee_filter.get('keyword', '')
             starting_date_time = employee_filter.get('starting_date_time')
@@ -420,11 +420,11 @@ class HumanRessourcesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         beneficiaries = Beneficiary.objects.filter(company__id=id_company) if id_company else Beneficiary.objects.filter(company=company)
-        if not user.can_manage_administration():
-            if user.is_manager():
-                beneficiaries = beneficiaries.filter(Q(beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
-            else:
-                beneficiaries = beneficiaries.filter(creator=user)
+        # if not user.can_manage_administration():
+        #     if user.is_manager():
+        #         beneficiaries = beneficiaries.filter(Q(beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+        #     else:
+        #         beneficiaries = beneficiaries.filter(creator=user)
         if beneficiary_filter:
             keyword = beneficiary_filter.get('keyword', '')
             starting_date_time = beneficiary_filter.get('starting_date_time')
