@@ -91,7 +91,10 @@ class ActivitiesQuery(graphene.ObjectType):
         total_count = 0
         transmission_events = TransmissionEvent.objects.filter(company=company)
         if not user.can_manage_activity():
-            transmission_events = transmission_events.filter(creator=user)
+            if user.is_manager():
+                transmission_events = transmission_events.filter(Q(beneficiaries__beneficiary__beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                transmission_events = transmission_events.filter(creator=user)
         if transmission_event_filter:
             keyword = transmission_event_filter.get('keyword', '')
             starting_date_time = transmission_event_filter.get('starting_date_time')
@@ -105,7 +108,7 @@ class ActivitiesQuery(graphene.ObjectType):
                 transmission_events = transmission_events.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
                 transmission_events = transmission_events.filter(starting_date_time__lte=ending_date_time)
-        transmission_events = transmission_events.order_by('-created_at')
+        transmission_events = transmission_events.order_by('-created_at').distinct()
         total_count = transmission_events.count()
         if page:
             offset = limit * (page - 1)
@@ -128,7 +131,10 @@ class ActivitiesQuery(graphene.ObjectType):
         total_count = 0
         beneficiary_absences = BeneficiaryAbsence.objects.filter(company=company)
         if not user.can_manage_activity():
-            beneficiary_absences = beneficiary_absences.filter(creator=user)
+            if user.is_manager():
+                beneficiary_absences = beneficiary_absences.filter(Q(beneficiaries__beneficiary__beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                beneficiary_absences = beneficiary_absences.filter(creator=user)
         if beneficiary_absence_filter:
             keyword = beneficiary_absence_filter.get('keyword', '')
             starting_date_time = beneficiary_absence_filter.get('starting_date_time')
@@ -143,7 +149,7 @@ class ActivitiesQuery(graphene.ObjectType):
             if ending_date_time:
                 beneficiary_absences = beneficiary_absences.filter(starting_date_time__lte=ending_date_time)
 
-        beneficiary_absences = beneficiary_absences.order_by('-created_at')
+        beneficiary_absences = beneficiary_absences.order_by('-created_at').distinct()
         total_count = beneficiary_absences.count()
         if page:
             offset = limit * (page - 1)
@@ -290,13 +296,15 @@ class DeleteTransmissionEvent(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            transmission_event = TransmissionEvent.objects.get(pk=id)
-            transmission_event.delete()
+        transmission_event = TransmissionEvent.objects.get(pk=id)
+        if current_user.can_manage_activity() or current_user.is_manager() or transmission_event.creator == current_user:
+            # transmission_event = TransmissionEvent.objects.get(pk=id)
+            # transmission_event.delete()
+            TransmissionEvent.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteTransmissionEvent(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
