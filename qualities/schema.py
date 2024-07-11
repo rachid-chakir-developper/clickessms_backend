@@ -130,7 +130,7 @@ class QualitiesQuery(graphene.ObjectType):
                 undesirable_events = undesirable_events.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
                 undesirable_events = undesirable_events.filter(starting_date_time__lte=ending_date_time)
-        undesirable_events = undesirable_events.order_by('-created_at')
+        undesirable_events = undesirable_events.order_by('-created_at').distinct()
         total_count = undesirable_events.count()
         if page:
             offset = limit * (page - 1)

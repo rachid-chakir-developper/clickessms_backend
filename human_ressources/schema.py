@@ -311,6 +311,11 @@ class HumanRessourcesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         employees = Employee.objects.filter(company__id=id_company) if id_company else Employee.objects.filter(company=company)
+        if not user.can_manage_administration():
+            if user.is_manager():
+                employees = employees.filter(Q(employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                employees = employees.filter(creator=user)
         if employee_filter:
             keyword = employee_filter.get('keyword', '')
             starting_date_time = employee_filter.get('starting_date_time')
@@ -321,7 +326,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 employees = employees.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 employees = employees.filter(created_at__lte=ending_date_time)
-        employees = employees.order_by('-created_at')
+        employees = employees.order_by('-created_at').distinct()
         total_count = employees.count()
         if page:
             offset = limit * (page - 1)
@@ -343,6 +348,11 @@ class HumanRessourcesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         employee_contracts = EmployeeContract.objects.filter(employee__company=company)
+        if not user.can_manage_administration():
+            if user.is_manager():
+                employee_contracts = employee_contracts.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                employee_contracts = employee_contracts.filter(creator=user)
         if employee_contract_filter:
             keyword = employee_contract_filter.get('keyword', '')
             starting_date_time = employee_contract_filter.get('starting_date_time')
@@ -356,7 +366,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 employee_contracts = employee_contracts.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 employee_contracts = employee_contracts.filter(created_at__lte=ending_date_time)
-        employee_contracts = employee_contracts.order_by('-created_at')
+        employee_contracts = employee_contracts.order_by('-created_at').distinct()
         total_count = employee_contracts.count()
         if page:
             offset = limit * (page - 1)
@@ -410,6 +420,11 @@ class HumanRessourcesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         beneficiaries = Beneficiary.objects.filter(company__id=id_company) if id_company else Beneficiary.objects.filter(company=company)
+        if not user.can_manage_administration():
+            if user.is_manager():
+                beneficiaries = beneficiaries.filter(Q(beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                beneficiaries = beneficiaries.filter(creator=user)
         if beneficiary_filter:
             keyword = beneficiary_filter.get('keyword', '')
             starting_date_time = beneficiary_filter.get('starting_date_time')
@@ -420,7 +435,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 beneficiaries = beneficiaries.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 beneficiaries = beneficiaries.filter(created_at__lte=ending_date_time)
-        beneficiaries = beneficiaries.order_by('-created_at')
+        beneficiaries = beneficiaries.order_by('-created_at').distinct()
         total_count = beneficiaries.count()
         if page:
             offset = limit * (page - 1)

@@ -87,7 +87,7 @@ class PlanningQuery(graphene.ObjectType):
             if ending_date_time:
                 employee_absences = employee_absences.filter(starting_date_time__lte=ending_date_time)
 
-        employee_absences = employee_absences.order_by('-created_at')
+        employee_absences = employee_absences.order_by('-created_at').distinct()
         total_count = employee_absences.count()
         if page:
             offset = limit * (page - 1)
