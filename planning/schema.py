@@ -69,7 +69,10 @@ class PlanningQuery(graphene.ObjectType):
         total_count = 0
         employee_absences = EmployeeAbsence.objects.filter(company=company)
         if not user.can_manage_human_ressources():
-            employee_absences = employee_absences.filter(creator=user)
+            if user.is_manager():
+                employee_absences = employee_absences.filter(Q(employees__employee__employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                employee_absences = employee_absences.filter(creator=user)
         if employee_absence_filter:
             keyword = employee_absence_filter.get('keyword', '')
             starting_date_time = employee_absence_filter.get('starting_date_time')
@@ -265,13 +268,15 @@ class DeleteEmployeeAbsence(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            employee_absence = EmployeeAbsence.objects.get(pk=id)
-            employee_absence.delete()
+        employee_absence = EmployeeAbsence.objects.get(pk=id)
+        if current_user.can_manage_human_ressources() or current_user.is_manager() or (employee_absence.creator == current_user and employee_absence.status == 'PENDING'):
+            # employee_absence = EmployeeAbsence.objects.get(pk=id)
+            # employee_absence.delete()
+            EmployeeAbsence.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteEmployeeAbsence(deleted=deleted, success=success, message=message, id=id)
         
 #*************************************************************************#
