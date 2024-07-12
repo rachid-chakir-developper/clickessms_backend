@@ -7,7 +7,7 @@ from datetime import date, datetime, time
 
 from django.db.models import Q
 
-from works.models import Task, TaskEstablishment, TaskWorker, TaskMaterial, TaskVehicle, TaskChecklistItem, TaskStep, STEP_TYPES_LABELS, STEP_TYPES_ALL, STATUS_All, Ticket, TaskAction
+from works.models import Task, TaskEstablishment, TaskWorker, TaskMaterial, TaskVehicle, TaskChecklistItem, TaskStep, STEP_TYPES_LABELS, STEP_TYPES_ALL, STATUS_All, Ticket, EfcReport, TaskAction
 from human_ressources.models import Employee
 from companies.models import Establishment
 from vehicles.models import Vehicle
@@ -18,6 +18,14 @@ from notifications.notificator import notify, push_notification_to_employees, no
 from feedbacks.google_calendar import create_calendar_event_task, update_calendar_event_task, delete_calendar_event_task
 
 from feedbacks.schema import SignatureInput
+
+class EfcReportType(DjangoObjectType):
+    class Meta:
+        model = EfcReport
+        fields = "__all__"
+    document = graphene.String()
+    def resolve_document( instance, info, **kwargs ):
+        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
 
 class TaskActionType(DjangoObjectType):
     class Meta:
@@ -91,6 +99,16 @@ class TaskNodeType(graphene.ObjectType):
     nodes = graphene.List(TaskType)
     total_count = graphene.Int()
 
+class EfcReportInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    title = graphene.String(required=False)
+    description = graphene.String(required=False)
+    efc_date = graphene.DateTime(required=False)
+    document = Upload(required=False)
+    declaration_date = graphene.DateTime(required=False)
+    employees = graphene.List(graphene.Int, required=False)
+    ticket_id = graphene.Int(name="ticket", required=False)
+
 class TaskActionInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     description = graphene.String(required=False)
@@ -106,10 +124,12 @@ class TicketInput(graphene.InputObjectType):
     priority = graphene.String(required=False)
     status = graphene.String(required=False)
     employee_id = graphene.Int(name="employee", required=False)
+    is_have_efc_report = graphene.Boolean(required=False)
     is_active = graphene.Boolean(required=False)
     undesirable_event_id = graphene.Int(name="undesirableEvent", required=False)
     establishments = graphene.List(graphene.Int, required=False)
     actions = graphene.List(TaskActionInput, required=False)
+    efc_reports = graphene.List(EfcReportInput, required=False)
 
 class TaskChecklistItemInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -313,13 +333,13 @@ class WorksQuery(graphene.ObjectType):
             ending_date_time = ticket_filter.get('ending_date_time')
             establishments = ticket_filter.get('establishments')
             if establishments:
-                tickets = tickets.filter(undesirableeventestablishment__establishment__id__in=establishments)
+                tickets = tickets.filter(establishments__id__in=establishments)
             if keyword:
                 tickets = tickets.filter(Q(title__icontains=keyword))
             if starting_date_time:
-                tickets = tickets.filter(starting_date_time__gte=starting_date_time)
+                tickets = tickets.filter(created_at__date__gte=starting_date_time.date())
             if ending_date_time:
-                tickets = tickets.filter(starting_date_time__lte=ending_date_time)
+                tickets = tickets.filter(created_at__date__lte=ending_date_time.date())
         tickets = tickets.order_by('-created_at').distinct()
         total_count = tickets.count()
         if page:
@@ -797,6 +817,7 @@ class CreateTicket(graphene.Mutation):
     def mutate(root, info, ticket_data=None):
         creator = info.context.user
         establishment_ids = ticket_data.pop("establishments") if "establishments" in ticket_data else None
+        efc_reports = ticket_data.pop("efc_reports")
         task_actions = ticket_data.pop("actions")
         ticket = Ticket(**ticket_data)
         ticket.creator = creator
@@ -809,6 +830,22 @@ class CreateTicket(graphene.Mutation):
         ticket.folder = folder
         if not ticket.employee:
             ticket.employee = creator.get_employee_in_company()
+        for item in efc_reports:
+            document = item.pop("document") if "document" in item else None
+            employees_ids = item.pop("employees") if "employees" in item else None
+            efc_report = EfcReport(**item)
+            efc_report.ticket = ticket
+            if document and isinstance(document, UploadedFile):
+                document_file = efc_report.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                efc_report.document = document_file
+            efc_report.save()
+            if employees_ids and employees_ids is not None:
+                efc_report.employees.set(employees_ids)
         for item in task_actions:
             employees_ids = item.pop("employees") if "employees" in item else None
             task_action = TaskAction(**item)
@@ -837,6 +874,7 @@ class UpdateTicket(graphene.Mutation):
         creator = info.context.user
         establishment_ids = ticket_data.pop("establishments") if "establishments" in ticket_data else None
         task_actions = ticket_data.pop("actions")
+        efc_reports = ticket_data.pop("efc_reports")
         Ticket.objects.filter(pk=id).update(**ticket_data)
         ticket = Ticket.objects.get(pk=id)
         if establishment_ids and establishment_ids is not None:
@@ -847,6 +885,32 @@ class UpdateTicket(graphene.Mutation):
         if not ticket.employee:
             ticket.employee = creator.get_employee_in_company()
             ticket.save()
+        efc_report_ids = [item.id for item in efc_reports if item.id is not None]
+        EfcReport.objects.filter(ticket=ticket).exclude(id__in=efc_report_ids).delete()
+        for item in efc_reports:
+            document = item.pop("document") if "document" in item else None
+            employees_ids = item.pop("employees") if "employees" in item else None
+            if id in item or 'id' in item:
+                EfcReport.objects.filter(pk=item.id).update(**item)
+                efc_report = EfcReport.objects.get(pk=item.id)
+            else:
+                efc_report = EfcReport(**item)
+                efc_report.ticket = ticket
+                efc_report.save()
+            if not document and efc_report.document:
+                document_file = efc_report.document
+                document_file.delete()
+            if document and isinstance(document, UploadedFile):
+                document_file = efc_report.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                efc_report.document = document_file
+                efc_report.save()
+            if employees_ids and employees_ids is not None:
+                efc_report.employees.set(employees_ids)
         task_action_ids = [item.id for item in task_actions if item.id is not None]
         TaskAction.objects.filter(ticket=ticket).exclude(id__in=task_action_ids).delete()
         for item in task_actions:

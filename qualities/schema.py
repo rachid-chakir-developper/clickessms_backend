@@ -127,9 +127,9 @@ class QualitiesQuery(graphene.ObjectType):
             if keyword:
                 undesirable_events = undesirable_events.filter(Q(title__icontains=keyword))
             if starting_date_time:
-                undesirable_events = undesirable_events.filter(starting_date_time__gte=starting_date_time)
+                undesirable_events = undesirable_events.filter(starting_date_time__date__gte=starting_date_time.date())
             if ending_date_time:
-                undesirable_events = undesirable_events.filter(starting_date_time__lte=ending_date_time)
+                undesirable_events = undesirable_events.filter(starting_date_time__date__lte=ending_date_time.date())
         undesirable_events = undesirable_events.order_by('-created_at').distinct()
         total_count = undesirable_events.count()
         if page:
@@ -431,6 +431,7 @@ class CreateUndesirableEventTicket(graphene.Mutation):
                         description='',
                         employee=creator.get_employee_in_company(),
                         undesirable_event=undesirable_event,
+                        is_have_efc_report=True if undesirable_event.undesirable_event_type == 'SERIOUS' else False,
                         company=creator.current_company if creator.current_company is not None else creator.company,
                         creator=creator,
                     )

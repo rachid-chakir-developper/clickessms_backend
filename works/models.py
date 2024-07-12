@@ -222,6 +222,7 @@ class Ticket(models.Model):
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='tickets', null=True)
 	is_active = models.BooleanField(default=False, null=True)
 	undesirable_event = models.ForeignKey('qualities.UndesirableEvent', on_delete=models.SET_NULL, null=True, related_name='tickets')
+	is_have_efc_report = models.BooleanField(default=False, null=False)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='tickets', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='tickets', null=True)
@@ -263,9 +264,27 @@ class Ticket(models.Model):
 		completed_actions = self.actions.filter(status="DONE").count()
 		percentage = (completed_actions / total_actions) * 100
 		return round(percentage, 2)
+
+	@property
+	def efc_report(self):
+		return self.efc_reports.first()
 	    
 	def __str__(self):
 		return self.title
+
+class EfcReport(models.Model):
+	number = models.CharField(max_length=255, editable=False, null=True)
+	title = models.CharField(max_length=255, null=True)
+	description = models.TextField(default='', null=True)
+	document = models.ForeignKey("medias.File",on_delete=models.SET_NULL,related_name="efc_reports", null=True)
+	efc_date = models.DateTimeField(null=True)
+	declaration_date = models.DateTimeField(null=True)
+	employees = models.ManyToManyField('human_ressources.Employee', related_name='efc_reports')
+	ticket = models.ForeignKey(Ticket, on_delete=models.SET_NULL, null=True, related_name='efc_reports')
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='efc_reports', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='efc_reports', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
 
 class TaskAction(models.Model):
 	STATUS = [
