@@ -180,6 +180,7 @@ class BeneficiaryGroupFilterInput(graphene.InputObjectType):
 class EmployeeInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
+    registration_number = graphene.String(required=False)
     first_name = graphene.String(required=False)
     preferred_name = graphene.String(required=False)
     last_name = graphene.String(required=False)
