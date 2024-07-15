@@ -8,6 +8,8 @@ from planning.models import EmployeeAbsenceItem
 # Create your models here.
 class Employee(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)
+    gender = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    preferred_name = models.CharField(max_length=255, null=True)
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     email = models.EmailField(blank=False, max_length=255, verbose_name="email")

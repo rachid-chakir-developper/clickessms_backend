@@ -181,6 +181,7 @@ class EmployeeInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     first_name = graphene.String(required=False)
+    preferred_name = graphene.String(required=False)
     last_name = graphene.String(required=False)
     email = graphene.String(required=False)
     social_security_number = graphene.String(required=False)
@@ -207,6 +208,7 @@ class EmployeeInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    gender_id = graphene.Int(name="gender", required=False)
 
 class EmployeeGroupInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
