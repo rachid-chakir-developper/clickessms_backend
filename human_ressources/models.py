@@ -122,6 +122,14 @@ class EmployeeContract(models.Model):
     CONTRACT_TYPES = [
         ("CDI", "CDI"),
         ("CDD", "CDD"),
+        ("APPRENTICESHIP_CONTRACT", "Contrat d'apprentissage"),
+        ("SINGLE_INTEGRATION_CONTRACT", "Contrat Unique d'Insertion (CUI)"),
+        ("PROFESSIONALIZATION_CONTRACT", "Contrat de professionnalisation"),
+        ("SEASONAL_CONTRACT", "Contrat saisonnier"),
+        ("TEMPORARY_CONTRACT", "Contrat intérimaire"),
+        ("PART_TIME_CONTRACT", "Contrat à temps partiel"),
+        ("FULL_TIME_CONTRACT", "Contrat à temps plein"),
+        ("INTERNSHIP_CONTRACT", "Contrat de stage")
     ]
     number = models.CharField(max_length=255, editable=False, null=True)
     title = models.CharField(max_length=255, null=True)

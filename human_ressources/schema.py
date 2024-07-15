@@ -401,7 +401,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 employee_groups = employee_groups.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 employee_groups = employee_groups.filter(created_at__lte=ending_date_time)
-        employee_groups = employee_groups.order_by('-created_at')
+        employee_groups = employee_groups.order_by('-created_at').distinct()
         total_count = employee_groups.count()
         if page:
             offset = limit * (page - 1)
@@ -470,7 +470,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 beneficiary_groups = beneficiary_groups.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 beneficiary_groups = beneficiary_groups.filter(created_at__lte=ending_date_time)
-        beneficiary_groups = beneficiary_groups.order_by('-created_at')
+        beneficiary_groups = beneficiary_groups.order_by('-created_at').distinct()
         total_count = beneficiary_groups.count()
         if page:
             offset = limit * (page - 1)
