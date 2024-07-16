@@ -618,7 +618,7 @@ class DeleteEmployee(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteEmployee(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
@@ -1057,13 +1057,15 @@ class DeleteBeneficiary(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            beneficiary = Beneficiary.objects.get(pk=id)
+        beneficiary = Beneficiary.objects.get(pk=id)
+        if current_user.can_manage_administration() or current_user.is_manager() or (beneficiary.creator == current_user):
+            # beneficiary = Beneficiary.objects.get(pk=id)
             beneficiary.delete()
+            # Beneficiary.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteBeneficiary(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
