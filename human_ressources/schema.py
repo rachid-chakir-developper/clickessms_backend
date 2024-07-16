@@ -329,7 +329,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 employees = employees.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 employees = employees.filter(created_at__lte=ending_date_time)
-        employees = employees.order_by('-created_at').distinct()
+        employees = employees.order_by('-registration_number').distinct()
         total_count = employees.count()
         if page:
             offset = limit * (page - 1)
