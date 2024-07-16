@@ -310,6 +310,18 @@ class HumanRessourcesQuery(graphene.ObjectType):
     beneficiary_group = graphene.Field(BeneficiaryGroupType, id = graphene.ID())
     def resolve_employees(root, info, employee_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        duplicate_registration_numbers = (
+            Employee.objects.exclude(Q(registration_number__isnull=True) | Q(registration_number='') | Q(employee_user__isnull=True))
+            .values('registration_number')
+            .annotate(count=Count('id'))
+            .filter(count__gt=1)
+            .values_list('registration_number', flat=True)
+            )
+        for registration_number in duplicate_registration_numbers:
+            employees = Employee.objects.filter(registration_number=registration_number).exclude(
+                Q(registration_number__isnull=True) | Q(registration_number='') | Q(employee_user__isnull=True)
+                )
+            employees.exclude(id=employees.first().id).delete()
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
@@ -610,7 +622,7 @@ class DeleteEmployee(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser or True:
+        if current_user.is_superuser:
             employee = Employee.objects.get(pk=id)
             employee.delete()
             deleted = True
