@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from django.db.models import Q, Count
+from django.db.models import Q
 
 from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract, EmployeeContractEstablishment, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
@@ -310,18 +310,6 @@ class HumanRessourcesQuery(graphene.ObjectType):
     beneficiary_group = graphene.Field(BeneficiaryGroupType, id = graphene.ID())
     def resolve_employees(root, info, employee_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
-        duplicate_registration_numbers = (
-            Employee.objects.exclude(Q(registration_number__isnull=True) | Q(registration_number='') | Q(employee_user__isnull=True))
-            .values('registration_number')
-            .annotate(count=Count('id'))
-            .filter(count__gt=1)
-            .values_list('registration_number', flat=True)
-            )
-        for registration_number in duplicate_registration_numbers:
-            employees = Employee.objects.filter(registration_number__icontains=registration_number).exclude(
-                Q(registration_number__isnull=True) | Q(registration_number='') | Q(employee_user__isnull=True)
-                )
-            employees.exclude(id=employees.first().id).delete()
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
@@ -622,9 +610,11 @@ class DeleteEmployee(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
+        employee = Employee.objects.get(pk=id)
+        if if current_user.can_manage_administration() or current_user.is_manager() or (employee.creator == current_user):
             employee = Employee.objects.get(pk=id)
             employee.delete()
+            # Employee.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
