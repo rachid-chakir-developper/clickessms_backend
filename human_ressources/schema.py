@@ -318,7 +318,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
             .values_list('registration_number', flat=True)
             )
         for registration_number in duplicate_registration_numbers:
-            employees = Employee.objects.filter(registration_number=registration_number).exclude(
+            employees = Employee.objects.filter(registration_number__icontains=registration_number).exclude(
                 Q(registration_number__isnull=True) | Q(registration_number='') | Q(employee_user__isnull=True)
                 )
             employees.exclude(id=employees.first().id).delete()
