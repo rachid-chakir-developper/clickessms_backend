@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from django.db.models import Q
+from django.db.models import Q, Count
 
 from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract, EmployeeContractEstablishment, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
