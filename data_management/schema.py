@@ -3,6 +3,7 @@ from graphene_django import DjangoObjectType
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 import re
+from django.utils.dateparse import parse_date
 
 from django.apps import apps
 
@@ -189,7 +190,7 @@ def extract_parts_name(full_name):
         preferred_name = words[1].upper() if len(words) > 1 else None
     return first_name, preferred_name, last_name
 
-def import_data_from_file(model, file, fields, user=None):
+def import_data_from_file(entity, model, file, fields, user=None):
     count = 0
     wb = openpyxl.load_workbook(file, data_only=True)
     ws = wb.active
@@ -198,27 +199,49 @@ def import_data_from_file(model, file, fields, user=None):
         row_data = dict(zip(headers, row))
         data = {field: row_data[field] for field in fields if field in row_data}
         # model.objects.create(**data)
-        try:
-            registration_number, name, social_security_number = data['registration_number'], data['name'], data['social_security_number']
-            first_name, last_name, preferred_name = extract_parts_name(full_name=name)
-            employee = model.objects.get(Q(first_name=first_name, last_name=last_name))
-            if not employee.social_security_number or employee.social_security_number == '' :
-                model.objects.filter(pk=employee.id).update(social_security_number=social_security_number)
-            if not employee.registration_number or employee.registration_number == '' :
-                model.objects.filter(pk=employee.id).update(registration_number=registration_number)
-        except model.DoesNotExist:
-            model.objects.create(
-                registration_number=registration_number,
-                first_name=first_name,
-                last_name=preferred_name if preferred_name else last_name,
-                preferred_name=last_name if preferred_name else preferred_name,
-                social_security_number=social_security_number,
-                company=user.company,
-                creator=user,
-                )
+        if entity == 'Employee':
+            try:
+                registration_number, name, social_security_number = data['registration_number'], data['name'], data['social_security_number']
+                first_name, last_name, preferred_name = extract_parts_name(full_name=name)
+                employee = model.objects.get(Q(first_name=first_name, last_name=last_name))
+                if not employee.social_security_number or employee.social_security_number == '' :
+                    model.objects.filter(pk=employee.id).update(social_security_number=social_security_number)
+                if not employee.registration_number or employee.registration_number == '' :
+                    model.objects.filter(pk=employee.id).update(registration_number=registration_number)
+            except model.DoesNotExist:
+                # model.objects.create(
+                #     registration_number=registration_number,
+                #     first_name=first_name,
+                #     last_name=preferred_name if preferred_name else last_name,
+                #     preferred_name=last_name if preferred_name else preferred_name,
+                #     social_security_number=social_security_number,
+                #     company=user.company,
+                #     creator=user,
+                #     )
+                pass
+            except Exception as e:
+                pass
             count += 1
-        except Exception as e:
-            pass
+        if entity == 'Beneficiary':
+            try:
+                gender, first_name, last_name, birth_date = data['gender'], data['first_name'], data['last_name'], data['birth_date']
+                # birth_date = parse_date(birth_date)
+                # first_name, last_name, preferred_name = extract_parts_name(full_name=name)
+                beneficiary = model.objects.get(Q(first_name=first_name, last_name=last_name))
+                if not beneficiary.birth_date:
+                    model.objects.filter(pk=beneficiary.id).update(birth_date=birth_date)
+            except model.DoesNotExist:
+                model.objects.create(
+                    first_name=first_name,
+                    last_name=last_name,
+                    preferred_name=last_name,
+                    birth_date=birth_date,
+                    company=user.company,
+                    creator=user,
+                    )
+            except Exception as e:
+                raise e
+            count += 1
     return count
 
 class ImportDataMutation(graphene.Mutation):
@@ -243,8 +266,9 @@ class ImportDataMutation(graphene.Mutation):
                 done = False
                 success = False
             model = apps.get_model(model_app, entity)
-            count = import_data_from_file(model=model, file=file, fields=fields, user=user)
+            count = import_data_from_file(entity=entity, model=model, file=file, fields=fields, user=user)
         except Exception as e:
+            print(e)
             done = False
             success = False
         return ImportDataMutation(success=success, done=done, count=count)
