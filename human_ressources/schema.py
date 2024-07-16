@@ -1060,8 +1060,8 @@ class DeleteBeneficiary(graphene.Mutation):
         beneficiary = Beneficiary.objects.get(pk=id)
         if current_user.can_manage_administration() or current_user.is_manager() or (beneficiary.creator == current_user):
             # beneficiary = Beneficiary.objects.get(pk=id)
-            beneficiary.delete()
-            # Beneficiary.objects.filter(pk=id).update(is_deleted=True)
+            # beneficiary.delete()
+            Beneficiary.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
