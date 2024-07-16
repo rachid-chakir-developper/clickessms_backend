@@ -611,7 +611,7 @@ class DeleteEmployee(graphene.Mutation):
         message = ''
         current_user = info.context.user
         employee = Employee.objects.get(pk=id)
-        if if current_user.can_manage_administration() or current_user.is_manager() or (employee.creator == current_user):
+        if current_user.can_manage_administration() or current_user.is_manager() or (employee.creator == current_user):
             employee = Employee.objects.get(pk=id)
             employee.delete()
             # Employee.objects.filter(pk=id).update(is_deleted=True)
