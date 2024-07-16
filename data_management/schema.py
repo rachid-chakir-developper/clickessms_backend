@@ -220,7 +220,7 @@ def import_data_from_file(model, file, fields, user=None):
                 )
             count += 1
         except Exception as e:
-            print(e)
+            raise e
     return count
 
 class ImportDataMutation(graphene.Mutation):
@@ -247,7 +247,7 @@ class ImportDataMutation(graphene.Mutation):
             model = apps.get_model(model_app, entity)
             count = import_data_from_file(model=model, file=file, fields=fields, user=user)
         except Exception as e:
-            print(e)
+            raise e
             done = False
             success = False
         return ImportDataMutation(success=success, done=done, count=count)
