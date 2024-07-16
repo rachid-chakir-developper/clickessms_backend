@@ -204,10 +204,8 @@ def import_data_from_file(model, file, fields, user=None):
             employee = model.objects.get(Q(first_name=first_name, last_name=last_name))
             if not employee.social_security_number or employee.social_security_number == '' :
                 model.objects.filter(pk=employee.id).update(social_security_number=social_security_number)
-                count = -22
             if not employee.registration_number or employee.registration_number == '' :
                 model.objects.filter(pk=employee.id).update(registration_number=registration_number)
-                count = -11
         except model.DoesNotExist:
             model.objects.create(
                 registration_number=registration_number,
