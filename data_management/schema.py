@@ -1,6 +1,8 @@
 import graphene
 from graphene_django import DjangoObjectType
 from graphql_jwt.decorators import login_required
+from graphene_file_upload.scalars import Upload
+import re
 
 from django.apps import apps
 
@@ -169,36 +171,82 @@ class DeleteData(graphene.Mutation):
 
 #**************************************************************************************************
 
-def import_data(model, file, fields):
+def extract_parts_name(full_name):
+    words = full_name.split()
+    first_name = None
+    preferred_name = None
+    last_name = None
+    for i, word in enumerate(words):
+        if word.lower() in ["né", "née"]:
+            last_name = " ".join(words[i+1:]).upper()
+            break
+        elif word.isupper():
+            preferred_name = word
+        elif word[0].isupper() and i > 0:
+            first_name = word
+    if not preferred_name and not first_name:
+        first_name = words[0].capitalize() if words else None
+        preferred_name = words[1].upper() if len(words) > 1 else None
+    return first_name, preferred_name, last_name
+
+def import_data_from_file(model, file, fields, user=None):
+    count = 0
     wb = openpyxl.load_workbook(file, data_only=True)
     ws = wb.active
     headers = [cell.value for cell in ws[1]]
     for row in ws.iter_rows(min_row=2, values_only=True):
         row_data = dict(zip(headers, row))
         data = {field: row_data[field] for field in fields if field in row_data}
-        model.objects.create(**data)
+        # model.objects.create(**data)
+        try:
+            registration_number, name, social_security_number = data['registration_number'], data['name'], data['social_security_number']
+            first_name, last_name, preferred_name = extract_parts_name(full_name=name)
+            employee = model.objects.get(Q(registration_number=registration_number) | Q(social_security_number=social_security_number) | Q(first_name=first_name, last_name=last_name))
+            if not employee.social_security_number or employee.social_security_number == '' :
+                model.objects.filter(pk=employee.id).update(social_security_number=social_security_number)
+        except model.DoesNotExist:
+            model.objects.create(
+                registration_number=registration_number,
+                first_name=first_name,
+                last_name=preferred_name if preferred_name else last_name,
+                preferred_name=last_name if preferred_name else preferred_name,
+                social_security_number=social_security_number,
+                company=user.company,
+                creator=user,
+                )
+        except Exception as e:
+            print(e)
+        count += 1
+    return count
 
 class ImportDataMutation(graphene.Mutation):
     class Arguments:
-        model_data = graphene.String(required=True)
-        file = graphene.String(required=True)
+        entity = graphene.String(required=True)
+        file = Upload(required=True)
         fields = graphene.List(graphene.String, required=True)
 
-    count_elements = 0
+    count = graphene.Int()
+    done = graphene.Boolean()
     success = graphene.Boolean()
 
-    def mutate(self, info, model_data, file, fields):
+    def mutate(self, info, entity=None, file=None, fields=None):
+        user = info.context.user
+        done = True
         success = True
+        count = 0
         try:
-            if model_data == 'Employee' or model_data == 'Beneficiary':
+            if entity == 'Employee' or entity == 'Beneficiary':
                 model_app = 'human_ressources'
             else:
+                done = False
                 success = False
-            model = apps.get_model(model_app, model_data)
-            count_elements = import_data(model=model, file=file, fields=fields)
+            model = apps.get_model(model_app, entity)
+            count = import_data_from_file(model=model, file=file, fields=fields, user=user)
         except Exception as e:
+            print(e)
+            done = False
             success = False
-        return ImportDataMutation(success=success, count_elements=count_elements)
+        return ImportDataMutation(success=success, done=done, count=count)
 
 #**************************************************************************************************
 
