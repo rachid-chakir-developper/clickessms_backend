@@ -201,7 +201,7 @@ def import_data_from_file(model, file, fields, user=None):
         try:
             registration_number, name, social_security_number = data['registration_number'], data['name'], data['social_security_number']
             first_name, last_name, preferred_name = extract_parts_name(full_name=name)
-            employee = model.objects.get(Q(registration_number=registration_number) | Q(social_security_number=social_security_number) | Q(first_name=first_name, last_name=last_name))
+            employee = model.objects.get(Q(first_name=first_name, last_name=last_name))
             if not employee.social_security_number or employee.social_security_number == '' :
                 model.objects.filter(pk=employee.id).update(social_security_number=social_security_number)
                 count = -22
