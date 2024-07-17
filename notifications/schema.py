@@ -173,7 +173,7 @@ class MarkNotificationsAsSeen(graphene.Mutation):
         success = True
         message = ''
         try:
-            Notification.objects.filter(id__in=ids).update(is_seen=True)
+            Notification.objects.filter(is_seen=False).update(is_seen=True)
             not_seen_count = Notification.objects.filter(is_seen=False).count()
             broadcastNotificationsSeen(not_seen_count=not_seen_count)
         except Exception as e:

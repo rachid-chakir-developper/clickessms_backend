@@ -56,6 +56,7 @@ class CallFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class LetterEstablishmentType(DjangoObjectType):
     class Meta:
@@ -87,6 +88,7 @@ class LetterFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class MeetingEstablishmentType(DjangoObjectType):
     class Meta:
@@ -151,6 +153,7 @@ class MeetingFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     meeting_mode = graphene.String(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class CallerInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -272,12 +275,15 @@ class AdministrativesQuery(graphene.ObjectType):
             keyword = call_filter.get('keyword', '')
             starting_date_time = call_filter.get('starting_date_time')
             ending_date_time = call_filter.get('ending_date_time')
+            establishments = call_filter.get('establishments')
             if keyword:
                 calls = calls.filter(Q(title__icontains=keyword))
+            if establishments:
+                calls = calls.filter(establishments__establishment__id__in=establishments)
             if starting_date_time:
-                calls = calls.filter(entry_date_time__gte=starting_date_time)
+                calls = calls.filter(entry_date_time__date__gte=starting_date_time.date())
             if ending_date_time:
-                calls = calls.filter(entry_date_time__lte=ending_date_time)
+                calls = calls.filter(entry_date_time__date__lte=ending_date_time.date())
         calls = calls.order_by('-created_at').distinct()
         total_count = calls.count()
         if page:
@@ -308,12 +314,15 @@ class AdministrativesQuery(graphene.ObjectType):
             keyword = letter_filter.get('keyword', '')
             starting_date_time = letter_filter.get('starting_date_time')
             ending_date_time = letter_filter.get('ending_date_time')
+            establishments = letter_filter.get('establishments')
             if keyword:
                 letters = letters.filter(Q(title__icontains=keyword))
+            if establishments:
+                letters = letters.filter(establishments__establishment__id__in=establishments)
             if starting_date_time:
-                letters = letters.filter(entry_date_time__gte=starting_date_time)
+                letters = letters.filter(entry_date_time__date__gte=starting_date_time.date())
             if ending_date_time:
-                letters = letters.filter(entry_date_time__lte=ending_date_time)
+                letters = letters.filter(entry_date_time__date__lte=ending_date_time.date())
         letters = letters.order_by('-created_at').distinct()
         total_count = letters.count()
         if page:
@@ -345,14 +354,17 @@ class AdministrativesQuery(graphene.ObjectType):
             keyword = meeting_filter.get('keyword', '')
             starting_date_time = meeting_filter.get('starting_date_time')
             ending_date_time = meeting_filter.get('ending_date_time')
+            establishments = meeting_filter.get('establishments')
             meeting_mode = meeting_filter.get('meeting_mode', 'SIMPLE')
             meetings = meetings.filter(meeting_mode=meeting_mode if meeting_mode else 'SIMPLE')
             if keyword:
                 meetings = meetings.filter(Q(title__icontains=keyword))
+            if establishments:
+                meetings = meetings.filter(establishments__establishment__id__in=establishments)
             if starting_date_time:
-                meetings = meetings.filter(starting_date_time__gte=starting_date_time)
+                meetings = meetings.filter(starting_date_time__date__gte=starting_date_time.date())
             if ending_date_time:
-                meetings = meetings.filter(starting_date_time__lte=ending_date_time)
+                meetings = meetings.filter(starting_date_time__date__lte=ending_date_time.date())
         else:
             meetings = meetings.filter(Q(meeting_mode='SIMPLE') | Q(meeting_mode='') | Q(meeting_mode=None))
         meetings = meetings.order_by('-created_at').distinct()

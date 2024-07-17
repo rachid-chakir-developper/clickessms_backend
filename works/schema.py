@@ -180,6 +180,7 @@ class TaskFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     statuses = graphene.List(graphene.String, required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class TaskFieldInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -227,13 +228,16 @@ class WorksQuery(graphene.ObjectType):
             keyword = task_filter.get('keyword', '')
             starting_date_time = task_filter.get('starting_date_time')
             ending_date_time = task_filter.get('ending_date_time')
+            establishments = task_filter.get('establishments')
             statuses = task_filter.get('statuses')
             if keyword:
                 tasks = tasks.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))
+            if establishments:
+                tasks = tasks.filter(establishments__establishment__id__in=establishments)
             if starting_date_time:
-                tasks = tasks.filter(starting_date_time__gte=starting_date_time)
+                tasks = tasks.filter(starting_date_time__date__gte=starting_date_time.date())
             if ending_date_time:
-                tasks = tasks.filter(starting_date_time__lte=ending_date_time)
+                tasks = tasks.filter(starting_date_time__date__lte=ending_date_time.date())
             if statuses:
                 tasks = tasks.filter(status__in=statuses)
         tasks = tasks.order_by('-created_at').distinct()
