@@ -4,6 +4,7 @@ from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 import re
 from django.utils.dateparse import parse_date
+from datetime import datetime
 
 from django.apps import apps
 
@@ -224,24 +225,36 @@ def import_data_from_file(entity, model, file, fields, user=None):
             count += 1
         if entity == 'Beneficiary':
             try:
-                gender, first_name, last_name, birth_date = data['gender'], data['first_name'], data['last_name'], data['birth_date']
+                name, address, zip_code, city, birth_date = data['name'], data['address'], data['zip_code'], data['city'], data['birth_date']
                 # birth_date = parse_date(birth_date)
                 # first_name, last_name, preferred_name = extract_parts_name(full_name=name)
+                first_name, last_name, preferred_name = None, None, None
+                if name and name != '':
+                    birth_date = datetime.strptime(birth_date, '%d/%m/%Y').date() if birth_date else None
+                    full_name = name
+                    words = full_name.split()
+                    first_name = words[1]
+                    last_name = words[0]
+                    preferred_name = last_name
                 beneficiary = model.objects.get(Q(first_name=first_name, last_name=last_name))
                 if not beneficiary.birth_date:
                     model.objects.filter(pk=beneficiary.id).update(birth_date=birth_date)
             except model.DoesNotExist:
-                model.objects.create(
-                    first_name=first_name,
-                    last_name=last_name,
-                    preferred_name=last_name,
-                    birth_date=birth_date,
-                    company=user.company,
-                    creator=user,
-                    )
+                if first_name and first_name:
+                    model.objects.create(
+                        first_name=first_name,
+                        last_name=last_name,
+                        preferred_name=last_name,
+                        birth_date=birth_date,
+                        address=address,
+                        zip_code=zip_code,
+                        city=city,
+                        company=user.company,
+                        creator=user,
+                        )
+                    count += 1
             except Exception as e:
                 raise e
-            count += 1
     return count
 
 class ImportDataMutation(graphene.Mutation):

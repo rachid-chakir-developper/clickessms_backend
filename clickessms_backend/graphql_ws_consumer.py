@@ -7,8 +7,9 @@ from django.contrib.auth import get_user_model
 
 @database_sync_to_async
 def get_user(username):
+    User = get_user_model()
     try:
-        user = get_user_model().objects.get(username=username)
+        user = User.objects.get(username=username)
         return user
 
     except User.DoesNotExist:
