@@ -230,8 +230,10 @@ def import_data_from_file(entity, model, file, fields, user=None):
                 # first_name, last_name, preferred_name = extract_parts_name(full_name=name)
                 first_name, last_name, preferred_name = None, None, None
                 if name and name != '':
-                    if birth_date and birth_date is not None and birth_date !='':
+                    try:
                         birth_date = datetime.strptime(birth_date, '%d/%m/%Y').date() if birth_date else None
+                    except Exception as e:
+                        birth_date = None
                     full_name = name
                     words = full_name.split()
                     first_name = words[1]
