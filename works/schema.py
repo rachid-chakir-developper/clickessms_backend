@@ -595,8 +595,10 @@ class UpdateTaskFields(graphene.Mutation):
             task.refresh_from_db()
             if 'status' in task_data and (creator.can_manage_facility() or creator.is_manager()):
                 employee_user = task.employee.user if task.employee else task.creator
-                if employee_user:
+                if employee_user and task.status != 'TO_DO':
                     notify_task(sender=creator, recipient=employee_user, task=task, action=None)
+                else:
+                    pass
             task.refresh_from_db()
         except Exception as e:
             print(f"Exception {e}")

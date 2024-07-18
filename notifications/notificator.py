@@ -129,8 +129,8 @@ def notify_task(sender, recipient, task, action=None):
 			message = "Votre demande d'intervention a été rejetée."
 		elif task.status == 'TO_DO':
 			notification_type = "TASK_TO_DO"
-			title = "Nouvelle tâche assignée."
-			message = "Vous avez une nouvelle tâche assignée."
+			title = "Nouvelle intervention assignée."
+			message = "Vous avez une nouvelle intervention assignée."
 		elif task.status == 'IN_PROGRESS':
 			notification_type = "TASK_IN_PROGRESS"
 			title = "Intervention commencée."
