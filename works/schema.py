@@ -418,12 +418,14 @@ class CreateTask(graphene.Mutation):
                         employee=employee,
                         creator=creator
                     )
-                notify_task(sender=creator, recipient=employee.user, task=task, action=None)
-        push_notification_data = {
-            "title": "Nouvelle tâche assignée",
-            "message": "Vous avez une nouvelle tâche assignée."
-        }
-        push_notification_to_employees(notification=push_notification_data, employees=employees)
+                if task.status == 'TO_DO':
+                    notify_task(sender=creator, recipient=employee.user, task=task, action=None)
+        if task.status == 'TO_DO':
+            push_notification_data = {
+                "title": "Nouvelle tâche assignée",
+                "message": "Vous avez une nouvelle tâche assignée."
+            }
+            push_notification_to_employees(notification=push_notification_data, employees=employees)
         establishments = Establishment.objects.filter(id__in=establishment_ids)
         for establishment in establishments:
             try:
@@ -471,9 +473,7 @@ class CreateTask(graphene.Mutation):
                 )
         if task.status == 'PENDING':
             facility_managers = User.get_facility_managers_in_user_company(user=creator)
-            print(f"task.status************ {task.status}")
             for facility_manager in facility_managers:
-                print(f"facility_manager************ {facility_manager} {facility_manager.email}")
                 notify_task(sender=creator, recipient=facility_manager, task=task, action='ADDED')
         # create_calendar_event_task(task=task)
         return CreateTask(task=task)
@@ -510,8 +510,9 @@ class UpdateTask(graphene.Mutation):
                         employee=employee,
                         creator=creator
                     )
-                notify_task(sender=creator, recipient=employee.user, task=task, action=None)
-                employees_to_notify.append(employee)
+                if task.status == 'TO_DO':
+                    notify_task(sender=creator, recipient=employee.user, task=task, action='TO_DO')
+                    employees_to_notify.append(employee)
         
         push_notification_data = {
             "title": "Nouvelle tâche assignée",
@@ -596,9 +597,13 @@ class UpdateTaskFields(graphene.Mutation):
             if 'status' in task_data and (creator.can_manage_facility() or creator.is_manager()):
                 employee_user = task.employee.user if task.employee else task.creator
                 if employee_user and task.status != 'TO_DO':
-                    notify_task(sender=creator, recipient=employee_user, task=task, action=None)
-                else:
-                    pass
+                    notify_task(sender=creator, recipient=employee_user, task=task)
+                elif task.status == 'TO_DO':
+                    workers = task.workers.all()
+                    for worker in workers:
+                        employee_user = worker.employee.user if worker.employee else None
+                        if employee_user:
+                            notify_task(sender=creator, recipient=employee_user, task=task, action='TO_DO')
             task.refresh_from_db()
         except Exception as e:
             print(f"Exception {e}")
@@ -855,7 +860,7 @@ class CreateTicket(graphene.Mutation):
                 for employee in task_action.employees.all():
                     employee_user = employee.user
                     if employee_user:
-                        notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action)
+                        notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action,)
 
         ticket.save()
         return CreateTicket(ticket=ticket)

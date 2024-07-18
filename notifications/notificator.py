@@ -112,8 +112,12 @@ def notify_task(sender, recipient, task, action=None):
 		message = "Une nouvelle demande d'intervention a été soumise."
 		if action == 'UPDATED':
 			notification_type = "TASK_UPDATED"
-			title = "Intervention mise à jour."
-			message = "Votre intervention a été mise à jour."
+			title = "Demande d'ntervention mise à jour."
+			message = "Votre demande intervention a été mise à jour."
+		if action == 'TO_DO':
+			notification_type = "TASK_TO_DO"
+			title = "Nouvelle intervention assignée."
+			message = "Vous avez une nouvelle intervention assignée."
 	else:
 		if task.status == 'PENDING':
 			notification_type = "TASK_PENDING"
@@ -129,7 +133,7 @@ def notify_task(sender, recipient, task, action=None):
 			message = "Votre demande d'intervention a été rejetée."
 		elif task.status == 'TO_DO':
 			notification_type = "TASK_TO_DO"
-			title = "Nouvelle intervention assignée."
+			title = "Votre intervention assignée."
 			message = "Vous avez une nouvelle intervention assignée."
 		elif task.status == 'IN_PROGRESS':
 			notification_type = "TASK_IN_PROGRESS"
@@ -139,6 +143,8 @@ def notify_task(sender, recipient, task, action=None):
 			notification_type = "TASK_COMPLETED"
 			title = "Intervention finie."
 			message = "Une intervention vient d'être finie."
+		else:
+			return 0
 	notification_data = {
 		"sender": sender,
 		"recipient": recipient,
