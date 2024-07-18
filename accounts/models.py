@@ -245,6 +245,16 @@ class User(AbstractUser):
         if not quality_managers.exists():
             quality_managers = cls.objects.filter(roles__name='QUALITY_MANAGER', company=company).distinct()
         return quality_managers
+    @classmethod
+    def get_facility_managers_in_user_company(cls, user=None, company=None):
+        company = company or user.current_company or user.company
+        facility_managers = cls.objects.filter(
+            managed_companies__roles__name='FACILITY_MANAGER',
+            managed_companies__company=company
+        ).distinct()
+        if not facility_managers.exists():
+            facility_managers = cls.objects.filter(roles__name='FACILITY_MANAGER', company=company).distinct()
+        return facility_managers
 
 
 class UserCompany(models.Model):

@@ -103,6 +103,52 @@ def notify_employee_absence(sender, recipient, employee_absence, action=None):
     }
 	notify(notification_data)
 
+def notify_task(sender, recipient, task, action=None):
+	if sender == recipient:
+		return 0
+	if action:
+		notification_type = "TASK_ADDED"
+		title = "Nouvelle demande d'intervention ajoutée."
+		message = "Une nouvelle demande d'intervention a été soumise."
+		if action == 'UPDATED':
+			notification_type = "TASK_UPDATED"
+			title = "Intervention mise à jour."
+			message = "Votre intervention a été mise à jour."
+	else:
+		if task.status == 'PENDING':
+			notification_type = "TASK_PENDING"
+			title = "Demande d'intervention en attente de décision."
+			message = "Votre demande d'intervention est en attente de décision."
+		elif task.status == 'APPROVED':
+			notification_type = "TASK_APPROVED"
+			title = "Demande d'intervention approuvée."
+			message = "Votre demande d'intervention a été approuvée."
+		elif task.status == 'REJECTED':
+			notification_type = "TASK_REJECTED"
+			title = "Demande d'intervention rejetée."
+			message = "Votre demande d'intervention a été rejetée."
+		elif task.status == 'TO_DO':
+			notification_type = "TASK_TO_DO"
+			title = "Nouvelle tâche assignée."
+			message = "Vous avez une nouvelle tâche assignée."
+		elif task.status == 'IN_PROGRESS':
+			notification_type = "TASK_IN_PROGRESS"
+			title = "Intervention commencée."
+			message = "Une intervention vient d'être commencée."
+		elif task.status == 'COMPLETED':
+			notification_type = "TASK_COMPLETED"
+			title = "Intervention finie."
+			message = "Une intervention vient d'être finie."
+	notification_data = {
+		"sender": sender,
+		"recipient": recipient,
+		"notification_type": notification_type,
+		"title": title,
+		"message": message,
+		"task": task
+	}
+	notify(notification_data)
+
 def notify_employee_meeting_decision(sender, recipient, meeting_decision):
 	if sender==recipient:
 		return 0

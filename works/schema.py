@@ -14,7 +14,9 @@ from vehicles.models import Vehicle
 from stocks.models import Material
 from medias.models import Folder, File
 from feedbacks.models import Comment, Signature
-from notifications.notificator import notify, push_notification_to_employees, notify_employee_task_action
+from accounts.models import User
+
+from notifications.notificator import notify, notify_task, push_notification_to_employees, notify_employee_task_action
 from feedbacks.google_calendar import create_calendar_event_task, update_calendar_event_task, delete_calendar_event_task
 
 from feedbacks.schema import SignatureInput
@@ -296,16 +298,6 @@ class WorksQuery(graphene.ObjectType):
                 task = Task.objects.get(pk=task_id)
                 if not task.started_at or task.started_at is None:
                     Task.objects.filter(pk=task_id).update(status=STATUS_All['STARTED'], started_at=datetime.now())
-                    if task_step.step_type == STEP_TYPES_ALL['BEFORE']:
-                        notification_data = {
-                            "sender": creator,
-                            "recipient": task.creator,
-                            "notification_type": "TASK_STARTED",
-                            "title": "Une tâche commencée",
-                            "message": "Une tâche vient d'être commencée.",
-                            "task": task,
-                        }
-                        notify(notification_data)
             if task_step.status != STATUS_All['STARTED']:
                 TaskStep.objects.filter(pk=task_step.id).update(status=STATUS_All['STARTED'])
             try:
@@ -426,15 +418,7 @@ class CreateTask(graphene.Mutation):
                         employee=employee,
                         creator=creator
                     )
-                notification_data = {
-                    "sender": creator,
-                    "recipient": employee.user,
-                    "notification_type": "ADDED_TO_TASK",
-                    "title": "Nouvelle tâche assignée",
-                    "message": "Vous avez une nouvelle tâche assignée.",
-                    "task": task,
-                }
-                notify(notification_data)
+                notify_task(sender=creator, recipient=employee.user, task=task, action=None)
         push_notification_data = {
             "title": "Nouvelle tâche assignée",
             "message": "Vous avez une nouvelle tâche assignée."
@@ -485,6 +469,10 @@ class CreateTask(graphene.Mutation):
                     step_type=step_type,
                     creator=creator
                 )
+        if task.status == 'PENDING':
+            facility_managers = User.get_facility_managers_in_user_company(user=creator)
+            for facility_manager in facility_managers:
+                notify_task(sender=creator, recipient=facility_manager, task=task, action='ADDED')
         # create_calendar_event_task(task=task)
         return CreateTask(task=task)
 
@@ -520,15 +508,7 @@ class UpdateTask(graphene.Mutation):
                         employee=employee,
                         creator=creator
                     )
-                notification_data = {
-                    "sender": creator,
-                    "recipient": employee.user,
-                    "notification_type": "ADDED_TO_TASK",
-                    "title": "Nouvelle tâche assignée",
-                    "message": "Vous avez une nouvelle tâche assignée.",
-                    "task": task,
-                }
-                notify(notification_data)
+                notify_task(sender=creator, recipient=employee.user, task=task, action=None)
                 employees_to_notify.append(employee)
         
         push_notification_data = {
@@ -587,6 +567,7 @@ class UpdateTask(graphene.Mutation):
                     step_type=step_type,
                     creator=creator
                 )
+        notify_task(sender=creator, recipient=task.creator, task=task, action='UPDATED')
         # update_calendar_event_task(task=task)
         return UpdateTask(task=task)
 
@@ -609,6 +590,11 @@ class UpdateTaskFields(graphene.Mutation):
         try:
             task = Task.objects.get(pk=id)
             Task.objects.filter(pk=id).update(**task_data)
+            task.refresh_from_db()
+            if 'status' in task_data and (creator.can_manage_facility() or creator.is_manager()):
+                employee_user = task.employee.user if task.employee else task.creator
+                if employee_user:
+                    notify_task(sender=creator, recipient=employee_user, task=task, action=None)
             task.refresh_from_db()
         except Exception as e:
             done = False
@@ -768,10 +754,12 @@ class DeleteTask(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            task = Task.objects.get(pk=id)
+        task = Task.objects.get(pk=id)
+        if current_user.can_manage_facility() or current_user.is_manager() or (task.creator == current_user and task.status == 'PENDING'):
+            # task = Task.objects.get(pk=id)
             # delete_calendar_event_task(task=task)
             task.delete()
+            # Task.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:

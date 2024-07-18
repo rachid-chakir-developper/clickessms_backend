@@ -4,7 +4,13 @@ from django.db import models
 
 NOTIF_TYPES_ALL = {
     "SYSTEM" : "SYSTEM",
+    "TASK_ADDED": "TASK_ADDED",
+    "TASK_UPDATED": "TASK_UPDATED",
+    "TASK_PENDING": "TASK_PENDING",
+    "TASK_APPROVED": "TASK_APPROVED",
+    "TASK_REJECTED": "TASK_REJECTED",
     "ADDED_TO_TASK" : "ADDED_TO_TASK",
+    "TASK_TO_DO" : "TASK_TO_DO",
     "GO_TO_TASK" : "GO_TO_TASK",
     "TASK_STARTED" : "TASK_STARTED",
     "TASK_FINISHED" : "TASK_FINISHED",
@@ -24,7 +30,13 @@ NOTIF_TYPES_ALL = {
 class Notification(models.Model):
 	NOTIF_TYPES = [
         ("SYSTEM", "Système"),
+        ("TASK_ADDED", "Nouvelle intervention ajoutée"),
+        ("TASK_UPDATED", "Intervention mise à jour"),
+        ("TASK_PENDING", "Intervention en attente de décision"),
+        ("TASK_APPROVED", "Intervention approuvée"),
+        ("TASK_REJECTED", "Intervention rejetée"),
         ("ADDED_TO_TASK", "Affecté à une intérvention"),
+        ("TASK_TO_DO", "Affecté à une intérvention"),
         ("GO_TO_TASK", "Départ vers l'intérvention"),
         ("TASK_STARTED", "L'intérvention commencée"),
         ("TASK_FINISHED", "L'intérvention terminée"),
