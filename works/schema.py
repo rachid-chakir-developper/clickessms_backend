@@ -758,8 +758,8 @@ class DeleteTask(graphene.Mutation):
         if current_user.can_manage_facility() or current_user.is_manager() or (task.creator == current_user and task.status == 'PENDING'):
             # task = Task.objects.get(pk=id)
             # delete_calendar_event_task(task=task)
-            task.delete()
-            # Task.objects.filter(pk=id).update(is_deleted=True)
+            # task.delete()
+            Task.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
