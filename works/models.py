@@ -62,6 +62,7 @@ class Task(models.Model):
 	priority = models.CharField(max_length=50, choices=PRIORITIES, default= "LOW")
 	work_level = models.CharField(max_length=50, choices=LEVELS, default= "MEDIUM")
 	status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_tasks', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='tasks', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)

@@ -471,7 +471,9 @@ class CreateTask(graphene.Mutation):
                 )
         if task.status == 'PENDING':
             facility_managers = User.get_facility_managers_in_user_company(user=creator)
+            print(f"task.status************ {task.status}")
             for facility_manager in facility_managers:
+                print(f"facility_manager************ {facility_manager} {facility_manager.email}")
                 notify_task(sender=creator, recipient=facility_manager, task=task, action='ADDED')
         # create_calendar_event_task(task=task)
         return CreateTask(task=task)
@@ -597,10 +599,11 @@ class UpdateTaskFields(graphene.Mutation):
                     notify_task(sender=creator, recipient=employee_user, task=task, action=None)
             task.refresh_from_db()
         except Exception as e:
+            print(f"Exception {e}")
             done = False
             success = False
             task=None
-            message = "Une erreur s'est produite."
+            message = f"Une erreur s'est produite: {e}"
         return UpdateTaskFields(done=done, success=success, message=message, task=task)
 
 class UpdateTaskState(graphene.Mutation):
@@ -763,7 +766,7 @@ class DeleteTask(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteTask(deleted=deleted, success=success, message=message, id=id)
 
 #*************************************************************************#
