@@ -9,6 +9,7 @@ from datetime import datetime
 from django.apps import apps
 
 from django.db.models import Q
+from django.db import transaction
 import openpyxl
 
 from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel
@@ -193,71 +194,74 @@ def extract_parts_name(full_name):
 
 def import_data_from_file(entity, model, file, fields, user=None):
     count = 0
+    new_objects = []
     wb = openpyxl.load_workbook(file, data_only=True)
     ws = wb.active
     headers = [cell.value for cell in ws[1]]
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        row_data = dict(zip(headers, row))
-        data = {field: row_data[field] for field in fields if field in row_data}
-        # model.objects.create(**data)
-        if entity == 'Employee':
-            try:
-                registration_number, name, social_security_number = data['registration_number'], data['name'], data['social_security_number']
-                first_name, last_name, preferred_name = extract_parts_name(full_name=name)
-                employee = model.objects.get(Q(first_name=first_name, last_name=last_name))
-                if not employee.social_security_number or employee.social_security_number == '' :
-                    model.objects.filter(pk=employee.id).update(social_security_number=social_security_number)
-                if not employee.registration_number or employee.registration_number == '' :
-                    model.objects.filter(pk=employee.id).update(registration_number=registration_number)
-            except model.DoesNotExist:
-                # model.objects.create(
-                #     registration_number=registration_number,
-                #     first_name=first_name,
-                #     last_name=preferred_name if preferred_name else last_name,
-                #     preferred_name=last_name if preferred_name else preferred_name,
-                #     social_security_number=social_security_number,
-                #     company=user.company,
-                #     creator=user,
-                #     )
-                pass
-            except Exception as e:
-                pass
-            count += 1
-        if entity == 'Beneficiary':
-            try:
-                name, address, zip_code, city, birth_date = data['name'], data['address'], data['zip_code'], data['city'], data['birth_date']
-                # birth_date = parse_date(birth_date)
-                # first_name, last_name, preferred_name = extract_parts_name(full_name=name)
-                first_name, last_name, preferred_name = None, None, None
-                if name and name != '':
-                    try:
-                        birth_date = datetime.strptime(birth_date, '%d/%m/%Y').date() if birth_date else None
-                    except Exception as e:
-                        birth_date = None
-                    full_name = name
-                    words = full_name.split()
-                    first_name = words[1]
-                    last_name = words[0]
-                    preferred_name = last_name
-                beneficiary = model.objects.get(Q(first_name=first_name, last_name=last_name))
-                if not beneficiary.birth_date:
-                    model.objects.filter(pk=beneficiary.id).update(birth_date=birth_date)
-            except model.DoesNotExist:
-                if first_name and first_name:
-                    model.objects.create(
-                        first_name=first_name,
-                        last_name=last_name,
-                        preferred_name=last_name,
-                        birth_date=birth_date,
-                        address=address,
-                        zip_code=zip_code,
-                        city=city,
-                        company=user.company,
-                        creator=user,
-                        )
-                    count += 1
-            except Exception as e:
-                raise e
+    with transaction.atomic():
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            row_data = dict(zip(headers, row))
+            data = {field: row_data[field] for field in fields if field in row_data}
+            # model.objects.create(**data)
+            if entity == 'Employee':
+                try:
+                    registration_number, name, social_security_number = data['registration_number'], data['name'], data['social_security_number']
+                    first_name, last_name, preferred_name = extract_parts_name(full_name=name)
+                    employee = model.objects.get(Q(first_name=first_name, last_name=last_name))
+                    if not employee.social_security_number or employee.social_security_number == '' :
+                        model.objects.filter(pk=employee.id).update(social_security_number=social_security_number)
+                    if not employee.registration_number or employee.registration_number == '' :
+                        model.objects.filter(pk=employee.id).update(registration_number=registration_number)
+                except model.DoesNotExist:
+                    # new_objects.append(model(
+                    #     registration_number=registration_number,
+                    #     first_name=first_name,
+                    #     last_name=preferred_name if preferred_name else last_name,
+                    #     preferred_name=last_name if preferred_name else preferred_name,
+                    #     social_security_number=social_security_number,
+                    #     company=user.company,
+                    #     creator=user,
+                    #     ))
+                    pass
+                except Exception as e:
+                    pass
+                count += 1
+            if entity == 'Beneficiary':
+                try:
+                    name, address, zip_code, city, birth_date = data['name'], data['address'], data['zip_code'], data['city'], data['birth_date']
+                    # birth_date = parse_date(birth_date)
+                    # first_name, last_name, preferred_name = extract_parts_name(full_name=name)
+                    first_name, last_name, preferred_name = None, None, None
+                    if name and name != '':
+                        try:
+                            birth_date = datetime.strptime(birth_date, '%d/%m/%Y').date() if birth_date else None
+                        except Exception as e:
+                            birth_date = None
+                        full_name = name
+                        words = full_name.split()
+                        first_name = words[1]
+                        last_name = words[0]
+                        preferred_name = last_name
+                    beneficiary = model.objects.get(Q(first_name=first_name, last_name=last_name))
+                    if not beneficiary.birth_date:
+                        model.objects.filter(pk=beneficiary.id).update(birth_date=birth_date)
+                except model.DoesNotExist:
+                    if first_name and first_name:
+                        new_objects.append(model(
+                            first_name=first_name,
+                            last_name=last_name,
+                            preferred_name=last_name,
+                            birth_date=birth_date,
+                            address=address,
+                            zip_code=zip_code,
+                            city=city,
+                            company=user.company,
+                            creator=user,
+                            ))
+                        count += 1
+                except Exception as e:
+                    raise e
+        model.objects.bulk_create(new_objects)
     return count
 
 class ImportDataMutation(graphene.Mutation):

@@ -5,6 +5,7 @@ from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 from datetime import date, datetime, time
 
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 
 from works.models import Task, TaskEstablishment, TaskWorker, TaskMaterial, TaskVehicle, TaskChecklistItem, TaskStep, STEP_TYPES_LABELS, STEP_TYPES_ALL, STATUS_All, Ticket, EfcReport, TaskAction
@@ -183,6 +184,7 @@ class TaskFilterInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     statuses = graphene.List(graphene.String, required=False)
     establishments = graphene.List(graphene.Int, required=False)
+    list_type = graphene.String(required=False)
 
 class TaskFieldInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -225,13 +227,24 @@ class WorksQuery(graphene.ObjectType):
             if user.is_manager():
                 tasks = tasks.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
             else:
-                tasks = tasks.filter(Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
+                tasks = tasks.filter(workers__employee=user.get_employee_in_company(), status__in=['TO_DO', 'IN_PROGRESS', 'COMPLETED'])
         if task_filter:
             keyword = task_filter.get('keyword', '')
             starting_date_time = task_filter.get('starting_date_time')
             ending_date_time = task_filter.get('ending_date_time')
             establishments = task_filter.get('establishments')
             statuses = task_filter.get('statuses')
+            list_type = task_filter.get('list_type') # ALL_TASK_REQUESTS / MY_TASKS / MY_TASK_REQUESTS / ALL
+            if list_type:
+                if list_type != 'ALL':
+                    tasks = Task.objects.filter(company=company)
+                if list_type == 'MY_TASKS':
+                    tasks = tasks.filter(workers__employee=user.get_employee_in_company(), status__in=['TO_DO', 'IN_PROGRESS', 'COMPLETED'])
+                elif list_type == 'MY_TASK_REQUESTS':
+                    tasks = tasks.filter(creator=user)
+                elif list_type == 'ALL':
+                    pass
+
             if keyword:
                 tasks = tasks.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))
             if establishments:
@@ -492,8 +505,11 @@ class UpdateTask(graphene.Mutation):
         vehicle_ids = task_data.pop("vehicles")
         material_ids = task_data.pop("materials")
         task_checklist = task_data.pop("task_checklist")
-        Task.objects.filter(pk=id).update(**task_data)
         task = Task.objects.get(pk=id)
+        if not creator.can_manage_facility() and task.status != 'PENDING':
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
+        Task.objects.filter(pk=id).update(**task_data)
+        task.refresh_from_db()
         task.save()
         if not task.folder or task.folder is None:
             folder = Folder.objects.create(name=str(task.id)+'_'+task.name,creator=creator)
@@ -606,11 +622,10 @@ class UpdateTaskFields(graphene.Mutation):
                             notify_task(sender=creator, recipient=employee_user, task=task, action='TO_DO')
             task.refresh_from_db()
         except Exception as e:
-            print(f"Exception {e}")
             done = False
             success = False
             task=None
-            message = f"Une erreur s'est produite: {e}"
+            message = f"Une erreur s'est produite"
         return UpdateTaskFields(done=done, success=success, message=message, task=task)
 
 class UpdateTaskState(graphene.Mutation):

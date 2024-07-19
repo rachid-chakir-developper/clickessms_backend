@@ -206,7 +206,7 @@ class FinanceQuery(graphene.ObjectType):
                 decision_documents = decision_documents.filter(
                     created_at__lte=ending_date_time
                 )
-        decision_documents = decision_documents.order_by("-created_at")
+        decision_documents = decision_documents.order_by("-created_at").distinct()
         total_count = decision_documents.count()
         if page:
             offset = limit * (page - 1)
@@ -253,7 +253,7 @@ class FinanceQuery(graphene.ObjectType):
                 bank_accounts = bank_accounts.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 bank_accounts = bank_accounts.filter(created_at__lte=ending_date_time)
-        bank_accounts = bank_accounts.order_by("-created_at")
+        bank_accounts = bank_accounts.order_by("-created_at").distinct()
         total_count = bank_accounts.count()
         if page:
             offset = limit * (page - 1)
@@ -298,7 +298,7 @@ class FinanceQuery(graphene.ObjectType):
                 balances = balances.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 balances = balances.filter(created_at__lte=ending_date_time)
-        balances = balances.order_by("-created_at")
+        balances = balances.order_by("-created_at").distinct()
         total_count = balances.count()
         if page:
             offset = limit * (page - 1)
