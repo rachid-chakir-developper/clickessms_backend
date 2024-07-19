@@ -610,16 +610,21 @@ class UpdateTaskFields(graphene.Mutation):
             task = Task.objects.get(pk=id)
             Task.objects.filter(pk=id).update(**task_data)
             task.refresh_from_db()
-            if 'status' in task_data and (creator.can_manage_facility() or creator.is_manager()):
-                employee_user = task.employee.user if task.employee else task.creator
-                if employee_user and task.status != 'TO_DO':
-                    notify_task(sender=creator, recipient=employee_user, task=task)
-                elif task.status == 'TO_DO':
-                    workers = task.workers.all()
-                    for worker in workers:
-                        employee_user = worker.employee.user if worker.employee else None
-                        if employee_user:
-                            notify_task(sender=creator, recipient=employee_user, task=task, action='TO_DO')
+            if 'status' in task_data:
+                if creator.can_manage_facility() or creator.is_manager():
+                    employee_user = task.employee.user if task.employee else task.creator
+                    if employee_user and task.status != 'TO_DO':
+                        notify_task(sender=creator, recipient=employee_user, task=task)
+                    elif task.status == 'TO_DO':
+                        workers = task.workers.all()
+                        for worker in workers:
+                            employee_user = worker.employee.user if worker.employee else None
+                            if employee_user:
+                                notify_task(sender=creator, recipient=employee_user, task=task, action='TO_DO')
+                elif task.status != 'TO_DO':
+                    facility_managers = User.get_facility_managers_in_user_company(user=creator)
+                    for facility_manager in facility_managers:
+                        notify_task(sender=creator, recipient=facility_manager, task=task)
             task.refresh_from_db()
         except Exception as e:
             done = False
