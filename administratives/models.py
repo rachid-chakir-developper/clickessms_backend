@@ -228,6 +228,7 @@ class LetterBeneficiary(models.Model):
 class Meeting(models.Model):
 	MEETING_MODES = [
 	    ('PV', 'Procès-Verbal'),
+	    ('PV_SCE', 'Procès-Verbal cse'),
 	    ('SIMPLE', 'Réunion Simple'),
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)

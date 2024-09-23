@@ -95,6 +95,7 @@ class CompanyInput(graphene.InputObjectType):
     fax = graphene.String(required=False)
     email = graphene.String(required=False)
     web_site = graphene.String(required=False)
+    sce_shop_url = graphene.String(required=False)
     other_contacts = graphene.String(required=False)
     iban = graphene.String(required=False)
     bic = graphene.String(required=False)

@@ -35,6 +35,7 @@ class MessageNotificationType(DjangoObjectType):
         fields = "__all__"
 
     image = graphene.String()
+    primary_color = graphene.String()
     is_read = graphene.Boolean()
 
     def resolve_image(instance, info, **kwargs):
@@ -44,6 +45,8 @@ class MessageNotificationType(DjangoObjectType):
     def resolve_is_read(instance, info, **kwargs):
         user = info.context.user
         return instance.message_notification_statuses.filter(user=user, is_read=True).exists() if not user.is_anonymous else False
+    def resolve_primary_color(instance, info, **kwargs):
+        return instance.primary_color
 
 class MessageNotificationNodeType(graphene.ObjectType):
     nodes = graphene.List(MessageNotificationType)
@@ -51,6 +54,7 @@ class MessageNotificationNodeType(graphene.ObjectType):
 
 class MessageNotificationFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
+    message_notification_types = graphene.List(graphene.String, required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
 
@@ -119,6 +123,7 @@ class NotificationsQuery(graphene.ObjectType):
             keyword = message_notification_filter.get("keyword", "")
             starting_date_time = message_notification_filter.get("starting_date_time")
             ending_date_time = message_notification_filter.get("ending_date_time")
+            message_notification_types = message_notification_filter.get('message_notification_types')
             if keyword:
                 message_notifications = message_notifications.filter(
                     Q(name__icontains=keyword)
@@ -129,6 +134,8 @@ class NotificationsQuery(graphene.ObjectType):
                 message_notifications = message_notifications.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 message_notifications = message_notifications.filter(created_at__lte=ending_date_time)
+            if message_notification_types:
+                message_notifications = message_notifications.filter(message_notification_type__in=message_notification_types)
         message_notifications = message_notifications.order_by("-created_at")
         total_count = message_notifications.count()
         if page:

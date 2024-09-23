@@ -24,6 +24,7 @@ class Company(models.Model):
     fix = models.CharField(max_length=255, null=True)
     fax = models.CharField(max_length=255, null=True)
     email = models.EmailField(max_length=254, null=True)
+    sce_shop_url = models.URLField(max_length=255, null=True)
     web_site = models.URLField(max_length=255, null=True)
     other_contacts = models.CharField(max_length=255, null=True)
     iban = models.CharField(max_length=255, null=True)

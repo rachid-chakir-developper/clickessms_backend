@@ -25,6 +25,8 @@ from qualities.schema import QualitiesQuery, QualitiesMutation
 from administratives.schema import AdministrativesQuery, AdministrativesMutation
 from finance.schema import FinanceQuery, FinanceMutation
 from governance.schema import GovernanceQuery, GovernanceMutation
+from sce.schema import SceQuery, SceMutation
+from blog.schema import BlogQuery, BlogMutation
 from planning.schema import PlanningQuery, PlanningMutation
 from robert_ia.schema import RobertIaMutation
 
@@ -60,7 +62,8 @@ class Query(MeQuery, UserQuery, MediasQuery, DataQuery, SearchQuery, DashboardQu
     CompanyQuery, HumanRessourcesQuery, StocksQuery,
     VehiclesQuery, PartnershipsQuery, PurchasesQuery, SalesQuery, WorksQuery,
     CommentsQuery, NotificationsQuery, ChatQuery, LoansQuery, ActivitiesQuery,
-    QualitiesQuery, AdministrativesQuery, FinanceQuery, GovernanceQuery, PlanningQuery,
+    QualitiesQuery, AdministrativesQuery, FinanceQuery, GovernanceQuery, SceQuery,
+    BlogQuery, PlanningQuery,
     graphene.ObjectType):
     pass
 
@@ -68,7 +71,8 @@ class Mutation(AuthMutation, UserMutation, MediasMutation, DataMutation,
     CompanyMutation, HumanRessourcesMutation, StocksMutation,
     VehiclesMutation, PartnershipsMutation, PurchasesMutation, SalesMutation, WorksMutation,
     CommentsMutation, NotificationsMutation, ChatMutation, LoansMutation, ActivitiesMutation,
-    QualitiesMutation, AdministrativesMutation, FinanceMutation, GovernanceMutation, PlanningMutation, RobertIaMutation,
+    QualitiesMutation, AdministrativesMutation, FinanceMutation, GovernanceMutation, SceMutation,
+    BlogMutation, PlanningMutation, RobertIaMutation,
     graphene.ObjectType):
    pass
 

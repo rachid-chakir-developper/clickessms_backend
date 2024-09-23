@@ -71,6 +71,8 @@ INSTALLED_APPS = [
     'administratives',
     'finance',
     'governance',
+    'sce',
+    'blog',
     'planning',
     'robert_ia'
 ]

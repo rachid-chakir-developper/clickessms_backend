@@ -99,8 +99,7 @@ class VehicleBrandType(DjangoObjectType):
     class Meta:
         model = VehicleBrand
         fields = "__all__"
-
-        
+     
 class VehicleModelType(DjangoObjectType):
     class Meta:
         model = VehicleModel

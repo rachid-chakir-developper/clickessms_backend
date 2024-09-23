@@ -85,6 +85,7 @@ class MessageNotification(models.Model):
         ('REMINDER', 'Rappel'),
         ('MESSAGE', 'Message'),
         ('TASK', 'Tâche'),
+        ('SCE', 'Cse'),
         ('EVENT', 'Événement'),
         ('NEWS', 'Actualités'),
         ('WARNING', 'Avertissement'),
@@ -105,6 +106,24 @@ class MessageNotification(models.Model):
 
 	class Meta:
 		ordering = ['-created_at']
+
+	@property
+	def primary_color(self):
+		colors = {
+	    	'SYSTEM': '#808080',  # Gray 
+	    	'REMINDER': '#0000FF',  # Blue 
+	    	'MESSAGE': '#008000',  # Green 
+	    	'TASK': '#FFA500',  # Orange 
+	    	'SCE': '#800080',  # Purple 
+	    	'EVENT': '#FFFF00',  # Yellow 
+	    	'NEWS': '#00008B',  # DarkBlue 
+	    	'WARNING': '#FF0000',  # Red 
+	    	'PROMOTION': '#FFC0CB',  # Pink 
+	    	'UPDATE': '#ADD8E6',  # LightBlue 
+	    	'FEEDBACK': '#90EE90',  # LightGreen 
+	    	'ERROR': '#8B0000',  # DarkRed
+    	}
+		return colors.get(self.message_notification_type, '#808080')  # Default to gray
 		
 	def __str__(self):
 		return self.title

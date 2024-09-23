@@ -21,10 +21,12 @@ from django.views.decorators.csrf import csrf_exempt
 from graphene_django.views import GraphQLView
 from graphql_jwt.decorators import jwt_cookie
 from graphene_file_upload.django import FileUploadGraphQLView
+from data_management.views import ExportDataView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("graphql", csrf_exempt(FileUploadGraphQLView.as_view(graphiql=True))),
+    path('export-data/', csrf_exempt(ExportDataView.as_view()), name='export_data'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

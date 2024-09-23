@@ -7,6 +7,7 @@ class Role(models.Model):
         ('SUPER_ADMIN', 'Super admin'),
         ('ADMIN', 'Admin'),
         ('MANAGER', 'Employé'),
+        ('SCE_MANAGER', 'Responsable CSE'),
         ('QUALITY_MANAGER', 'Responsable Qualité'),
         ('ACTIVITY_MANAGER', 'Responsable Activité'),
         ('ADMINISTRATIVE_MANAGER', 'Responsable Administratif'),
@@ -62,6 +63,9 @@ class User(AbstractUser):
             UserCompany.objects.create(user=self, company=company)
             return True
         return False
+
+    def get_current_company(self):
+        return self.current_company if self.current_company is not None else self.company
 
     def remove_company(self, company):
         user_company = self.managed_companies.filter(company=company).first()
@@ -201,6 +205,10 @@ class User(AbstractUser):
     def is_manager(self, user=None):
         roles = ['MANAGER']
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+    def can_manage_sce(self, user=None):
+        if self.is_superuser:
+            return True
+        roles = ['SUPER_ADMIN', 'ADMIN' ,'SCE_MANAGER']
     def can_manage_quality(self, user=None):
         if self.is_superuser:
             return True
