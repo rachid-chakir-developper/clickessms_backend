@@ -6,17 +6,20 @@ import random
 class SceMember(models.Model):
 	ROLE_CHOICES = [
 		('PRESIDENT', 'Président'),
-		('TRESORIER', 'Trésorier'),
-		('SECRETAIRE', 'Secrétaire'),
-		('MEMBRE', 'Membre'),
-		('SUPPLEANT', 'Suppléant'),
+		('TREASURER', 'Trésorier'),
+		('ASSISTANT_TREASURER', 'Trésorier Adjoint'),
+		('SECRETARY', 'Secrétaire'),
+		('ASSISTANT_SECRETARY', 'Secrétaire Adjoint'),
+		('MEMBER', 'Membre'),
+		('SUBSTITUTE', 'Suppléant'),
+		('PRIMARY_MEMBER', 'Titulaire'),
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='sce_members', null=True)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
-	role = models.CharField(max_length=50, choices=ROLE_CHOICES, default= "MEMBRE")
+	role = models.CharField(max_length=50, choices=ROLE_CHOICES, default= "MEMBER")
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_sce_members', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='sce_member_former', null=True)
