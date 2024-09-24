@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from django.db.models import Q
+from django.db.models import Q, Count
 
 from vehicles.models import Vehicle, VehicleEstablishment, VehicleEmployee, VehicleOwnership, VehicleInspection, VehicleTechnicalInspection, VehicleInspectionFailure, VehicleRepair, VehicleTheCarriedOutRepair, VehicleRepairVigilantPoint
 from medias.models import Folder, File
@@ -120,6 +120,7 @@ class VehicleFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    order_by = graphene.String(required=False)
 
 class VehicleEstablishmentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -251,17 +252,21 @@ class VehiclesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         vehicles = Vehicle.objects.filter(company=company)
+        the_order_by = '-created_at'
         if vehicle_filter:
             keyword = vehicle_filter.get('keyword', '')
             starting_date_time = vehicle_filter.get('starting_date_time')
             ending_date_time = vehicle_filter.get('ending_date_time')
+            order_by = vehicle_filter.get('order_by')
             if keyword:
                 vehicles = vehicles.filter(Q(name__icontains=keyword) | Q(registration_number__icontains=keyword) | Q(driver_name__icontains=keyword))
             if starting_date_time:
                 vehicles = vehicles.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 vehicles = vehicles.filter(created_at__lte=ending_date_time)
-        vehicles = vehicles.order_by('-created_at')
+            if order_by:
+                the_order_by = order_by
+        vehicles = vehicles.order_by(the_order_by).distinct()
         total_count = vehicles.count()
         if page:
             offset = limit * (page - 1)
