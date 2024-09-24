@@ -120,6 +120,8 @@ class VehicleFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    employees = graphene.List(graphene.Int, required=False)
     order_by = graphene.String(required=False)
 
 class VehicleEstablishmentInput(graphene.InputObjectType):
@@ -257,13 +259,19 @@ class VehiclesQuery(graphene.ObjectType):
             keyword = vehicle_filter.get('keyword', '')
             starting_date_time = vehicle_filter.get('starting_date_time')
             ending_date_time = vehicle_filter.get('ending_date_time')
+            establishments = vehicle_filter.get('establishments')
+            employees = vehicle_filter.get('employees')
             order_by = vehicle_filter.get('order_by')
             if keyword:
-                vehicles = vehicles.filter(Q(name__icontains=keyword) | Q(registration_number__icontains=keyword) | Q(driver_name__icontains=keyword))
+                vehicles = vehicles.filter(Q(name__icontains=keyword) | Q(registration_number__icontains=keyword) | Q(vehicle_brand__name__icontains=keyword) | Q(vehicle_model__name__icontains=keyword))
+            if establishments:
+                vehicles = vehicles.filter(vehicle_establishments__establishments__id__in=establishments)
+            if employees:
+                vehicles = vehicles.filter(vehicle_employees__employees__id__in=employees)
             if starting_date_time:
-                vehicles = vehicles.filter(created_at__gte=starting_date_time)
+                vehicles = vehicles.filter(starting_date_time__date__gte=starting_date_time.date())
             if ending_date_time:
-                vehicles = vehicles.filter(created_at__lte=ending_date_time)
+                vehicles = vehicles.filter(starting_date_time__date__lte=ending_date_time.date())
             if order_by:
                 the_order_by = order_by
         vehicles = vehicles.order_by(the_order_by).distinct()

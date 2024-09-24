@@ -45,18 +45,16 @@ class ExportDataView(View):
 
         # Function to extract the value of a field, including nested fields
         def get_field_value(obj, field):
+            print(f"******field******{field}")
             if isinstance(field, list):  # Handle list of fields, e.g., [first_name, last_name]
                 values = []
                 for f in field:
-                    get_field_value(obj, f)
                     if '__' in f:
                         related_parts = f.split('__')
                         related_obj = getattr(obj, related_parts[0], None)
                         if related_obj is not None:
                             if isinstance(related_obj, (list, models.Manager)):  # For ManyToMany or reverse FK
                                 for item in related_obj.all():
-                                    print(f"**{item.id}")
-                                    print(f"**{'__'.join(related_parts[1:])}")
                                     sub_values = get_field_value(item, '__'.join(related_parts[1:]))
                                     values.append(sub_values)
                             else:
@@ -66,10 +64,8 @@ class ExportDataView(View):
                     else:
                         # Single field case
                         values.append(getattr(obj, f, ''))
-                print(f"**sub_values**{values}")
                 return ' '.join([str(v) for v in values])  # Combine multiple field values
             else:
-                print(f"*parts*{field}")  # Split nested fields (e.g., vehicle_employees__employees__first_name)
                 parts = field.split('__')  # Split nested fields (e.g., vehicle_employees__employees__first_name)
                 value = obj
                 for part in parts:
