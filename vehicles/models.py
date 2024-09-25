@@ -6,8 +6,11 @@ import random
 class Vehicle(models.Model):
 	VEHICLE_STATE = [
 		('NEW', 'Neuf'),
-		('GOOD', 'Correct'),
+		('GOOD', 'En bonne état'),
 		('BAD', 'Mauvais'),
+		('TO_REVIEW', 'À réviser'),
+		('IN_REPAIR', 'En réparation'),
+		('OUT_OF_SERVICE', 'Hors service'),
 	]
 	CRIT_AIR_CHOICES = [
 		('', 'NONE'),
@@ -91,9 +94,9 @@ class VehicleEmployee(models.Model):
 
 class VehicleOwnership(models.Model):
 	OWNERSHIP_TYPE_CHOICES = [
-		('LEASE', 'Location'),
+		('LEASE', 'Location Longue Durée'),
 		('PURCHASE', 'Achat'),
-		('SALE', 'Vente'),
+		('SALE', 'Vendu'),
 	]
 	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, related_name='vehicle_ownerships')
 	ownership_type = models.CharField(max_length=10, choices=OWNERSHIP_TYPE_CHOICES, default= "LEASE", null=True)
