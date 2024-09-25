@@ -222,7 +222,7 @@ class WorksQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        tasks = Task.objects.filter(company=company)
+        tasks = Task.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_facility():
             if user.is_manager():
                 tasks = tasks.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
@@ -267,7 +267,7 @@ class WorksQuery(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         total_count = 0
-        my_tasks = Task.objects.filter(taskworker__employee__employee_user__id=user.id)
+        my_tasks = Task.objects.filter(taskworker__employee__employee_user__id=user.id, is_deleted=False)
         # Définir les variables de date à None par défaut
         starting_date_time = None
         ending_date_time = None

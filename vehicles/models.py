@@ -135,6 +135,7 @@ class VehicleInspection(models.Model):
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_inspected_vehicles', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 	
@@ -184,6 +185,7 @@ class VehicleTechnicalInspection(models.Model):
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='vehicle_technical_inspections', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 	
@@ -249,6 +251,7 @@ class VehicleRepair(models.Model):
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='vehicle_repairs', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 	
@@ -256,6 +259,8 @@ class VehicleRepair(models.Model):
 		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
 		if not self.number:
 			self.number = self.generate_unique_number()
+		if self.vehicle and not self.label:
+			self.label = f"Réparation de {self.vehicle.name}"
 
 		super(VehicleRepair, self).save(*args, **kwargs)
 

@@ -256,7 +256,7 @@ class VehiclesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        vehicles = Vehicle.objects.filter(company=company)
+        vehicles = Vehicle.objects.filter(company=company, is_deleted=False)
         the_order_by = '-created_at'
         if vehicle_filter:
             keyword = vehicle_filter.get('keyword', '')
@@ -297,7 +297,7 @@ class VehiclesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        vehicle_inspections = VehicleInspection.objects.filter(company=company)
+        vehicle_inspections = VehicleInspection.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_parking():
             if user.is_manager():
                 vehicle_inspections = vehicle_inspections.filter(Q(vehicle__vehicle_establishments__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -338,7 +338,7 @@ class VehiclesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        vehicle_technical_inspections = VehicleTechnicalInspection.objects.filter(company=company)
+        vehicle_technical_inspections = VehicleTechnicalInspection.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_parking():
             if user.is_manager():
                 vehicle_technical_inspections = vehicle_technical_inspections.filter(Q(vehicle__vehicle_establishments__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -379,7 +379,7 @@ class VehiclesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        vehicle_repairs = VehicleRepair.objects.filter(company=company)
+        vehicle_repairs = VehicleRepair.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_parking():
             if user.is_manager():
                 vehicle_repairs = vehicle_repairs.filter(Q(vehicle__vehicle_establishments__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -570,11 +570,13 @@ class DeleteVehicle(graphene.Mutation):
     def mutate(root, info, id):
         deleted = False
         success = False
-        message = ''
+        message = ""
         current_user = info.context.user
-        if current_user.is_superuser:
-            vehicle = Vehicle.objects.get(pk=id)
-            vehicle.delete()
+        vehicle = Vehicle.objects.get(pk=id)
+        if current_user.can_manage_facility() or current_user.is_manager() or vehicle.creator == current_user:
+            # vehicle = Vehicle.objects.get(pk=id)
+            # vehicle.delete()
+            Vehicle.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
@@ -697,7 +699,7 @@ class DeleteVehicleInspection(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
 
-    vehicle_inspection = graphene.Field(VehicleType)
+    vehicle_inspection = graphene.Field(VehicleInspectionType)
     id = graphene.ID()
     deleted = graphene.Boolean()
     success = graphene.Boolean()
@@ -706,11 +708,13 @@ class DeleteVehicleInspection(graphene.Mutation):
     def mutate(root, info, id):
         deleted = False
         success = False
-        message = ''
+        message = ""
         current_user = info.context.user
-        if current_user.is_superuser:
-            vehicle_inspection = VehicleInspection.objects.get(pk=id)
-            vehicle_inspection.delete()
+        vehicle_inspection = VehicleInspection.objects.get(pk=id)
+        if current_user.can_manage_facility() or current_user.is_manager() or vehicle_inspection.creator == current_user:
+            # vehicle_inspection = VehicleInspection.objects.get(pk=id)
+            # vehicle_inspection.delete()
+            VehicleInspection.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
@@ -820,9 +824,11 @@ class DeleteVehicleTechnicalInspection(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        if current_user.is_superuser:
-            vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id)
-            vehicle_technical_inspection.delete()
+        vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id)
+        if current_user.can_manage_facility() or current_user.is_manager() or vehicle_technical_inspection.creator == current_user:
+            # vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id)
+            # vehicle_technical_inspection.delete()
+            VehicleTechnicalInspection.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
@@ -867,7 +873,7 @@ class CreateVehicleRepair(graphene.Mutation):
                 vehicle_repair.document = document_file
         vehicle_repair.save()
         folder = Folder.objects.create(
-            name=str(vehicle_repair.id) + "_" + vehicle_repair.label, creator=creator
+            name=str(vehicle_repair.id) + "_" + vehicle_repair.number, creator=creator
         )
         vehicle_repair.folder = folder
         if creator.get_partner_in_company():
@@ -900,7 +906,7 @@ class UpdateVehicleRepair(graphene.Mutation):
         vehicle_repair = VehicleRepair.objects.get(pk=id)
         if not vehicle_repair.folder or vehicle_repair.folder is None:
             folder = Folder.objects.create(
-                name=str(vehicle_repair.id) + "_" + vehicle_repair.label, creator=creator
+                name=str(vehicle_repair.id) + "_" + vehicle_repair.number, creator=creator
             )
             VehicleRepair.objects.filter(pk=id).update(folder=folder)
         if not document and vehicle_repair.document:
@@ -941,7 +947,6 @@ class UpdateVehicleRepair(graphene.Mutation):
                 vigilant_point.save()
         return UpdateVehicleRepair(vehicle_repair=vehicle_repair)
 
-
 class DeleteVehicleRepair(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -957,9 +962,11 @@ class DeleteVehicleRepair(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        if current_user.is_superuser:
-            vehicle_repair = VehicleRepair.objects.get(pk=id)
-            vehicle_repair.delete()
+        vehicle_repair = VehicleRepair.objects.get(pk=id)
+        if current_user.can_manage_facility() or current_user.is_manager() or vehicle_repair.creator == current_user:
+            # vehicle_repair = VehicleRepair.objects.get(pk=id)
+            # vehicle_repair.delete()
+            VehicleRepair.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
