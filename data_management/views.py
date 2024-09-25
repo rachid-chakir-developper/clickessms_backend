@@ -12,6 +12,7 @@ class ExportDataView(View):
         # Parse the incoming JSON request
         body = json.loads(request.body)
         entity_name = body.get('entity')
+        file_name = body.get('file_name')
         fields = body.get('fields')
         titles = body.get('titles', [])  # Optional titles, defaults to empty list
 
@@ -45,7 +46,6 @@ class ExportDataView(View):
 
         # Function to extract the value of a field, including nested fields
         def get_field_value(obj, field):
-            print(f"******field******{field}")
             if isinstance(field, list):  # Handle list of fields, e.g., [first_name, last_name]
                 values = []
                 for f in field:
@@ -63,8 +63,19 @@ class ExportDataView(View):
                                 values.append(sub_values)
                     else:
                         # Single field case
-                        values.append(getattr(obj, f, ''))
-                return ' '.join([str(v) for v in values])  # Combine multiple field values
+                        if hasattr(obj, f'get_{f}_display'):
+                            values.append(getattr(obj, f'get_{f}_display')())
+                        else:
+                            values.append(getattr(obj, f, ''))
+                result = []
+                if values and len(values[0].split(', ')) > 1:
+                    split_lists = [item.split(', ') for item in values]
+                    for items in zip(*split_lists):
+                        combined = ' '.join(items)
+                        result.append(combined)
+                else:
+                    result=values
+                return '; '.join(result)  # Combine multiple field values
             else:
                 parts = field.split('__')  # Split nested fields (e.g., vehicle_employees__employees__first_name)
                 value = obj
@@ -77,7 +88,10 @@ class ExportDataView(View):
                             related_values.append(get_field_value(related_obj, '__'.join(parts[1:])))
                         return ', '.join(related_values)
                     else:
-                        value = getattr(value, part, None)
+                        if hasattr(value, f'get_{part}_display'):
+                            value = getattr(value, f'get_{part}_display')()
+                        else:
+                            value = getattr(value, part, None)
                 return value or ''
 
         # Write the data rows
@@ -88,7 +102,7 @@ class ExportDataView(View):
 
         # Create the HTTP response with the Excel file
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="{entity_name}_data.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="{file_name if file_name else entity_name}_data.xlsx"'
 
         # Save the workbook to the response
         workbook.save(response)
