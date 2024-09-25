@@ -109,8 +109,11 @@ class VehicleType(DjangoObjectType):
         model = Vehicle
         fields = "__all__"
     image = graphene.String()
+    mileage = graphene.Float(required=False)
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
+    def resolve_mileage( instance, info, **kwargs ):
+        return instance.current_vehicle_inspection.mileage if instance.current_vehicle_inspection else None
 
 class VehicleNodeType(graphene.ObjectType):
     nodes = graphene.List(VehicleType)
