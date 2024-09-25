@@ -6,7 +6,7 @@ import random
 class Vehicle(models.Model):
 	VEHICLE_STATE = [
 		('NEW', 'Neuf'),
-		('GOOD', 'En bonne état'),
+		('GOOD', 'En bon état'),
 		('BAD', 'Mauvais'),
 		('TO_REVIEW', 'À réviser'),
 		('IN_REPAIR', 'En réparation'),
