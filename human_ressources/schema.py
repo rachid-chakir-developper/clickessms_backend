@@ -64,6 +64,7 @@ class EmployeeType(DjangoObjectType):
     photo = graphene.String()
     cover_image = graphene.String()
     current_contract = graphene.Field(EmployeeContractType)
+    sce_roles = graphene.List(graphene.String)
     def resolve_first_name( instance, info, **kwargs ):
         return instance.first_name and instance.first_name.capitalize()
     def resolve_last_name( instance, info, **kwargs ):
@@ -74,6 +75,8 @@ class EmployeeType(DjangoObjectType):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
     def resolve_current_contract( instance, info, **kwargs ):
         return instance.current_contract
+    def resolve_sce_roles( instance, info, **kwargs ):
+        return instance.sce_roles
 
 class EmployeeNodeType(graphene.ObjectType):
     nodes = graphene.List(EmployeeType)

@@ -77,6 +77,14 @@ class Employee(models.Model):
     def user(self):
         managed_company = self.managed_companies.filter(company=self.company).first()
         return managed_company.user if managed_company else self.employee_user.all().first()
+
+    @property
+    def sce_roles(self):
+        sce_members = self.sce_members.all()
+        roles = [f"{sce_member.role}_IN_CSE" for sce_member in sce_members]
+        if roles:
+            roles.insert(0, 'MEMBER_IN_SCE')
+        return roles
     @property
     def current_contract(self):
         current_time = timezone.now()
