@@ -507,7 +507,7 @@ class UpdateTask(graphene.Mutation):
         task_checklist = task_data.pop("task_checklist")
         task = Task.objects.get(pk=id)
         if not creator.can_manage_facility() and task.status != 'PENDING':
-            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'intervention n'est pas en attente.")
         Task.objects.filter(pk=id).update(**task_data)
         task.refresh_from_db()
         task.save()

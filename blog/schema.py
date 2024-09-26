@@ -8,6 +8,7 @@ from django.db.models import Q
 
 from blog.models import Post
 from medias.models import Folder, File
+from medias.schema import MediaInput
 
 class PostType(DjangoObjectType):
     class Meta:
@@ -81,10 +82,11 @@ class CreatePost(graphene.Mutation):
     class Arguments:
         post_data = PostInput(required=True)
         image = Upload(required=False)
+        files = graphene.List(MediaInput, required=False)
 
     post = graphene.Field(PostType)
 
-    def mutate(root, info, image=None, post_data=None):
+    def mutate(root, info, image=None, files=None, post_data=None):
         creator = info.context.user
         post = Post(**post_data)
         post.creator = creator
@@ -99,6 +101,21 @@ class CreatePost(graphene.Mutation):
                 image_file.image = image
                 image_file.save()
                 post.image = image_file
+        if not files:
+            files = []
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            post.files.add(file_file)
         post.save()
         return CreatePost(post=post)
 
@@ -107,10 +124,11 @@ class UpdatePost(graphene.Mutation):
         id = graphene.ID()
         post_data = PostInput(required=True)
         image = Upload(required=False)
+        files = graphene.List(MediaInput, required=False)
 
     post = graphene.Field(PostType)
 
-    def mutate(root, info, id, image=None, post_data=None):
+    def mutate(root, info, id, image=None, files=None, post_data=None):
         creator = info.context.user
         Post.objects.filter(pk=id).update(**post_data)
         post = Post.objects.get(pk=id)
@@ -127,7 +145,22 @@ class UpdatePost(graphene.Mutation):
                 image_file.image = image
                 image_file.save()
                 post.image = image_file
-            post.save()
+        if not files:
+            files = []
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            post.files.add(file_file)
+        post.save()
         return UpdatePost(post=post)
 
 class UpdatePostState(graphene.Mutation):

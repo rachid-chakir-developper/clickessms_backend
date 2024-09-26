@@ -8,6 +8,7 @@ from django.db.models import Q, Count
 
 from vehicles.models import Vehicle, VehicleEstablishment, VehicleEmployee, VehicleOwnership, VehicleInspection, VehicleTechnicalInspection, VehicleInspectionFailure, VehicleRepair, VehicleTheCarriedOutRepair, VehicleRepairVigilantPoint
 from medias.models import Folder, File
+from medias.schema import MediaInput
 
 class VehicleEstablishmentType(DjangoObjectType):
     class Meta:
@@ -140,13 +141,6 @@ class VehicleEmployeeInput(graphene.InputObjectType):
     ending_date = graphene.DateTime(required=False)
     vehicle_id = graphene.Int(name="vehicle", required=False)
     employees = graphene.List(graphene.Int, required=False)
-
-class MediaInput(graphene.InputObjectType):
-    id = graphene.ID(required=False)
-    image = Upload(required=False)
-    video = Upload(required=False)
-    media = Upload(required=False)
-    caption = graphene.String(required=False)
 
 class VehicleOwnershipInput(graphene.InputObjectType):
     id = graphene.ID(required=False)

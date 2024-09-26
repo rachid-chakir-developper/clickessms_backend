@@ -10,6 +10,14 @@ class ChildrenFolderType(DjangoObjectType):
     class Meta:
         model = Folder
         fields = "__all__"
+
+class MediaInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    image = Upload(required=False)
+    video = Upload(required=False)
+    file = Upload(required=False)
+    media = Upload(required=False)
+    caption = graphene.String(required=False)
         
 def getFileTypeFromFileInstance(file_instance=None):
     # Extraire l'extension du fichier depuis l'URL

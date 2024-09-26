@@ -8,6 +8,7 @@ class Post(models.Model):
 	title = models.CharField(max_length=255, null=True, blank=True)
 	content = models.TextField(default='', null=True)
 	image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='posts', null=True)
+	files = models.ManyToManyField('medias.File', related_name='file_posts')
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
