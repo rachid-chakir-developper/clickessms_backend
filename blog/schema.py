@@ -147,6 +147,9 @@ class UpdatePost(graphene.Mutation):
                 post.image = image_file
         if not files:
             files = []
+        else:
+            file_ids = [item.id for item in files if item.id is not None]
+            File.objects.filter(file_posts=post).exclude(id__in=file_ids).delete()
         for file_media in files:
             file = file_media.file
             caption = file_media.caption

@@ -673,6 +673,9 @@ class UpdateVehicleInspection(graphene.Mutation):
             vehicle_inspection.images.add(image_file)
         if not videos:
             videos = []
+        else:
+            video_ids = [item.id for item in videos if item.id is not None]
+            File.objects.filter(video_vehicle_inspections=vehicle_inspection).exclude(id__in=video_ids).delete()
         for video_media in videos:
             video = video_media.video
             caption = video_media.caption
