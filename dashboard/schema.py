@@ -128,7 +128,7 @@ class DashboardType(graphene.ObjectType):
                 undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
             else:
                 undesirable_events = undesirable_events.filter(creator=user)
-        undesirable_events = undesirable_events.order_by('-created_at')
+        undesirable_events = undesirable_events.order_by('-created_at').distinct()
         return undesirable_events
 
     def resolve_current_employee(root, info, **kwargs):
