@@ -153,7 +153,7 @@ class VehicleOwnershipInput(graphene.InputObjectType):
     rental_starting_date = graphene.DateTime(required=False)
     rental_ending_date = graphene.DateTime(required=False)
     rental_price = graphene.Decimal(required=False)
-    rent_sale_price = graphene.Decimal(required=False)
+    rent_purchase_price = graphene.Decimal(required=False)
     expected_mileage = graphene.Float(required=False)
     loan_details = graphene.String(required=False)
 

@@ -109,7 +109,7 @@ class VehicleOwnership(models.Model):
 	rental_starting_date = models.DateTimeField(null=True, blank=True)
 	rental_ending_date = models.DateTimeField(null=True, blank=True)
 	rental_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-	rent_sale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+	rent_purchase_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 	expected_mileage = models.FloatField(null=True, blank=True)
 	loan_details = models.TextField(default='', null=True, blank=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
