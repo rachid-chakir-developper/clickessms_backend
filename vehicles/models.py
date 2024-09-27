@@ -94,12 +94,14 @@ class VehicleEmployee(models.Model):
 
 class VehicleOwnership(models.Model):
 	OWNERSHIP_TYPE_CHOICES = [
-		('LEASE', 'Location Longue Durée'),
-		('PURCHASE', 'Achat'),
-		('SALE', 'Vendu'),
+		("LEASE", "Location Longue Durée"),
+		("LEASE_PURCHASE_OPTION", "Location avec option d'achat"),
+		("PURCHASE", "Achat"),
+		("LOAN", "Prêt"),
+		("SALE", "Vendu"),
 	]
 	vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, related_name='vehicle_ownerships')
-	ownership_type = models.CharField(max_length=10, choices=OWNERSHIP_TYPE_CHOICES, default= "LEASE", null=True)
+	ownership_type = models.CharField(max_length=30, choices=OWNERSHIP_TYPE_CHOICES, default= "LEASE", null=True)
 	purchase_date = models.DateTimeField(null=True, blank=True)
 	purchase_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 	sale_date = models.DateTimeField(null=True, blank=True)
@@ -107,7 +109,9 @@ class VehicleOwnership(models.Model):
 	rental_starting_date = models.DateTimeField(null=True, blank=True)
 	rental_ending_date = models.DateTimeField(null=True, blank=True)
 	rental_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+	rent_sale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 	expected_mileage = models.FloatField(null=True, blank=True)
+	loan_details = models.TextField(default='', null=True, blank=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
