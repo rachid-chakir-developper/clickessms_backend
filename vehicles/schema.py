@@ -40,6 +40,7 @@ class VehicleInspectionFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     vehicles = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 
 class VehicleInspectionFailureType(DjangoObjectType):
@@ -299,11 +300,13 @@ class VehiclesQuery(graphene.ObjectType):
                 vehicle_inspections = vehicle_inspections.filter(Q(vehicle__vehicle_establishments__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
             else:
                 vehicle_inspections = vehicle_inspections.filter(creator=user)
+        the_order_by = '-created_at'
         if vehicle_inspection_filter:
             keyword = vehicle_inspection_filter.get('keyword', '')
             starting_date_time = vehicle_inspection_filter.get('starting_date_time')
             ending_date_time = vehicle_inspection_filter.get('ending_date_time')
             vehicles = vehicle_inspection_filter.get('vehicles')
+            order_by = vehicle_inspection_filter.get('order_by')
             if vehicles:
                 vehicle_inspections = vehicle_inspections.filter(vehicle__id__in=vehicles)
             if keyword:
@@ -312,7 +315,9 @@ class VehiclesQuery(graphene.ObjectType):
                 vehicle_inspections = vehicle_inspections.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 vehicle_inspections = vehicle_inspections.filter(created_at__lte=ending_date_time)
-        vehicle_inspections = vehicle_inspections.order_by('-created_at')
+            if order_by:
+                the_order_by = order_by
+        vehicle_inspections = vehicle_inspections.order_by(the_order_by).distinct()
         total_count = vehicle_inspections.count()
         if page:
             offset = limit * (page - 1)
