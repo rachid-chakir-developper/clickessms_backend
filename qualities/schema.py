@@ -66,6 +66,7 @@ class UndesirableEventFilterInput(graphene.InputObjectType):
     beneficiaries = graphene.List(graphene.Int, required=False)
     establishments = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class UndesirableEventInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -111,6 +112,7 @@ class QualitiesQuery(graphene.ObjectType):
                 undesirable_events = undesirable_events.filter(creator=user)
         else:
             undesirable_events = undesirable_events.exclude(Q(status='DRAFT') & ~Q(creator=user))
+        the_order_by = '-created_at'
         if undesirable_event_filter:
             keyword = undesirable_event_filter.get('keyword', '')
             starting_date_time = undesirable_event_filter.get('starting_date_time')
@@ -118,6 +120,7 @@ class QualitiesQuery(graphene.ObjectType):
             beneficiaries = undesirable_event_filter.get('beneficiaries')
             establishments = undesirable_event_filter.get('establishments')
             employees = undesirable_event_filter.get('employees')
+            order_by = undesirable_event_filter.get('order_by')
             if beneficiaries:
                 undesirable_events = undesirable_events.filter(beneficiaries__beneficiary__id__in=beneficiaries)
             if establishments:
@@ -130,7 +133,9 @@ class QualitiesQuery(graphene.ObjectType):
                 undesirable_events = undesirable_events.filter(starting_date_time__date__gte=starting_date_time.date())
             if ending_date_time:
                 undesirable_events = undesirable_events.filter(starting_date_time__date__lte=ending_date_time.date())
-        undesirable_events = undesirable_events.order_by('-created_at').distinct()
+            if order_by:
+                the_order_by = order_by
+        undesirable_events = undesirable_events.order_by(the_order_by).distinct()
         total_count = undesirable_events.count()
         if page:
             offset = limit * (page - 1)
