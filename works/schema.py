@@ -185,6 +185,7 @@ class TaskFilterInput(graphene.InputObjectType):
     statuses = graphene.List(graphene.String, required=False)
     establishments = graphene.List(graphene.Int, required=False)
     list_type = graphene.String(required=False)
+    order_by = graphene.String(required=False)
 
 class TaskFieldInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -228,6 +229,7 @@ class WorksQuery(graphene.ObjectType):
                 tasks = tasks.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
             else:
                 tasks = tasks.filter(workers__employee=user.get_employee_in_company(), status__in=['TO_DO', 'IN_PROGRESS', 'COMPLETED'])
+        the_order_by = '-created_at'
         if task_filter:
             keyword = task_filter.get('keyword', '')
             starting_date_time = task_filter.get('starting_date_time')
@@ -235,6 +237,7 @@ class WorksQuery(graphene.ObjectType):
             establishments = task_filter.get('establishments')
             statuses = task_filter.get('statuses')
             list_type = task_filter.get('list_type') # ALL_TASK_REQUESTS / MY_TASKS / MY_TASK_REQUESTS / ALL
+            order_by = task_filter.get('order_by')
             if list_type:
                 if list_type != 'ALL':
                     tasks = Task.objects.filter(company=company)
@@ -255,7 +258,9 @@ class WorksQuery(graphene.ObjectType):
                 tasks = tasks.filter(starting_date_time__date__lte=ending_date_time.date())
             if statuses:
                 tasks = tasks.filter(status__in=statuses)
-        tasks = tasks.order_by('-created_at').distinct()
+            if order_by:
+                the_order_by = order_by
+        tasks = tasks.order_by(the_order_by).distinct()
         total_count = tasks.count()
         if page:
             offset = limit * (page - 1)
