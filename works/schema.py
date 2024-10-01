@@ -62,6 +62,7 @@ class TicketFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     establishments = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class TaskChecklistItemType(DjangoObjectType):
     class Meta:
@@ -341,11 +342,13 @@ class WorksQuery(graphene.ObjectType):
                 tickets = tickets.filter(Q(establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
             else:
                 tickets = tickets.filter(creator=user)
+        the_order_by = '-created_at'
         if ticket_filter:
             keyword = ticket_filter.get('keyword', '')
             starting_date_time = ticket_filter.get('starting_date_time')
             ending_date_time = ticket_filter.get('ending_date_time')
             establishments = ticket_filter.get('establishments')
+            order_by = ticket_filter.get('order_by')
             if establishments:
                 tickets = tickets.filter(establishments__id__in=establishments)
             if keyword:
@@ -354,7 +357,9 @@ class WorksQuery(graphene.ObjectType):
                 tickets = tickets.filter(created_at__date__gte=starting_date_time.date())
             if ending_date_time:
                 tickets = tickets.filter(created_at__date__lte=ending_date_time.date())
-        tickets = tickets.order_by('-created_at').distinct()
+            if order_by:
+                the_order_by = order_by
+        tickets = tickets.order_by(the_order_by).distinct()
         total_count = tickets.count()
         if page:
             offset = limit * (page - 1)
