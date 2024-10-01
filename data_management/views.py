@@ -2,6 +2,7 @@ from django.http import HttpResponse
 from django.apps import apps
 from django.views import View
 import openpyxl
+from datetime import datetime
 from openpyxl.utils import get_column_letter
 import json
 from django.db import models  # Import the models module
@@ -9,7 +10,12 @@ from django.db import models  # Import the models module
 
 class ExportDataView(View):
     def post(self, request):
+        if not request.user.is_authenticated:
+            return HttpResponse("Utilisateur non authentifié", status=401)
+        
         # Parse the incoming JSON request
+        user = request.user
+        company = user.get_current_company()
         body = json.loads(request.body)
         entity_name = body.get('entity')
         file_name = body.get('file_name')
@@ -32,7 +38,7 @@ class ExportDataView(View):
             return HttpResponse("Modèle introuvable", status=404)
 
         # Retrieve all data for the specified model
-        queryset = model.objects.filter(is_deleted=False)
+        queryset = model.objects.filter(company=company, is_deleted=False)
 
         # Create an in-memory Excel workbook and sheet
         workbook = openpyxl.Workbook()
@@ -59,23 +65,18 @@ class ExportDataView(View):
                                     values.append(sub_values)
                             else:
                                 sub_values = get_field_value(related_obj, '__'.join(related_parts[1:]))
-                                
                                 values.append(sub_values)
                     else:
                         # Single field case
+                        value = getattr(obj, f, '')
+                        if isinstance(value, datetime):
+                            # Remove timezone info if present
+                            value = value.replace(tzinfo=None)
                         if hasattr(obj, f'get_{f}_display'):
                             values.append(getattr(obj, f'get_{f}_display')())
                         else:
-                            values.append(getattr(obj, f, ''))
-                result = []
-                if values and len(values[0].split(', ')) > 1:
-                    split_lists = [item.split(', ') for item in values]
-                    for items in zip(*split_lists):
-                        combined = ' '.join(items)
-                        result.append(combined)
-                else:
-                    result=values
-                return '; '.join(result)  # Combine multiple field values
+                            values.append(value)
+                return '; '.join(map(str, values))  # Combine multiple field values
             else:
                 parts = field.split('__')  # Split nested fields (e.g., vehicle_employees__employees__first_name)
                 value = obj
@@ -88,10 +89,12 @@ class ExportDataView(View):
                             related_values.append(get_field_value(related_obj, '__'.join(parts[1:])))
                         return ', '.join(related_values)
                     else:
+                        value = getattr(value, part, None)
+                        if isinstance(value, datetime):
+                            # Remove timezone info if present
+                            value = value.replace(tzinfo=None)
                         if hasattr(value, f'get_{part}_display'):
                             value = getattr(value, f'get_{part}_display')()
-                        else:
-                            value = getattr(value, part, None)
                 return value or ''
 
         # Write the data rows
