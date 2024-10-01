@@ -106,6 +106,7 @@ class VehicleRepairFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     vehicles = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class VehicleType(DjangoObjectType):
     class Meta:
@@ -363,7 +364,6 @@ class VehiclesQuery(graphene.ObjectType):
                 vehicle_technical_inspections = vehicle_technical_inspections.filter(created_at__lte=ending_date_time)
             if order_by:
                 the_order_by = order_by
-        vehicle_technical_inspections = vehicle_technical_inspections.order_by('-created_at')
         vehicle_technical_inspections = vehicle_technical_inspections.order_by(the_order_by).distinct()
         if page:
             offset = limit * (page - 1)
@@ -391,11 +391,13 @@ class VehiclesQuery(graphene.ObjectType):
                 vehicle_repairs = vehicle_repairs.filter(Q(vehicle__vehicle_establishments__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
             else:
                 vehicle_repairs = vehicle_repairs.filter(creator=user)
+        the_order_by = '-created_at'
         if vehicle_repair_filter:
             keyword = vehicle_repair_filter.get('keyword', '')
             starting_date_time = vehicle_repair_filter.get('starting_date_time')
             ending_date_time = vehicle_repair_filter.get('ending_date_time')
             vehicles = vehicle_repair_filter.get('vehicles')
+            order_by = vehicle_repair_filter.get('order_by')
             if vehicles:
                 vehicle_repairs = vehicle_repairs.filter(vehicle__id__in=vehicles)
             if keyword:
@@ -404,7 +406,9 @@ class VehiclesQuery(graphene.ObjectType):
                 vehicle_repairs = vehicle_repairs.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 vehicle_repairs = vehicle_repairs.filter(created_at__lte=ending_date_time)
-        vehicle_repairs = vehicle_repairs.order_by('-created_at')
+            if order_by:
+                the_order_by = order_by
+        vehicle_repairs = vehicle_repairs.order_by(the_order_by).distinct()
         total_count = vehicle_repairs.count()
         if page:
             offset = limit * (page - 1)
