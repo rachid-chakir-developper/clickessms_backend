@@ -87,7 +87,7 @@ class ExportDataView(View):
                         related_values = []
                         for related_obj in value.all():
                             related_values.append(get_field_value(related_obj, '__'.join(parts[1:])))
-                        return ', '.join(related_values)
+                        return '| '.join(related_values)
                     else:
                         value = getattr(value, part, None)
                         if isinstance(value, datetime):

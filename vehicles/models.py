@@ -195,6 +195,18 @@ class VehicleTechnicalInspection(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	@property
+	def failures_minor(self):
+		return self.failures.filter(failure_type='MINOR')
+
+	@property
+	def failures_major(self):
+		return self.failures.filter(failure_type='MAJOR')
+
+	@property
+	def failures_critical(self):
+		return self.failures.filter(failure_type='CRITICAL')
 	
 	def save(self, *args, **kwargs):
 		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
