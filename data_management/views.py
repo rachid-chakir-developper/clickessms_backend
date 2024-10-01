@@ -67,14 +67,14 @@ class ExportDataView(View):
                                 sub_values = get_field_value(related_obj, '__'.join(related_parts[1:]))
                                 values.append(sub_values)
                     else:
-                        # Single field case
-                        value = getattr(obj, f, '')
-                        if isinstance(value, datetime):
-                            # Remove timezone info if present
-                            value = value.replace(tzinfo=None)
                         if hasattr(obj, f'get_{f}_display'):
                             values.append(getattr(obj, f'get_{f}_display')())
+                        # Single field case
                         else:
+                            value = getattr(obj, f, '')
+                            if isinstance(value, datetime):
+                                # Remove timezone info if present
+                                value = value.replace(tzinfo=None)
                             values.append(value)
                 return '; '.join(map(str, values))  # Combine multiple field values
             else:
@@ -89,12 +89,13 @@ class ExportDataView(View):
                             related_values.append(get_field_value(related_obj, '__'.join(parts[1:])))
                         return '| '.join(related_values)
                     else:
-                        value = getattr(value, part, None)
-                        if isinstance(value, datetime):
-                            # Remove timezone info if present
-                            value = value.replace(tzinfo=None)
                         if hasattr(value, f'get_{part}_display'):
                             value = getattr(value, f'get_{part}_display')()
+                        else:
+                            value = getattr(value, part, None)
+                            if isinstance(value, datetime):
+                                # Remove timezone info if present
+                                value = value.replace(tzinfo=None)
                 return value or ''
 
         # Write the data rows
