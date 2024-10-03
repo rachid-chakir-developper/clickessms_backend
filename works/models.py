@@ -219,7 +219,6 @@ class Ticket(models.Model):
 	establishments = models.ManyToManyField('companies.Establishment', related_name='tickets')
 	priority = models.CharField(max_length=50, choices=PRIORITIES, default= "LOW")
 	status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
-	comments = models.ManyToManyField('feedbacks.Comment', related_name='tickets')
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='tickets', null=True)
 	is_active = models.BooleanField(default=False, null=True)
 	undesirable_event = models.ForeignKey('qualities.UndesirableEvent', on_delete=models.SET_NULL, null=True, related_name='tickets')

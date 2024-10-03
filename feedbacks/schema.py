@@ -70,6 +70,8 @@ class CommentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     text = graphene.String(required=False)
     parent_id = graphene.Int(name="parent", required=False)
+    ticket_id = graphene.Int(name="ticket", required=False)
+    task_id = graphene.Int(name="task", required=False)
 
 class SignatureInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -84,6 +86,7 @@ class CommentsQuery(graphene.ObjectType):
     comments = graphene.List(CommentType, offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     task_step_comments = graphene.Field(CommentNodeType, task_step_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     ticket_comments = graphene.Field(CommentNodeType, ticket_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    task_comments = graphene.Field(CommentNodeType, task_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     comment = graphene.Field(CommentType, id = graphene.ID())
     feedbacks = graphene.Field(
         FeedbackNodeType,
@@ -120,7 +123,7 @@ class CommentsQuery(graphene.ObjectType):
         try:
             ticket = Ticket.objects.get(pk=ticket_id)
         except Ticket.DoesNotExist:
-            raise ValueError("L'étape d'intervention spécifiée n'existe pas.")
+            raise ValueError("Le ticket spécifiée n'existe pas.")
         total_count = ticket.comments.all().count()
         if page:
             offset = limit*(page-1)
@@ -129,6 +132,22 @@ class CommentsQuery(graphene.ObjectType):
         else:
             ticket_comments = ticket.comments.all()
         return CommentNodeType(nodes=ticket_comments, total_count=total_count)
+
+    def resolve_task_comments(root, info, task_id, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        total_count = 0
+        try:
+            task = Task.objects.get(pk=task_id)
+        except Task.DoesNotExist:
+            raise ValueError("Le task spécifiée n'existe pas.")
+        total_count = task.comments.all().count()
+        if page:
+            offset = limit*(page-1)
+        if offset is not None and limit is not None:
+            task_comments = task.comments.all()[offset:offset+limit]
+        else:
+            task_comments = task.comments.all()
+        return CommentNodeType(nodes=task_comments, total_count=total_count)
 
     def resolve_comment(root, info, id):
         # We can easily optimize query count in the resolve method
@@ -184,10 +203,11 @@ class CreateComment(graphene.Mutation):
         image = Upload(required=False)
         task_step_id = graphene.ID(required=False)
         ticket_id = graphene.ID(required=False)
+        task_id = graphene.ID(required=False)
 
     comment = graphene.Field(CommentType)
 
-    def mutate(root, info, task_step_id=None, ticket_id=None, image=None, comment_data=None):
+    def mutate(root, info, task_id=None, task_step_id=None, ticket_id=None, image=None, comment_data=None):
         creator = info.context.user
         comment = Comment(**comment_data)
         comment.creator = creator
@@ -202,11 +222,14 @@ class CreateComment(graphene.Mutation):
                 image_file.save()
                 comment.image = image_file
         comment.save()
-        broadcastCommentAdded(comment)
         if task_step_id and task_step_id is not None:
         	TaskStep.objects.get(pk=task_step_id).comments.add(comment)
         if ticket_id and ticket_id is not None:
             Ticket.objects.get(pk=ticket_id).comments.add(comment)
+        if task_id and task_id is not None:
+            Task.objects.get(pk=task_id).comments.add(comment)
+        comment.refresh_from_db()
+        broadcastCommentAdded(comment)
         return CreateComment(comment=comment)
 
 class UpdateComment(graphene.Mutation):
@@ -414,18 +437,19 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
         """That is how subscription arguments are defined."""
         # arg1 = graphene.String()
         # arg2 = graphene.String()
+        task_id = graphene.ID(required=False)
         task_step_id = graphene.ID(required=False)
         ticket_id = graphene.ID(required=False)
 
     @staticmethod
-    def subscribe(root, info, task_step_id=None, ticket_id=None):
+    def subscribe(root, info, task_id=None, task_step_id=None, ticket_id=None):
         """Called when user subscribes."""
 
         # Return the list of subscription group names.
         return ["ON_COMMENT_ADDED"]
 
     @staticmethod
-    def publish(payload, info, task_step_id=None, ticket_id=None):
+    def publish(payload, info, task_id=None, task_step_id=None, ticket_id=None):
         """Called to notify the client."""
         #print('send -*******************')
         #print(payload)
@@ -434,13 +458,17 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
         # if you wish to suppress the notification to a particular
         # client. For example, this allows to avoid notifications for
         # the actions made by this particular client.
+        if task_id and task_id is not None:
+            if 'comment' in payload and payload['comment'].task:
+                if str(task_id) != str(payload['comment'].task.id):
+                    return OnCommentAdded.SKIP
         if task_step_id and task_step_id is not None:
             if 'taskStep' in payload and 'comment' in payload and 'task_step' in payload['comment']:
                 if str(task_step_id) != str(payload['comment']['task_step']['id']):
                     return OnCommentAdded.SKIP
         if ticket_id and ticket_id is not None:
-            if 'comment' in payload and payload['comment'].tickets.first():
-                if str(ticket_id) != str(payload['comment'].tickets.first().id):
+            if 'comment' in payload and payload['comment'].ticket:
+                if str(ticket_id) != str(payload['comment'].ticket.id):
                     return OnCommentAdded.SKIP
         return OnCommentAdded(comment=payload['comment'])
 
@@ -457,11 +485,12 @@ class OnCommentDeleted(channels_graphql_ws.Subscription):
         """That is how subscription arguments are defined."""
         # arg1 = graphene.String()
         # arg2 = graphene.String()
+        task_id = graphene.ID(required=False)
         task_step_id = graphene.ID(required=False)
         ticket_id = graphene.ID(required=False)
 
     @staticmethod
-    def subscribe(root, info, task_step_id=None, ticket_id=None):
+    def subscribe(root, info, task_id=None, task_step_id=None, ticket_id=None):
         """Called when user subscribes."""
 
         # Return the list of subscription group names.
@@ -477,14 +506,18 @@ class OnCommentDeleted(channels_graphql_ws.Subscription):
         # if you wish to suppress the notification to a particular
         # client. For example, this allows to avoid notifications for
         # the actions made by this particular client.
+        if task_id and task_id is not None:
+            if 'comment' in payload and payload['comment'].task:
+                if str(task_id) != str(payload['comment'].task.id):
+                    return OnCommentDeleted.SKIP
         if task_step_id and task_step_id is not None:
             if 'taskStep' in payload and 'comment' in payload and 'task_step' in payload['comment']:
                 if str(task_step_id) != str(payload['comment']['task_step']['id']):
                     return OnCommentAdded.SKIP
         if ticket_id and ticket_id is not None:
-            if 'taskStep' in payload and 'comment' in payload and 'ticket' in payload['comment']:
-                if str(ticket_id) != str(payload['comment']['ticket']['id']):
-                    return OnCommentAdded.SKIP
+            if 'comment' in payload and payload['comment'].ticket:
+                if str(ticket_id) != str(payload['comment'].ticket.id):
+                    return OnCommentDeleted.SKIP
         return OnCommentDeleted(comment=payload['comment'])
 
 class CommentsSubscription(graphene.ObjectType):
