@@ -94,6 +94,7 @@ class UndesirableEventInput(graphene.InputObjectType):
     serious_types = graphene.List(graphene.Int, required=False)
     frequency_id = graphene.Int(name="frequency", required=False)
     employee_id = graphene.Int(name="employee", required=False)
+    declarants = graphene.List(graphene.Int, required=False)
     establishments = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
@@ -166,6 +167,7 @@ class CreateUndesirableEvent(graphene.Mutation):
 
     def mutate(root, info, image=None, files=None, undesirable_event_data=None):
         creator = info.context.user
+        declarant_ids = undesirable_event_data.pop("declarants")
         establishment_ids = undesirable_event_data.pop("establishments")
         beneficiary_ids = undesirable_event_data.pop("beneficiaries")
         employee_ids = undesirable_event_data.pop("employees")
@@ -188,6 +190,8 @@ class CreateUndesirableEvent(graphene.Mutation):
         undesirable_event.save()
         if not undesirable_event.employee:
             undesirable_event.employee = creator.get_employee_in_company()
+        if declarant_ids and declarant_ids is not None:
+            undesirable_event.declarants.set(declarant_ids)
         folder = Folder.objects.create(name=str(undesirable_event.id)+'_'+undesirable_event.title,creator=creator)
         undesirable_event.folder = folder
         if not files:
@@ -267,6 +271,7 @@ class UpdateUndesirableEvent(graphene.Mutation):
 
     def mutate(root, info, id, image=None, files=None, undesirable_event_data=None):
         creator = info.context.user
+        declarant_ids = undesirable_event_data.pop("declarants")
         establishment_ids = undesirable_event_data.pop("establishments")
         beneficiary_ids = undesirable_event_data.pop("beneficiaries")
         employee_ids = undesirable_event_data.pop("employees")
@@ -276,6 +281,8 @@ class UpdateUndesirableEvent(graphene.Mutation):
         undesirable_event = UndesirableEvent.objects.get(pk=id)
         is_draft = True if undesirable_event.status == 'DRAFT' else False
         UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
+        if declarant_ids and declarant_ids is not None:
+            undesirable_event.declarants.set(declarant_ids)
         undesirable_event.refresh_from_db()
         if not undesirable_event.folder or undesirable_event.folder is None:
             folder = Folder.objects.create(name=str(undesirable_event.id)+'_'+undesirable_event.title,creator=creator)
