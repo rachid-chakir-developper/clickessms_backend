@@ -42,6 +42,7 @@ class UndesirableEvent(models.Model):
 	is_active = models.BooleanField(default=True, null=True)
 	other_notified_persons = models.TextField(default='', null=True)
 	concerned_families = models.TextField(default='', null=True)
+	files = models.ManyToManyField('medias.File', related_name='file_undesirable_events')
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	status = models.CharField(max_length=50, choices=STATUS, default= "DRAFT")
 	other_types = models.TextField(default='', null=True)

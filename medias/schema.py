@@ -35,8 +35,17 @@ class ChildrenFileType(DjangoObjectType):
     class Meta:
         model = File
         fields = "__all__"
-    def resolve_file ( instance, info, **kwargs ):
+    def resolve_name( instance, info, **kwargs ):
+        name = instance.name if instance.name and instance.name!='' else instance.caption
+        return name if name and name!='' else 'Fichier sans nom'
+    def resolve_file( instance, info, **kwargs ):
         return instance.file and info.context.build_absolute_uri(instance.file.url)
+    def resolve_video( instance, info, **kwargs ):
+        return instance.video and info.context.build_absolute_uri(instance.video.url)
+    def resolve_thumbnail( instance, info, **kwargs ):
+        return instance.thumbnail and info.context.build_absolute_uri(instance.thumbnail.url)
+    def resolve_image( instance, info, **kwargs ):
+        return instance.image and info.context.build_absolute_uri(instance.image.url)
     def resolve_file_type ( instance, info, **kwargs ):
         return getFileTypeFromFileInstance(file_instance=instance)
 
@@ -65,6 +74,9 @@ class FileType(DjangoObjectType):
     class Meta:
         model = File
         fields = "__all__"
+    def resolve_name( instance, info, **kwargs ):
+        name = instance.name if instance.name and instance.name!='' else instance.caption
+        return name if name and name!='' else 'Fichier sans nom'
     def resolve_file( instance, info, **kwargs ):
         return instance.file and info.context.build_absolute_uri(instance.file.url)
     def resolve_video( instance, info, **kwargs ):

@@ -10,7 +10,10 @@ from django.db.models import Q
 from django.db import transaction
 
 from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson
+
 from medias.models import Folder, File
+from medias.schema import MediaInput
+
 from companies.models import Establishment
 from human_ressources.models import Employee, Beneficiary
 
@@ -157,10 +160,11 @@ class CreateUndesirableEvent(graphene.Mutation):
     class Arguments:
         undesirable_event_data = UndesirableEventInput(required=True)
         image = Upload(required=False)
+        files = graphene.List(MediaInput, required=False)
 
     undesirable_event = graphene.Field(UndesirableEventType)
 
-    def mutate(root, info, image=None, undesirable_event_data=None):
+    def mutate(root, info, image=None, files=None, undesirable_event_data=None):
         creator = info.context.user
         establishment_ids = undesirable_event_data.pop("establishments")
         beneficiary_ids = undesirable_event_data.pop("beneficiaries")
@@ -186,6 +190,22 @@ class CreateUndesirableEvent(graphene.Mutation):
             undesirable_event.employee = creator.get_employee_in_company()
         folder = Folder.objects.create(name=str(undesirable_event.id)+'_'+undesirable_event.title,creator=creator)
         undesirable_event.folder = folder
+        if not files:
+            files = []
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            undesirable_event.files.add(file_file)
         if normal_type_ids and normal_type_ids is not None:
             undesirable_event.normal_types.set(normal_type_ids)
 
@@ -241,10 +261,11 @@ class UpdateUndesirableEvent(graphene.Mutation):
         id = graphene.ID()
         undesirable_event_data = UndesirableEventInput(required=True)
         image = Upload(required=False)
+        files = graphene.List(MediaInput, required=False)
 
     undesirable_event = graphene.Field(UndesirableEventType)
 
-    def mutate(root, info, id, image=None, undesirable_event_data=None):
+    def mutate(root, info, id, image=None, files=None, undesirable_event_data=None):
         creator = info.context.user
         establishment_ids = undesirable_event_data.pop("establishments")
         beneficiary_ids = undesirable_event_data.pop("beneficiaries")
@@ -273,6 +294,25 @@ class UpdateUndesirableEvent(graphene.Mutation):
                 image_file.save()
                 undesirable_event.image = image_file
             undesirable_event.save()
+        if not files:
+            files = []
+        else:
+            file_ids = [item.id for item in files if item.id is not None]
+            File.objects.filter(file_undesirable_events=undesirable_event).exclude(id__in=file_ids).delete()
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = undesirable_event.folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            undesirable_event.files.add(file_file)
         if not undesirable_event.employee:
             undesirable_event.employee = creator.get_employee_in_company()
             undesirable_event.save()
