@@ -3,8 +3,13 @@ import graphene
 from graphene_django import DjangoObjectType
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
+from django.template import Template, Context
+from django.utils.html import escape
+import re
+from datetime import date, datetime
 
-from medias.models import Folder, File
+from medias.models import Folder, File, ContractTemplate
+from human_ressources.models import EmployeeContract
 
 class ChildrenFolderType(DjangoObjectType):
     class Meta:
@@ -96,11 +101,44 @@ class FileInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     folder_id = graphene.Int(name="folder", required=False)
 
+
+class ContractTemplateType(DjangoObjectType):
+    class Meta:
+        model = ContractTemplate
+        fields = "__all__"
+
+    image = graphene.String()
+
+    def resolve_image(instance, info, **kwargs):
+        return instance.image and info.context.build_absolute_uri(
+            instance.image.image.url
+        )
+
+class ContractTemplateNodeType(graphene.ObjectType):
+    nodes = graphene.List(ContractTemplateType)
+    total_count = graphene.Int()
+
+class ContractTemplateFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    contract_type = graphene.String(required=False)
+
+class ContractTemplateInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    title = graphene.String(required=False)
+    content = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    contract_type = graphene.String(required=False)
+
 class MediasQuery(graphene.ObjectType):
     folders = graphene.List(FolderType)
     folder = graphene.Field(FolderType, id = graphene.ID())
     files = graphene.List(FileType)
     file = graphene.Field(FileType, id = graphene.ID())
+    contract_templates = graphene.Field(ContractTemplateNodeType, contract_template_filter= ContractTemplateFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    contract_template = graphene.Field(ContractTemplateType, id = graphene.ID())
 
     def resolve_folders(root, info):
         # We can easily optimize query count in the resolve method
@@ -121,6 +159,41 @@ class MediasQuery(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         file = File.objects.get(pk=id)
         return file
+
+    def resolve_contract_templates(root, info, contract_template_filter=None, id_company=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        total_count = 0
+        contract_templates = ContractTemplate.objects.filter(company__id=id_company) if id_company else ContractTemplate.objects.filter(company=company)
+        if contract_template_filter:
+            keyword = contract_template_filter.get('keyword', '')
+            contract_type = contract_template_filter.get('contract_type')
+            starting_date_time = contract_template_filter.get('starting_date_time')
+            ending_date_time = contract_template_filter.get('ending_date_time')
+            if contract_type:
+                contract_templates = contract_templates.filter(contract_type=contract_type)
+            if keyword:
+                contract_templates = contract_templates.filter(Q(title__icontains=keyword))
+            if starting_date_time:
+                contract_templates = contract_templates.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                contract_templates = contract_templates.filter(created_at__lte=ending_date_time)
+        contract_templates = contract_templates.order_by('-created_at')
+        total_count = contract_templates.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            contract_templates = contract_templates[offset:offset + limit]
+        return ContractTemplateNodeType(nodes=contract_templates, total_count=total_count)
+
+    def resolve_contract_template(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            contract_template = ContractTemplate.objects.get(pk=id)
+        except ContractTemplate.DoesNotExist:
+            contract_template = None
+        return contract_template
 
 #*******************************************************************#
 
@@ -242,6 +315,175 @@ class DeleteFile(graphene.Mutation):
             message = "Ce fichier n'exite pas pour le supprimer."
         return DeleteFile(deleted=deleted, success=success, message=message, id=id)
 
+
+#********************************************************************************************************************
+#***************************************************************************
+
+class CreateContractTemplate(graphene.Mutation):
+    class Arguments:
+        contract_template_data = ContractTemplateInput(required=True)
+        image = Upload(required=False)
+
+    contract_template = graphene.Field(ContractTemplateType)
+
+    def mutate(root, info, image=None, contract_template_data=None):
+        creator = info.context.user
+        contract_template = ContractTemplate(**contract_template_data)
+        contract_template.creator = creator
+        contract_template.company = creator.current_company if creator.current_company is not None else creator.company
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if image and isinstance(image, UploadedFile):
+                image_file = contract_template.image
+                if not image_file:
+                    image_file = File()
+                    image_file.creator = creator
+                image_file.image = image
+                image_file.save()
+                contract_template.image = image_file
+        contract_template.save()
+        return CreateContractTemplate(contract_template=contract_template)
+
+class UpdateContractTemplate(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        contract_template_data = ContractTemplateInput(required=True)
+        image = Upload(required=False)
+
+    contract_template = graphene.Field(ContractTemplateType)
+
+    def mutate(root, info, id, image=None, contract_template_data=None):
+        creator = info.context.user
+        ContractTemplate.objects.filter(pk=id).update(**contract_template_data)
+        contract_template = ContractTemplate.objects.get(pk=id)
+        if not image and contract_template.image:
+            image_file = contract_template.image
+            image_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if image and isinstance(image, UploadedFile):
+                image_file = contract_template.image
+                if not image_file:
+                    image_file = File()
+                    image_file.creator = creator
+                image_file.image = image
+                image_file.save()
+                contract_template.image = image_file
+        contract_template.save()
+        return UpdateContractTemplate(contract_template=contract_template)
+
+class UpdateContractTemplateState(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    contract_template = graphene.Field(ContractTemplateType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, contract_template_fields=None):
+        creator = info.context.user
+        done = True
+        success = True
+        contract_template = None
+        message = ''
+        try:
+            contract_template = ContractTemplate.objects.get(pk=id)
+            ContractTemplate.objects.filter(pk=id).update(is_active=not contract_template.is_active)
+            contract_template.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            contract_template=None
+            message = "Une erreur s'est produite."
+        return UpdateContractTemplateState(done=done, success=success, message=message,contract_template=contract_template)
+
+class GenerateContractContent(graphene.Mutation):
+    class Arguments:
+        employee_contract_id = graphene.ID(required=True)
+        contract_template_id = graphene.ID(required=True)
+
+    contract_content = graphene.String()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, employee_contract_id, contract_template_id):
+        creator = info.context.user
+        success = True
+        contract_content = None
+        message = ''
+        try:
+            employee_contract = EmployeeContract.objects.get(pk=employee_contract_id)
+            contract_template = ContractTemplate.objects.get(pk=contract_template_id)
+            variables = re.findall(r'{{\s*(\w+)\s*}}', contract_template.content)
+            context = {}
+            for var in variables:
+                try:
+                    keys = var.split('__')
+                    model = keys[0]
+                    key = keys[1]
+                    value = None
+                    if model == 'EmployeeContract':
+                        value = employee_contract
+                    elif model == 'Employee':
+                        value = employee_contract.employee
+                    elif model == 'Company':
+                        print(f"employee_contract.company{employee_contract.employee.company}")
+                        value = employee_contract.employee.company
+                    elif model == 'Establishment':
+                        if employee_contract.establishments.exists():
+                            value = employee_contract.establishments.first().establishment
+                    else:
+                        raise ValueError(f"Modèle non reconnu: {model}")
+                    if value is not None and hasattr(value, key):
+                        value = getattr(value, key)
+                        display_method = f'get_{key}_display'
+                        if hasattr(value, display_method):
+                            value = getattr(value, display_method)()
+                    if isinstance(value, (date, datetime)):
+                        context[var] = escape(value.strftime('%d/%m/%Y'))
+                    else:
+                        context[var] = escape(str(value)) if value is not None else ''
+                except Exception as e:
+                    print(f"Exception **** {e}")
+                    context[var] = ''
+            template = Template(contract_template.content)
+            contract_content = template.render(Context(context))
+        except Exception as e:
+            print(e)
+            success = False
+            contract_content=None
+            message = "Une erreur s'est produite."
+        return GenerateContractContent(success=success, message=message,contract_content=contract_content)
+
+class DeleteContractTemplate(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    contract_template = graphene.Field(ContractTemplateType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            contract_template = ContractTemplate.objects.get(pk=id)
+            contract_template.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteContractTemplate(deleted=deleted, success=success, message=message, id=id)
+
+#************************************************************************
+
+#********************************************************************************************************************
+
 class MediasMutation(graphene.ObjectType):
     create_folder = CreateFolder.Field()
     update_folder = UpdateFolder.Field()
@@ -250,3 +492,9 @@ class MediasMutation(graphene.ObjectType):
     create_file = CreateFile.Field()
     update_file = UpdateFile.Field()
     delete_file = DeleteFile.Field()
+
+    create_contract_template = CreateContractTemplate.Field()
+    update_contract_template = UpdateContractTemplate.Field()
+    update_contract_template_state = UpdateContractTemplateState.Field()
+    delete_contract_template = DeleteContractTemplate.Field()
+    generate_contract_content = GenerateContractContent.Field()

@@ -19,6 +19,8 @@ class Employee(models.Model):
     cover_image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='employee_cover_image', null=True)
     position = models.CharField(max_length=255, null=True)
     birth_date = models.DateTimeField(null=True)
+    birth_place = models.CharField(max_length=255, null=True)
+    nationality = models.CharField(max_length=255, null=True)
     hiring_date = models.DateTimeField(null=True)
     probation_end_date = models.DateTimeField(null=True)
     work_end_date = models.DateTimeField(null=True)

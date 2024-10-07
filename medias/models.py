@@ -7,8 +7,8 @@ from django.conf import settings
 
 class Folder(models.Model):
 	FOLDER_TYPES = [
-        ("NORMAL", "Normal"),
-    ]
+		("NORMAL", "Normal"),
+	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	name = models.CharField(max_length=255)
 	description = models.TextField(default='', null=True)
@@ -24,23 +24,23 @@ class Folder(models.Model):
 		return self.name
 
 def file_directory_path(instance, filename):
-    # file will be uploaded to MEDIA_ROOT/user_<id>/<filename>
-    directory_path = ''
-    upload_to = instance.upload_to
-    if upload_to:
-    	directory_path = '/' + upload_to
-    folder = instance.folder
-    while (folder):
-    	directory_path = '/' + folder.name + directory_path
-    	folder = folder.folder
-    return 'uploads' + directory_path + '/{0}'.format(filename)
+	# file will be uploaded to MEDIA_ROOT/user_<id>/<filename>
+	directory_path = ''
+	upload_to = instance.upload_to
+	if upload_to:
+		directory_path = '/' + upload_to
+	folder = instance.folder
+	while (folder):
+		directory_path = '/' + folder.name + directory_path
+		folder = folder.folder
+	return 'uploads' + directory_path + '/{0}'.format(filename)
 
 class File(models.Model):
 	FILE_TYPES = [
-        ("FILE", "Fichier"),
-        ("IMAGE", "Image"),
-        ("VIDEO", "Video")
-    ]
+		("FILE", "Fichier"),
+		("IMAGE", "Image"),
+		("VIDEO", "Video")
+	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	name = models.CharField(max_length=255, null=True)
 	caption = models.TextField(default='', null=True)
@@ -83,3 +83,32 @@ class File(models.Model):
 			##self.video.name = f'uploads/{self.video.name.split(".")[0]}.mp4'
 
 		super().save(*args, **kwargs)
+
+class ContractTemplate(models.Model):
+	CONTRACT_TYPES = [
+		("CDI", "CDI"),
+		("CDD", "CDD"),
+		("APPRENTICESHIP_CONTRACT", "Contrat d'apprentissage"),
+		("SINGLE_INTEGRATION_CONTRACT", "Contrat Unique d'Insertion (CUI)"),
+		("PROFESSIONALIZATION_CONTRACT", "Contrat de professionnalisation"),
+		("SEASONAL_CONTRACT", "Contrat saisonnier"),
+		("TEMPORARY_CONTRACT", "Contrat intérimaire"),
+		("PART_TIME_CONTRACT", "Contrat à temps partiel"),
+		("FULL_TIME_CONTRACT", "Contrat à temps plein"),
+		("INTERNSHIP_CONTRACT", "Contrat de stage")
+	]
+	number = models.CharField(max_length=255, editable=False, null=True)
+	title = models.CharField(max_length=255, null=True)
+	content = models.TextField(default='', null=True)
+	image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='contract_templates', null=True)
+	contract_type = models.CharField(max_length=50, choices=CONTRACT_TYPES, default= "CDI")
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='contract_templates', null=True)
+	is_active = models.BooleanField(default=True, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='contract_templates', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='contract_templates_former', null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return self.name

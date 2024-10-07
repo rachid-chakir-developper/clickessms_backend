@@ -191,6 +191,8 @@ class EmployeeInput(graphene.InputObjectType):
     email = graphene.String(required=False)
     social_security_number = graphene.String(required=False)
     birth_date = graphene.DateTime(required=False)
+    birth_place = graphene.String(required=False)
+    nationality = graphene.String(required=False)
     hiring_date = graphene.DateTime(required=False)
     probation_end_date = graphene.DateTime(required=False)
     work_end_date = graphene.DateTime(required=False)
