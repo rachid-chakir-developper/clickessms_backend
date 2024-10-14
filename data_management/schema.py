@@ -12,9 +12,10 @@ from django.db.models import Q
 from django.db import transaction
 import openpyxl
 
-from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel
+from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel, CustomField, CustomFieldOption, CustomFieldValue
 
-        
+
+
 class HumanGenderType(DjangoObjectType):
     class Meta:
         model = HumanGender
@@ -105,9 +106,48 @@ class VehicleModelType(DjangoObjectType):
         model = VehicleModel
         fields = "__all__"
 
+class CustomFieldOptionType(DjangoObjectType):
+    class Meta:
+        model = CustomFieldOption
+        fields = "__all__"
+
+class CustomFieldType(DjangoObjectType):
+    class Meta:
+        model = CustomField
+        fields = "__all__"
+
+class CustomFieldValueType(DjangoObjectType):
+    class Meta:
+        model = CustomFieldValue
+        fields = "__all__"
+
+class CustomFieldFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    form_model = graphene.String(required=False)
+
+class CustomFieldNodeType(graphene.ObjectType):
+    nodes = graphene.List(CustomFieldType)
+    total_count = graphene.Int()
+
+class CustomFieldOptionInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    label = graphene.String(required=True)
+    value = graphene.String(required=False)
+
+class CustomFieldInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    label = graphene.String(required=True)
+    key = graphene.String(required=False)
+    field_type = graphene.String(required=True)
+    form_model = graphene.String(required=True)
+    is_active = graphene.Boolean(required=False)
+    options = graphene.List(CustomFieldOptionInput, required=False)
+
 class DataQuery(graphene.ObjectType):
     datas = graphene.List(DataType, typeData = graphene.String())
     data = graphene.Field(DataType, typeData = graphene.String(), id = graphene.ID())
+    custom_fields = graphene.Field(CustomFieldNodeType, custom_field_filter= CustomFieldFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    custom_field = graphene.Field(CustomFieldType, id = graphene.ID())
     
     def resolve_datas(root, info, typeData):
         user = info.context.user
@@ -123,6 +163,35 @@ class DataQuery(graphene.ObjectType):
         data = apps.get_model('data_management', typeData).objects.get(pk=id)
         data.__class__ = DataModel
         return data
+
+    def resolve_custom_fields(root, info, custom_field_filter=None, id_company=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.current_company if user.current_company is not None else user.company
+        total_count = 0
+        custom_fields = CustomField.objects.filter(company__id=id_company) if id_company else CustomField.objects.filter(company=company)
+        if custom_field_filter:
+            keyword = custom_field_filter.get('keyword', '')
+            form_model = custom_field_filter.get('form_model')
+            if form_model:
+                custom_fields = custom_fields.filter(form_model=form_model)
+            if keyword:
+                custom_fields = custom_fields.filter(Q(title__icontains=keyword))
+        custom_fields = custom_fields.order_by('created_at')
+        total_count = custom_fields.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            custom_fields = custom_fields[offset:offset + limit]
+        return CustomFieldNodeType(nodes=custom_fields, total_count=total_count)
+
+    def resolve_custom_field(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            custom_field = CustomField.objects.get(pk=id)
+        except CustomField.DoesNotExist:
+            custom_field = None
+        return custom_field
 
 class CreateData(graphene.Mutation):
     class Arguments:
@@ -294,9 +363,86 @@ class ImportDataMutation(graphene.Mutation):
 
 #**************************************************************************************************
 
+class CreateCustomField(graphene.Mutation):
+    class Arguments:
+        custom_field_data = CustomFieldInput(required=True)
+
+    custom_field = graphene.Field(CustomFieldType)
+
+    def mutate(root, info, custom_field_data=None):
+        creator = info.context.user
+        options = custom_field_data.pop("options")
+        custom_field = CustomField(**custom_field_data)
+        custom_field.creator = creator
+        custom_field.company = creator.current_company if creator.current_company is not None else creator.company
+        custom_field.save()
+        for option in options:
+            custom_field_option = CustomFieldOption(**option)
+            custom_field_option.custom_field = custom_field
+            custom_field_option.save()
+        return CreateCustomField(custom_field=custom_field)
+
+class UpdateCustomField(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        custom_field_data = CustomFieldInput(required=True)
+        image = Upload(required=False)
+
+    custom_field = graphene.Field(CustomFieldType)
+
+    def mutate(root, info, id, image=None, custom_field_data=None):
+        creator = info.context.user
+        options = custom_field_data.pop("options")
+        CustomField.objects.filter(pk=id).update(**custom_field_data)
+        custom_field = CustomField.objects.get(pk=id)
+        option_ids = [
+            item.id for item in options if item.id is not None
+        ]
+        CustomFieldOption.objects.filter(
+            custom_field=custom_field
+        ).exclude(id__in=option_ids).delete()
+        for option in options:
+            if id in option or "id" in option:
+                CustomFieldOption.objects.filter(pk=option.id).update(**option)
+            else:
+                custom_field_option = CustomFieldOption(**option)
+                custom_field_option.custom_field = custom_field
+                custom_field_option.save()
+        return UpdateCustomField(custom_field=custom_field)
+
+class DeleteCustomField(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    custom_field = graphene.Field(CustomFieldType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            custom_field = CustomField.objects.get(pk=id)
+            custom_field.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
+        return DeleteCustomField(deleted=deleted, success=success, message=message, id=id)
+
+#**************************************************************************************************
+
 class DataMutation(graphene.ObjectType):
     create_data = CreateData.Field()
     update_data = UpdateData.Field()
     delete_data = DeleteData.Field()
 
     import_data = ImportDataMutation.Field()
+
+    create_custom_field = CreateCustomField.Field()
+    update_custom_field = UpdateCustomField.Field()
+    delete_custom_field = DeleteCustomField.Field()

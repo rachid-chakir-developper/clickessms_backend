@@ -143,7 +143,7 @@ class EmployeeContract(models.Model):
     ]
     number = models.CharField(max_length=255, editable=False, null=True)
     title = models.CharField(max_length=255, null=True)
-    document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='employee_contrat_doucument', null=True)
+    document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='employee_contract_doucument', null=True)
     starting_date = models.DateTimeField(null=True)
     ending_date = models.DateTimeField(null=True)
     position = models.CharField(max_length=255, null=True)
