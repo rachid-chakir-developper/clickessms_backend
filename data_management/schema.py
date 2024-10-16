@@ -115,15 +115,27 @@ class CustomFieldType(DjangoObjectType):
     class Meta:
         model = CustomField
         fields = "__all__"
+    form_model = graphene.String()
+    def resolve_form_model( instance, info, **kwargs ):
+        return instance.form_model
 
 class CustomFieldValueType(DjangoObjectType):
     class Meta:
         model = CustomFieldValue
         fields = "__all__"
+    key = graphene.String()
+    def resolve_key( instance, info, **kwargs ):
+        return instance.key
+
+class CustomFieldValueInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    key = graphene.String(required=False)
+    value = graphene.String(required=False)
+    custom_field_id = graphene.Int(name="customField", required=False)
 
 class CustomFieldFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
-    form_model = graphene.String(required=False)
+    form_models = graphene.List(graphene.String, required=False)
 
 class CustomFieldNodeType(graphene.ObjectType):
     nodes = graphene.List(CustomFieldType)
@@ -172,9 +184,9 @@ class DataQuery(graphene.ObjectType):
         custom_fields = CustomField.objects.filter(company__id=id_company) if id_company else CustomField.objects.filter(company=company)
         if custom_field_filter:
             keyword = custom_field_filter.get('keyword', '')
-            form_model = custom_field_filter.get('form_model')
-            if form_model:
-                custom_fields = custom_fields.filter(form_model=form_model)
+            form_models = custom_field_filter.get('form_models')
+            if form_models:
+                custom_fields = custom_fields.filter(form_model__in=form_models)
             if keyword:
                 custom_fields = custom_fields.filter(Q(title__icontains=keyword))
         custom_fields = custom_fields.order_by('created_at')

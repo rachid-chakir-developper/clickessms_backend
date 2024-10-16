@@ -13,8 +13,8 @@ class CustomField(models.Model):
 		('CHECKBOX', 'Checkbox'),
 	]
 	MODEL_CHOICES = [
-		('EMPLOYEE', 'Employé'),
-		('EMPLOYEE_CONTRACT', 'Contrat Employé'),
+		('Employee', 'Employé'),
+		('EmployeeContract', 'Contrat Employé'),
 		# Ajoutez d'autres modèles si nécessaire
 	]
 	label = models.CharField(max_length=255)
@@ -66,6 +66,10 @@ class CustomFieldValue(models.Model):
 	employee_contract = models.ForeignKey('human_ressources.EmployeeContract', on_delete=models.SET_NULL, related_name='custom_field_values', null=True)
 	custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE)
 	value = models.TextField(null=True, blank=True)
+
+	@property
+	def key(self):
+		return custom_field.key
 
 	def __str__(self):
 		return f"{self.custom_field.label}: {self.value}"

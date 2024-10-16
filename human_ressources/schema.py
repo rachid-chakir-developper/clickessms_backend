@@ -10,6 +10,9 @@ from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, 
 from medias.models import Folder, File
 from companies.models import Establishment
 
+from data_management.schema import CustomFieldValueInput
+from data_management.utils import CustomFieldEntityBase
+
 class EmployeeContractEstablishmentType(DjangoObjectType):
     class Meta:
         model = EmployeeContractEstablishment
@@ -246,6 +249,7 @@ class EmployeeContractInput(graphene.InputObjectType):
     establishments = graphene.List(graphene.Int, required=False)
     contract_type = graphene.String(required=False)
     employee_id = graphene.Int(name="employee", required=False)
+    custom_field_values = graphene.List(CustomFieldValueInput, required=False)
 
 class BeneficiaryAdmissionDocumentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -647,6 +651,7 @@ class CreateEmployeeContract(graphene.Mutation):
     def mutate(root, info, document=None, employee_contract_data=None):
         creator = info.context.user
         establishment_ids = employee_contract_data.pop("establishments")
+        custom_field_values = employee_contract_data.pop("custom_field_values")
         employee_contract = EmployeeContract(**employee_contract_data)
         employee_contract.creator = creator
         if info.context.FILES:
@@ -674,6 +679,7 @@ class CreateEmployeeContract(graphene.Mutation):
                         creator=creator
                     )
         employee_contract.save()
+        CustomFieldEntityBase.save_custom_fields(employee_contract, custom_field_values)
         return CreateEmployeeContract(employee_contract=employee_contract)
 
 class UpdateEmployeeContract(graphene.Mutation):
@@ -687,6 +693,7 @@ class UpdateEmployeeContract(graphene.Mutation):
     def mutate(root, info, id, document=None, employee_contract_data=None):
         creator = info.context.user
         establishment_ids = employee_contract_data.pop("establishments")
+        custom_field_values = employee_contract_data.pop("custom_field_values")
         EmployeeContract.objects.filter(pk=id).update(**employee_contract_data)
         employee_contract = EmployeeContract.objects.get(pk=id)
         if not employee_contract.folder or employee_contract.folder is None:
@@ -718,6 +725,7 @@ class UpdateEmployeeContract(graphene.Mutation):
                         establishment=establishment,
                         creator=creator
                     )
+        CustomFieldEntityBase.save_custom_fields(employee_contract, custom_field_values)
         return UpdateEmployeeContract(employee_contract=employee_contract)
 
 class DeleteEmployeeContract(graphene.Mutation):
