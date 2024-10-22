@@ -60,7 +60,7 @@ class File(models.Model):
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 		
 	def __str__(self):
-		return self.name
+		return self.name if self.name else 'file'
 
 	def save(self, *args, **kwargs):
 		if self.video and self.video.file:

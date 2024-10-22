@@ -4,7 +4,7 @@ from graphene_django import DjangoObjectType
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 from django.template import Template, Context
-from django.utils.html import escape
+from django.utils.html import escape, mark_safe
 import re
 from datetime import date, datetime
 
@@ -415,14 +415,16 @@ class GenerateContractContent(graphene.Mutation):
 		try:
 			employee_contract = EmployeeContract.objects.get(pk=employee_contract_id)
 			contract_template = ContractTemplate.objects.get(pk=contract_template_id)
-			variables = re.findall(r'{{\s*(\w+)\s*}}', contract_template.content)
+			variables = re.findall(r'{{\s*(\w+(?:__\w+)?)(?:.size=(\d+))?\s*}}', contract_template.content)
 			context = {}
-			for var in variables:
+			print(variables)
+			for var, size in variables:
 				try:
 					keys = var.split('__')
 					model = keys[0]
 					key = keys[1]
 					value = None
+					size = int(size) if size else None
 					
 					# Vérification du modèle spécifié dans la variable
 					if model == 'EmployeeContract':
@@ -490,7 +492,14 @@ class GenerateContractContent(graphene.Mutation):
 					if isinstance(value, (date, datetime)):
 						context[var] = escape(value.strftime('%d/%m/%Y'))
 					else:
-						context[var] = escape(str(value)) if value is not None else ''
+						if isinstance(value, File) and hasattr(value, "image") and value.image:
+							image_url = escape(info.context.build_absolute_uri(value.image.url))
+							alt_text = escape(value.name) if value.name else ""
+							if size is not None:
+								var = f'{var}.size={size}'
+							context[var] = mark_safe(f'<img src="{image_url}" alt="{alt_text}" height="{size if size else 100}px"/>')
+						else:
+							context[var] = escape(str(value)) if value is not None else ''
 				except Exception as e:
 					print(f"Exception **** {e}")
 					context[var] = ''

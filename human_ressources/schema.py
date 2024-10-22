@@ -323,7 +323,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        employees = Employee.objects.filter(company__id=id_company) if id_company else Employee.objects.filter(company=company)
+        employees = Employee.objects.filter(company__id=id_company, is_deleted=False) if id_company else Employee.objects.filter(company=company, is_deleted=False)
         # if not user.can_manage_administration():
         #     if user.is_manager():
         #         employees = employees.filter(Q(employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -363,7 +363,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        employee_contracts = EmployeeContract.objects.filter(employee__company=company)
+        employee_contracts = EmployeeContract.objects.filter(employee__company=company, is_deleted=False)
         if not user.can_manage_administration():
             if user.is_manager():
                 employee_contracts = employee_contracts.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -403,7 +403,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        employee_groups = EmployeeGroup.objects.filter(company=company)
+        employee_groups = EmployeeGroup.objects.filter(company=company, is_deleted=False)
         if employee_group_filter:
             keyword = employee_group_filter.get('keyword', '')
             starting_date_time = employee_group_filter.get('starting_date_time')
@@ -435,7 +435,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        beneficiaries = Beneficiary.objects.filter(company__id=id_company) if id_company else Beneficiary.objects.filter(company=company)
+        beneficiaries = Beneficiary.objects.filter(company__id=id_company, is_deleted=False) if id_company else Beneficiary.objects.filter(company=company, is_deleted=False)
         # if not user.can_manage_administration():
         #     if user.is_manager():
         #         beneficiaries = beneficiaries.filter(Q(beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -475,7 +475,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        beneficiary_groups = BeneficiaryGroup.objects.filter(company=company)
+        beneficiary_groups = BeneficiaryGroup.objects.filter(company=company, is_deleted=False)
         if beneficiary_group_filter:
             keyword = beneficiary_group_filter.get('keyword', '')
             starting_date_time = beneficiary_group_filter.get('starting_date_time')

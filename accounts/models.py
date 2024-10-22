@@ -209,6 +209,7 @@ class User(AbstractUser):
         if self.is_superuser:
             return True
         roles = ['SUPER_ADMIN', 'ADMIN' ,'SCE_MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def can_manage_quality(self, user=None):
         if self.is_superuser:
             return True
@@ -223,6 +224,7 @@ class User(AbstractUser):
         if self.is_superuser:
             return True
         roles = ['SUPER_ADMIN', 'ADMIN' ,'ADMINISTRATIVE_MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def can_manage_human_ressources(self, user=None):
         if self.is_superuser:
             return True

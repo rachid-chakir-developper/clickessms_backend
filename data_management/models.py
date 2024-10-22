@@ -7,9 +7,11 @@ class CustomField(models.Model):
 		('TEXT', 'Text'),
 		('NUMBER', 'Number'),
 		('DATE', 'Date'),
+		('DATETIME', 'Date et heure'),
 		('BOOLEAN', 'Boolean'),
 		('RADIO', 'Radio Button'),
-		('SELECT', 'Select'),
+		('SELECT', 'Liste'),
+		('SELECT_MULTIPLE', 'Liste à choix multiple'),
 		('CHECKBOX', 'Checkbox'),
 	]
 	MODEL_CHOICES = [
