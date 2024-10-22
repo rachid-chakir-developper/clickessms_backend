@@ -4,33 +4,33 @@ import random
 
 STEP_TYPES_LABELS = ["BEFORE", "IN_PROGRESS", "AFTER"]
 STEP_TYPES_ALL = {
-    "BEFORE" : "BEFORE",
-    "IN_PROGRESS" : "IN_PROGRESS",
-    "AFTER" : "AFTER",
+	"BEFORE" : "BEFORE",
+	"IN_PROGRESS" : "IN_PROGRESS",
+	"AFTER" : "AFTER",
 }
 STATUS_All = []
 # Create your models here.
 class Task(models.Model):
 	LEVELS = [
-        ("EASY", "Facile"),#
-        ("MEDIUM", "Moyen"),#
-        ("HARD", "Difficile")#
-    ]
+		("EASY", "Facile"),#
+		("MEDIUM", "Moyen"),#
+		("HARD", "Difficile")#
+	]
 	PRIORITIES = [
-        ("LOW", "Faible"),#
-        ("MEDIUM", "Moyenne"),#
-        ("HIGH", "Haute")#
-    ]
+		("LOW", "Faible"),#
+		("MEDIUM", "Moyenne"),#
+		("HIGH", "Haute")#
+	]
 	STATUS = [
-	    ("NEW", "À faire"),
-	    ("PENDING", "En attente"),
-	    ("APPROVED", "Approuvé"),
-	    ("REJECTED", "Rejeté"),
-	    ("TO_DO", "À fair"),
-	    ("IN_PROGRESS", "En attente"),
-	    ("COMPLETED", "Terminée"),
-	    ("CANCELED", "Annulée"),
-	    ("ARCHIVED", "Archivée")
+		("NEW", "À faire"),
+		("PENDING", "En attente"),
+		("APPROVED", "Approuvé"),
+		("REJECTED", "Rejeté"),
+		("TO_DO", "À fair"),
+		("IN_PROGRESS", "En attente"),
+		("COMPLETED", "Terminée"),
+		("CANCELED", "Annulée"),
+		("ARCHIVED", "Archivée")
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	name = models.CharField(max_length=255, null=True)
@@ -145,12 +145,12 @@ class TaskVehicle(models.Model):
 # Create your models here.
 class TaskChecklistItem(models.Model):
 	STATUS = [
-	    ("NEW", "À faire"),
-	    ("STARTED", "En cours"),
-	    ("FINISHED", "Terminée"),
-	    ("PENDING", "En attente"),
-	    ("CANCELED", "Annulée"),
-	    ("ARCHIVED", "Archivée")
+		("NEW", "À faire"),
+		("STARTED", "En cours"),
+		("FINISHED", "Terminée"),
+		("PENDING", "En attente"),
+		("CANCELED", "Annulée"),
+		("ARCHIVED", "Archivée")
 	]
 	number = models.CharField(max_length=255, null=True)
 	name = models.CharField(max_length=255, null=True)
@@ -171,18 +171,18 @@ class TaskChecklistItem(models.Model):
 # Create your models here.
 class TaskStep(models.Model):
 	STATUS = [
-	    ("NEW", "À faire"),
-	    ("STARTED", "En cours"),
-	    ("FINISHED", "Terminée"),
-	    ("PENDING", "En attente"),
-	    ("CANCELED", "Annulée"),
-	    ("ARCHIVED", "Archivée")
+		("NEW", "À faire"),
+		("STARTED", "En cours"),
+		("FINISHED", "Terminée"),
+		("PENDING", "En attente"),
+		("CANCELED", "Annulée"),
+		("ARCHIVED", "Archivée")
 	]
 	STEP_TYPES = [
-        ("BEFORE", "Avant"),
-        ("IN_PROGRESS", "En cours"),
-        ("AFTER", "Après")
-    ]
+		("BEFORE", "Avant"),
+		("IN_PROGRESS", "En cours"),
+		("AFTER", "Après")
+	]
 	name = models.CharField(max_length=255, null=True)
 	task = models.ForeignKey(Task, on_delete=models.SET_NULL, null=True, related_name='task_steps')
 	step_type = models.CharField(max_length=50, choices=STEP_TYPES, default= "BEFORE")
@@ -199,19 +199,19 @@ class TaskStep(models.Model):
 
 class Ticket(models.Model):
 	STATUS = [
-	    ("NEW", "Nouveau"),
-	    ("ACCEPTED", "Accepté"),
-	    ("REFUSED", "Refusé"),
-	    ("IN_PROGRESS", "En cours"),
-	    ("COMPLETED", "Terminée"),
-	    ("ON_HOLD", "En attente"),
-	    ("CANCELED", "Annulée"),
-	    ("ARCHIVED", "Archivée")
+		("NEW", "Nouveau"),
+		("ACCEPTED", "Accepté"),
+		("REFUSED", "Refusé"),
+		("IN_PROGRESS", "En cours"),
+		("COMPLETED", "Terminée"),
+		("ON_HOLD", "En attente"),
+		("CANCELED", "Annulée"),
+		("ARCHIVED", "Archivée")
 	]
 	PRIORITIES = [
-	    ("LOW", "Faible"),#
-	    ("MEDIUM", "Moyenne"),#
-	    ("HIGH", "Haute")#
+		("LOW", "Faible"),#
+		("MEDIUM", "Moyenne"),#
+		("HIGH", "Haute")#
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255, null=True)
@@ -229,32 +229,32 @@ class Ticket(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
-    
+	
 	def save(self, *args, **kwargs):
-	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
-	    if not self.number:
-	        self.number = self.generate_unique_number()
+		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+		if not self.number:
+			self.number = self.generate_unique_number()
 
-	    super(Ticket, self).save(*args, **kwargs)
+		super(Ticket, self).save(*args, **kwargs)
 
 	def generate_unique_number(self):
-	    # Implémentez la logique de génération du numéro unique ici
-	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
-	    # par exemple, en utilisant la fonction strftime de l'objet datetime
-	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+		# Implémentez la logique de génération du numéro unique ici
+		# Vous pouvez utiliser des combinaisons de date, heure, etc.
+		# par exemple, en utilisant la fonction strftime de l'objet datetime
+		# pour générer une chaîne basée sur la date et l'heure actuelles.
 
-	    # Exemple : Utilisation de la date et de l'heure actuelles
-	    current_time = datetime.now()
-	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
-	    number = f'{number_prefix}{number_suffix}'
+		# Exemple : Utilisation de la date et de l'heure actuelles
+		current_time = datetime.now()
+		number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+		number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+		number = f'{number_prefix}{number_suffix}'
 
-	    # Vérifier s'il est unique dans la base de données
-	    while Ticket.objects.filter(number=number).exists():
-	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	        number = f'{number_prefix}{number_suffix}'
+		# Vérifier s'il est unique dans la base de données
+		while Ticket.objects.filter(number=number).exists():
+			number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+			number = f'{number_prefix}{number_suffix}'
 
-	    return number
+		return number
 
 	@property
 	def completion_percentage(self):
@@ -268,7 +268,7 @@ class Ticket(models.Model):
 	@property
 	def efc_report(self):
 		return self.efc_reports.first()
-	    
+		
 	def __str__(self):
 		return self.title
 
@@ -288,14 +288,14 @@ class EfcReport(models.Model):
 
 class TaskAction(models.Model):
 	STATUS = [
-	    ("TO_DO", "À traiter"),
-	    ("IN_PROGRESS", "En cours"),
-	    ("DONE", "Traité")
+		("TO_DO", "À traiter"),
+		("IN_PROGRESS", "En cours"),
+		("DONE", "Traité")
 	]
 	PRIORITIES = [
-	    ("LOW", "Faible"),#
-	    ("MEDIUM", "Moyenne"),#
-	    ("HIGH", "Haute")#
+		("LOW", "Faible"),#
+		("MEDIUM", "Moyenne"),#
+		("HIGH", "Haute")#
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	ticket = models.ForeignKey(Ticket, on_delete=models.SET_NULL, null=True, related_name='actions')
@@ -307,34 +307,43 @@ class TaskAction(models.Model):
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='task_actions', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='task_actions', null=True)
+	is_archived = models.BooleanField(default=False, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
-    
+	
 	def save(self, *args, **kwargs):
-	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
-	    if not self.number:
-	        self.number = self.generate_unique_number()
+		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+		if not self.number:
+			self.number = self.generate_unique_number()
 
-	    super(TaskAction, self).save(*args, **kwargs)
+		super(TaskAction, self).save(*args, **kwargs)
 
 	def generate_unique_number(self):
-	    # Implémentez la logique de génération du numéro unique ici
-	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
-	    # par exemple, en utilisant la fonction strftime de l'objet datetime
-	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+		# Implémentez la logique de génération du numéro unique ici
+		# Vous pouvez utiliser des combinaisons de date, heure, etc.
+		# par exemple, en utilisant la fonction strftime de l'objet datetime
+		# pour générer une chaîne basée sur la date et l'heure actuelles.
 
-	    # Exemple : Utilisation de la date et de l'heure actuelles
-	    current_time = datetime.now()
-	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
-	    number = f'{number_prefix}{number_suffix}'
+		# Exemple : Utilisation de la date et de l'heure actuelles
+		current_time = datetime.now()
+		number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+		number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+		number = f'{number_prefix}{number_suffix}'
 
-	    # Vérifier s'il est unique dans la base de données
-	    while TaskAction.objects.filter(number=number).exists():
-	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	        number = f'{number_prefix}{number_suffix}'
+		# Vérifier s'il est unique dans la base de données
+		while TaskAction.objects.filter(number=number).exists():
+			number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+			number = f'{number_prefix}{number_suffix}'
 
-	    return number
+		return number
+
+	def archive(self):
+		self.archived = True
+		self.save()
+	def unarchive(self):
+		self.archived = False
+		self.save()
 
 	def __str__(self):
 		return str(self.action)

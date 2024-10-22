@@ -43,7 +43,10 @@ class TaskActionFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    statuses = graphene.List(graphene.String, required=False)
     employees = graphene.List(graphene.Int, required=False)
+    list_type = graphene.String(required=False)
+    order_by = graphene.String(required=False)
 
 class TicketType(DjangoObjectType):
     class Meta:
@@ -119,6 +122,7 @@ class TaskActionInput(graphene.InputObjectType):
     due_date = graphene.DateTime(required=False)
     employees = graphene.List(graphene.Int, required=False)
     status = graphene.String(required=False)
+    is_archived = graphene.Boolean(required=False)
 
 class TicketInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -379,21 +383,38 @@ class WorksQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        task_actions = TaskAction.objects.filter(company=company, employees=user.get_employee_in_company())
+        task_actions = TaskAction.objects.filter(company=company, employees=user.get_employee_in_company(), is_deleted=False)
+        the_order_by = '-created_at'
+        is_archived=False
         if task_action_filter:
             keyword = task_action_filter.get('keyword', '')
             starting_date_time = task_action_filter.get('starting_date_time')
             ending_date_time = task_action_filter.get('ending_date_time')
+            statuses = task_action_filter.get('statuses')
             employees = task_action_filter.get('employees')
+            list_type = task_action_filter.get('list_type') # ALL / MY_TASK_ACTIONS / TASK_ACTION_ARCHIVED
+            order_by = task_action_filter.get('order_by')
+            if list_type:
+                if list_type == 'MY_TASK_ACTIONS':
+                    task_actions = task_actions.filter(creator=user)
+                elif list_type == 'TASK_ACTION_ARCHIVED':
+                    is_archived=True
+                elif list_type == 'ALL':
+                    pass
             if employees:
                 task_actions = task_actions.filter(employees__id__in=employees)
             if keyword:
                 task_actions = task_actions.filter(Q(title__icontains=keyword))
             if starting_date_time:
-                task_actions = task_actions.filter(starting_date_time__gte=starting_date_time)
+                task_actions = task_actions.filter(due_date__date__gte=starting_date_time)
             if ending_date_time:
-                task_actions = task_actions.filter(starting_date_time__lte=ending_date_time)
-        task_actions = task_actions.order_by('-due_date').distinct()
+                task_actions = task_actions.filter(due_date__date__lte=ending_date_time)
+            if statuses:
+                task_actions = task_actions.filter(status__in=statuses)
+            if order_by:
+                the_order_by = order_by
+        task_actions = task_actions.filter(is_archived=is_archived)
+        task_actions = task_actions.order_by(the_order_by).distinct()
         total_count = task_actions.count()
         if page:
             offset = limit * (page - 1)
@@ -1113,9 +1134,10 @@ class DeleteTaskAction(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        if current_user.is_superuser:
-            task_action = TaskAction.objects.get(pk=id)
-            task_action.delete()
+        task_action = TaskAction.objects.get(pk=id)
+        if current_user.is_superuser or current_user.is_manager() or (task_action.creator==current_user):
+            # task_action.delete()
+            TaskAction.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
