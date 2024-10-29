@@ -433,7 +433,7 @@ class UpdateCompanyFields(graphene.Mutation):
 
     def mutate(root, info, id, company_fields=None):
         creator = info.context.user
-        if not current_user.creator:
+        if not creator.creator:
             raise ValueError("Vous n'êtes pas un Superuser.")
         done = True
         success = True
