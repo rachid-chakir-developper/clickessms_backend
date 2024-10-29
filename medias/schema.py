@@ -398,6 +398,34 @@ class UpdateContractTemplateState(graphene.Mutation):
 			message = "Une erreur s'est produite."
 		return UpdateContractTemplateState(done=done, success=success, message=message,contract_template=contract_template)
 
+
+def get_field_value(obj, field):
+	"""
+	Recursively retrieves the value of a nested field, supporting
+	`ManyToMany`, `ForeignKey`, and direct field attributes.
+	"""
+	parts = field.split('__')
+	value = obj
+
+	for part in parts:
+		if value is None:
+			return ''
+		
+		# Handling ManyToMany relationships or reverse ForeignKey
+		if hasattr(value, 'all'):
+			related_values = []
+			for related_obj in value.all():
+				related_values.append(get_field_value(related_obj, '__'.join(parts[1:])))
+			return '; '.join(related_values)
+		else:
+			# If the object has a display method for the current part
+			display_method = f'get_{part}_display'
+			if hasattr(value, display_method):
+				value = getattr(value, display_method)()
+			else:
+				value = getattr(value, part, None)
+	return value or ''
+
 class GenerateContractContent(graphene.Mutation):
 	class Arguments:
 		employee_contract_id = graphene.ID(required=True)
@@ -423,6 +451,7 @@ class GenerateContractContent(graphene.Mutation):
 					keys = var.split('__')
 					model = keys[0]
 					key = keys[1]
+					field_path = '__'.join(keys[1:])
 					value = None
 					size = int(size) if size else None
 					
@@ -481,13 +510,10 @@ class GenerateContractContent(graphene.Mutation):
 					else:
 						raise ValueError(f"Modèle non reconnu: {model}")
 
-					# Traitement des valeurs trouvées
-					if value is not None and hasattr(value, key):
-						value = getattr(value, key)
-						display_method = f'get_{key}_display'
-						if hasattr(value, display_method):
-							value = getattr(value, display_method)()
-							
+					# Get the field value using the get_field_value function
+					if value and not key.startswith('custom_field_'):
+						value = get_field_value(value, field_path)
+
 					# Formatage des dates ou conversion en chaîne
 					if isinstance(value, (date, datetime)):
 						context[var] = escape(value.strftime('%d/%m/%Y'))

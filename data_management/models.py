@@ -167,3 +167,7 @@ class VehicleModel(DataModel):
 	vehicle_brand = models.ManyToManyField('data_management.VehicleBrand', related_name='vehicle_models')
 	def __str__(self):
 		return str(self.id)
+
+class EmployeeMission(DataModel):
+	def __str__(self):
+		return str(self.id)

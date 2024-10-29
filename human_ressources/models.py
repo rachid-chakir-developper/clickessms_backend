@@ -271,10 +271,28 @@ class EmployeeContract(models.Model):
         return str(self.id)
 
 # Create your models here.
+class EmployeeContractMission(models.Model):
+    employee_contract = models.ForeignKey(EmployeeContract, on_delete=models.SET_NULL, null=True, related_name='missions')
+    mission = models.ForeignKey('data_management.EmployeeMission', on_delete=models.SET_NULL, related_name='employee_contract_missions', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='employee_contract_mission_former', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+# Create your models here.
 class EmployeeContractEstablishment(models.Model):
     employee_contract = models.ForeignKey(EmployeeContract, on_delete=models.SET_NULL, null=True, related_name='establishments')
     establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='employee_contract_establishment', null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='employee_contract_establishment_former', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+# Create your models here.
+class EmployeeContractReplacedEmployee(models.Model):
+    employee_contract = models.ForeignKey(EmployeeContract, on_delete=models.SET_NULL, null=True, related_name='replaced_employees')
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, related_name='employee_contract_eeplaced_employee', null=True)
+    starting_date = models.DateTimeField(null=True)
+    ending_date = models.DateTimeField(null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='employee_contract_eeplaced_employee_former', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

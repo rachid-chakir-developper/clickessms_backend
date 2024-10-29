@@ -6,8 +6,9 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract, EmployeeContractEstablishment, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
+from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
+from data_management.models import EmployeeMission
 from companies.models import Establishment
 
 from data_management.schema import CustomFieldValueInput
@@ -16,6 +17,16 @@ from data_management.utils import CustomFieldEntityBase
 class EmployeeContractEstablishmentType(DjangoObjectType):
     class Meta:
         model = EmployeeContractEstablishment
+        fields = "__all__"
+
+class EmployeeContractMissionType(DjangoObjectType):
+    class Meta:
+        model = EmployeeContractMission
+        fields = "__all__"
+
+class EmployeeContractReplacedEmployeeType(DjangoObjectType):
+    class Meta:
+        model = EmployeeContractReplacedEmployee
         fields = "__all__"
 
 class EmployeeLeaveDayInfosType(graphene.ObjectType):
@@ -246,6 +257,7 @@ class EmployeeContractInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    missions = graphene.List(graphene.Int, required=False)
     establishments = graphene.List(graphene.Int, required=False)
     contract_type = graphene.String(required=False)
     employee_id = graphene.Int(name="employee", required=False)
@@ -650,6 +662,7 @@ class CreateEmployeeContract(graphene.Mutation):
 
     def mutate(root, info, document=None, employee_contract_data=None):
         creator = info.context.user
+        mission_ids = employee_contract_data.pop("missions")
         establishment_ids = employee_contract_data.pop("establishments")
         custom_field_values = employee_contract_data.pop("custom_field_values")
         employee_contract = EmployeeContract(**employee_contract_data)
@@ -667,6 +680,17 @@ class CreateEmployeeContract(graphene.Mutation):
         employee_contract.save()
         folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.title,creator=creator)
         employee_contract.folder = folder
+        
+        missions = EmployeeMission.objects.filter(id__in=mission_ids)
+        for mission in missions:
+            try:
+                employee_contract_mission = EmployeeContractMission.objects.get(mission__id=mission.id, employee_contract__id=employee_contract.id)
+            except EmployeeContractMission.DoesNotExist:
+                EmployeeContractMission.objects.create(
+                        employee_contract=employee_contract,
+                        mission=mission,
+                        creator=creator
+                    )
         
         establishments = Establishment.objects.filter(id__in=establishment_ids)
         for establishment in establishments:
@@ -692,6 +716,7 @@ class UpdateEmployeeContract(graphene.Mutation):
 
     def mutate(root, info, id, document=None, employee_contract_data=None):
         creator = info.context.user
+        mission_ids = employee_contract_data.pop("missions")
         establishment_ids = employee_contract_data.pop("establishments")
         custom_field_values = employee_contract_data.pop("custom_field_values")
         EmployeeContract.objects.filter(pk=id).update(**employee_contract_data)
@@ -713,6 +738,18 @@ class UpdateEmployeeContract(graphene.Mutation):
                 document_file.save()
                 employee_contract.document = document_file
             employee_contract.save()
+
+        EmployeeContractMission.objects.filter(employee_contract=employee_contract).exclude(mission__id__in=mission_ids).delete()
+        missions = EmployeeMission.objects.filter(id__in=mission_ids)
+        for mission in missions:
+            try:
+                employee_contract_mission = EmployeeContractMission.objects.get(mission__id=mission.id, employee_contract__id=employee_contract.id)
+            except EmployeeContractMission.DoesNotExist:
+                EmployeeContractMission.objects.create(
+                        employee_contract=employee_contract,
+                        mission=mission,
+                        creator=creator
+                    )
 
         EmployeeContractEstablishment.objects.filter(employee_contract=employee_contract).exclude(establishment__id__in=establishment_ids).delete()
         establishments = Establishment.objects.filter(id__in=establishment_ids)

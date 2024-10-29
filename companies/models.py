@@ -5,6 +5,20 @@ import random
 # Create your models here.
 
 class Company(models.Model):
+    COMPANY_STATUS_CHOICES=[
+        ('ACTIVE', 'Active'),
+        ('INACTIVE', 'Inactive'),
+        ('PENDING', 'En attente de vérification'),
+        ('SUSPENDED', 'Suspendue'),
+        ('CLOSED', 'Fermée'),
+        ('TRIAL', "En période d'essai"),
+        ('EXPIRED', 'Expiré'),
+        ('RENEWAL_PENDING', 'Renouvellement en attente'),
+        ('ARCHIVED', 'Archivée'),
+        ('UNDER_REVIEW', 'En révision'),
+        ('TERMINATED', 'Résiliée'),
+        ('ON_HOLD', 'En attente'),
+    ]
     number = models.CharField(max_length=255, editable=False, null=True)
     name = models.CharField(max_length=255, default='Entreprise sans nom')
     logo = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='company_logo', null=True)
@@ -32,12 +46,22 @@ class Company(models.Model):
     bank_name = models.CharField(max_length=255, null=True)
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
+    status = models.CharField(max_length=20, choices=COMPANY_STATUS_CHOICES, default='TRIAL')
     is_active = models.BooleanField(default=True, null=True)
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='company_creator', null=True)
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    @property
+    def company_admin(self):
+        try:
+            user_company = self.company_users.filter(roles__name="ADMIN").first()
+            return user_company.user if user_company else None
+        except Exception as e:
+            print(f"company_admin Exception: {e}")
+            return None
     
     def save(self, *args, **kwargs):
         # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini

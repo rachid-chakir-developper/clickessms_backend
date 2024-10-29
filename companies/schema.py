@@ -10,6 +10,8 @@ from django.db.models import Q
 from companies.models import Company, Establishment, EstablishmentManager, ActivityAuthorization
 from medias.models import File, Folder
 from human_ressources.models import Employee
+from accounts.models import User
+from accounts.schema import UserType
 
 class CompanyType(DjangoObjectType):
     class Meta:
@@ -17,14 +19,22 @@ class CompanyType(DjangoObjectType):
         fields = "__all__"
     logo = graphene.String()
     cover_image = graphene.String()
+    company_admin = graphene.Field(UserType)
     def resolve_logo( instance, info, **kwargs ):
         return instance.logo and info.context.build_absolute_uri(instance.logo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
+    def resolve_company_admin( instance, info, **kwargs ):
+        return instance.company_admin
 
 class CompanyNodeType(graphene.ObjectType):
     nodes = graphene.List(CompanyType)
     total_count = graphene.Int()
+
+class CompanyFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
 
 class EstablishmentManagerType(DjangoObjectType):
     class Meta:
@@ -75,6 +85,20 @@ class EstablishmentFilterInput(graphene.InputObjectType):
     establishment_categories = graphene.List(graphene.String, required=False)
     establishment_types = graphene.List(graphene.String, required=False)
 
+class CompanyAdminInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    first_name = graphene.String(required=True)
+    last_name = graphene.String(required=True)
+    email = graphene.String(required=True)
+    username = graphene.String(required=False)
+    password1 = graphene.String(required=False)
+    password2 = graphene.String(required=False)
+
+class CompanyFieldInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    is_active = graphene.Boolean(required=False)
+    status = graphene.String(required=False)
+
 class CompanyInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -102,7 +126,9 @@ class CompanyInput(graphene.InputObjectType):
     bank_name = graphene.String(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    status = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
+    company_admin = graphene.Field(CompanyAdminInput, required=False)
 
 class ActivityAuthorizationInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -155,29 +181,45 @@ class EstablishmentInput(graphene.InputObjectType):
 
 
 class CompanyQuery(graphene.ObjectType):
-    companies = graphene.Field(CompanyNodeType, offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    companies = graphene.Field(CompanyNodeType, company_filter= CompanyFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     company = graphene.Field(CompanyType, id = graphene.ID(required=False))
     establishments = graphene.Field(EstablishmentNodeType, id_parent = graphene.ID(required=False), establishment_filter= EstablishmentFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     establishment = graphene.Field(EstablishmentType, id = graphene.ID())
 
-    def resolve_companies(root, info, offset=None, limit=None, page=None):
+    
+    def resolve_companies(root, info, id_parent=None, company_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         total_count = 0
-        total_count = Company.objects.all().count()
+        user = info.context.user
+        companies = Company.objects.filter(is_deleted=False)
+        if id_parent:
+            companies = companies.filter(company_parent__id=id_parent if int(id_parent) > 0 else None)
+        if company_filter:
+            keyword = company_filter.get('keyword', '')
+            starting_date_time = company_filter.get('starting_date_time')
+            ending_date_time = company_filter.get('ending_date_time')
+            if keyword:
+                companies = companies.filter(Q(name__icontains=keyword) | Q(siret__icontains=keyword) | Q(finess__icontains=keyword) | Q(ape_code__icontains=keyword) | Q(zip_code__icontains=keyword) | Q(address__icontains=keyword))
+            if starting_date_time:
+                companies = companies.filter(opening_date__gte=starting_date_time)
+            if ending_date_time:
+                companies = companies.filter(opening_date__lte=ending_date_time)
+        companies = companies.order_by('-created_at')
+        total_count = companies.count()
         if page:
-            offset = limit*(page-1)
+            offset = limit * (page - 1)
         if offset is not None and limit is not None:
-            companies = Company.objects.all()[offset:offset+limit]
-        else:
-            companies = Company.objects.all()
+            companies = companies[offset:offset + limit]
         return CompanyNodeType(nodes=companies, total_count=total_count)
 
     def resolve_company(root, info, id=None):
         user = info.context.user
         # We can easily optimize query count in the resolve method
         try:
-            # company = Company.objects.get(pk=id)
-            company = user.company
+            if id:
+                company = Company.objects.get(pk=id)
+            else:
+                company = user.company
         except Exception as e:
             print(f"Exception: {e}")
             company = None
@@ -236,6 +278,9 @@ class CreateCompany(graphene.Mutation):
 
     def mutate(root, info, logo=None, cover_image=None, company_data=None):
         creator = info.context.user
+        if not creator.is_superuser:
+            raise ValueError("Vous n'êtes pas un Superuser.")
+        company_admin = company_data.pop("company_admin") if ('company_admin' in company_data) else None
         company = Company(**company_data)
         company.creator = creator
         if info.context.FILES:
@@ -258,6 +303,33 @@ class CreateCompany(graphene.Mutation):
                 cover_image_file.save()
                 company.cover_image = cover_image_file
         company.save()
+        if company_admin:
+            password1 = company_admin.password1 if 'password1' in company_admin and company_admin.password1!='' else 'password1'
+            password2 = company_admin.password2 if 'password2' in company_admin and company_admin.password2!='' else 'password2'
+            if password1 and password1 and password1 != password2:
+                raise ValueError("Les mots de passe ne correspondent pas")
+            user = User(
+                first_name=company_admin.first_name,
+                last_name=company_admin.last_name,
+                email=company_admin.email,
+                creator=creator,
+                company=company
+            )
+            if password1 and password1:
+                user.set_password(password1)
+            user.save()
+            if user:
+                user.set_roles_in_company(roles_names=['ADMIN'])
+                employee = Employee(
+                    first_name=company_admin.first_name,
+                    last_name=company_admin.last_name,
+                    email=company_admin.email,
+                    creator=creator,
+                    company=company
+                )
+                employee.save()
+                if employee:
+                    user.set_employee_for_company(employee_id=employee.id)
         return CreateCompany(company=company)
 
 class UpdateCompany(graphene.Mutation):
@@ -271,7 +343,13 @@ class UpdateCompany(graphene.Mutation):
 
     def mutate(root, info, id=None, logo=None, cover_image=None, company_data=None):
         creator = info.context.user
-        company = creator.current_company if creator.current_company is not None else creator.company
+        company_admin = company_data.pop("company_admin") if ('company_admin' in company_data) else None
+        if id:
+            company = Company.objects.get(pk=id)
+            if not creator.is_superuser and creator.the_current_company != company:
+                raise ValueError("Vous n'êtes pas un Superuser.")
+        else:
+            company = creator.the_current_company
         if not company:
             company = Company(**company_data)
             company.creator = creator
@@ -313,8 +391,62 @@ class UpdateCompany(graphene.Mutation):
                 cover_image_file.save()
                 company.cover_image = cover_image_file
             company.save()
+        if company_admin:
+            password1 = company_admin.password1 if 'password1' in company_admin and company_admin.password1!='' else None
+            password2 = company_admin.password2 if 'password2' in company_admin and company_admin.password2!='' else None
+            if password1 and password1 and password1 != password2:
+                raise ValueError("Les mots de passe ne correspondent pas")
+
+            user=None
+            try:
+                user = User.objects.get(email=company_admin.email)
+            except User.DoesNotExist:
+                user = User(creator=creator, company=company, email=company_admin.email)
+                user.save()
+            User.objects.filter(pk=user.id).update(first_name=company_admin.first_name, last_name=company_admin.last_name)
+            user.refresh_from_db()
+            if password1 and password1:
+                user.set_password(password1)
+                user.save()
+            if user:
+                user.set_roles_in_company(roles_names=['ADMIN'])
+                employee = user.get_employee_in_company()
+                if not employee:
+                    employee = Employee(creator=creator, company=company, email=company_admin.email)
+                    employee.save()
+                Employee.objects.filter(pk=employee.id).update(first_name=company_admin.first_name, last_name=company_admin.last_name)
+                employee.refresh_from_db()
+                if employee:
+                    user.set_employee_for_company(employee_id=employee.id)
         return UpdateCompany(company=company)
 
+
+class UpdateCompanyFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        company_fields = CompanyFieldInput(required=False)
+
+    company = graphene.Field(CompanyType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, company_fields=None):
+        creator = info.context.user
+        if not current_user.creator:
+            raise ValueError("Vous n'êtes pas un Superuser.")
+        done = True
+        success = True
+        company = None
+        message = ''
+        try:
+            Company.objects.filter(pk=id).update(**company_fields)
+            company = Company.objects.get(pk=id)
+        except Exception as e:
+            done = False
+            success = False
+            message = "Une erreur s'est produite."
+        return UpdateCompanyFields(done=done, success=success, message=message,company=company)
 
 class DeleteCompany(graphene.Mutation):
     class Arguments:
@@ -332,8 +464,8 @@ class DeleteCompany(graphene.Mutation):
         message = ''
         current_user = info.context.user
         if current_user.is_superuser:
-            company = Company.objects.get(pk=id)
-            company.delete()
+            # company = Company.objects.get(pk=id)
+            # company.delete()
             deleted = True
             success = True
         else:
@@ -553,6 +685,7 @@ class DeleteEstablishment(graphene.Mutation):
 class CompanyMutation(graphene.ObjectType):
     create_company = CreateCompany.Field()
     update_company = UpdateCompany.Field()
+    update_company_fields = UpdateCompanyFields.Field()
     delete_company = DeleteCompany.Field()
 
     create_establishment = CreateEstablishment.Field()

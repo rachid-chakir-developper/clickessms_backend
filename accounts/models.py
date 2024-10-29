@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.utils.text import slugify
 
 # Create your models here.
 class Role(models.Model):
@@ -63,6 +64,10 @@ class User(AbstractUser):
             UserCompany.objects.create(user=self, company=company)
             return True
         return False
+        
+    @property
+    def the_current_company(self):
+        return self.current_company if self.current_company is not None else self.company
 
     def get_current_company(self):
         return self.current_company if self.current_company is not None else self.company
@@ -266,6 +271,20 @@ class User(AbstractUser):
             facility_managers = cls.objects.filter(roles__name='FACILITY_MANAGER', company=company).distinct()
         return facility_managers
 
+    def save(self, *args, **kwargs):
+        # Générer un nom d'utilisateur à partir de l'email si non fourni
+        if not self.username and self.email:
+            base_username = slugify(self.email.split('@')[0])
+            username = base_username
+            counter = 1
+            # S'assurer que le nom d'utilisateur est unique
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}{counter}"
+                counter += 1
+            self.username = username
+        
+        super(User, self).save(*args, **kwargs)
+
 
 class UserCompany(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='managed_companies', null=True)
@@ -274,8 +293,8 @@ class UserCompany(models.Model):
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
     partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
     financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
-    supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, null=True)
-    company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
+    supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
+    company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True, related_name='company_users')
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
