@@ -15,13 +15,13 @@ from vehicles.schema import VehiclesQuery, VehiclesMutation
 from partnerships.schema import PartnershipsQuery, PartnershipsMutation
 from sales.schema import SalesQuery, SalesMutation
 from purchases.schema import PurchasesQuery, PurchasesMutation
-from works.schema import WorksQuery, WorksMutation
+from works.schema import WorksQuery, WorksMutation, WorksSubscription
 from feedbacks.schema import CommentsQuery, CommentsMutation, CommentsSubscription
 from notifications.schema import NotificationsQuery, NotificationsMutation, NotificationsSubscription
 from chat.schema import ChatQuery, ChatMutation, ChatSubscription
 from loan_management.schema import LoansQuery, LoansMutation
 from activities.schema import ActivitiesQuery, ActivitiesMutation
-from qualities.schema import QualitiesQuery, QualitiesMutation
+from qualities.schema import QualitiesQuery, QualitiesMutation, QualitiesSubscription
 from administratives.schema import AdministrativesQuery, AdministrativesMutation
 from finance.schema import FinanceQuery, FinanceMutation
 from governance.schema import GovernanceQuery, GovernanceMutation
@@ -76,7 +76,9 @@ class Mutation(AuthMutation, UserMutation, MediasMutation, DataMutation,
     graphene.ObjectType):
    pass
 
-class Subscription(UserSubscription, CommentsSubscription, NotificationsSubscription, ChatSubscription, graphene.ObjectType):
+class Subscription(UserSubscription, QualitiesSubscription, WorksSubscription, CommentsSubscription,
+    NotificationsSubscription, ChatSubscription,
+    graphene.ObjectType):
    pass
 
 schema = graphene.Schema(query=Query, mutation=Mutation, subscription=Subscription)

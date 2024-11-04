@@ -1,4 +1,5 @@
 import graphene
+import channels_graphql_ws
 from graphene_django import DjangoObjectType
 from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
@@ -10,6 +11,8 @@ from django.db.models import Q
 from django.db import transaction
 
 from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson
+from qualities.broadcaster import broadcastUndesirableEventAdded, broadcastUndesirableEventUpdated, broadcastUndesirableEventDeleted
+from works.broadcaster import broadcastTicketAdded
 
 from medias.models import Folder, File
 from medias.schema import MediaInput
@@ -258,6 +261,7 @@ class CreateUndesirableEvent(graphene.Mutation):
                         creator=creator
                     )
         undesirable_event.save()
+        broadcastUndesirableEventAdded(undesirable_event=undesirable_event)
         return CreateUndesirableEvent(undesirable_event=undesirable_event)
 
 class UpdateUndesirableEvent(graphene.Mutation):
@@ -390,6 +394,7 @@ class UpdateUndesirableEvent(graphene.Mutation):
                         employee=notified_person,
                         creator=creator
                     )
+        broadcastUndesirableEventUpdated(undesirable_event=undesirable_event)
         return UpdateUndesirableEvent(undesirable_event=undesirable_event)
 
 class UpdateUndesirableEventFields(graphene.Mutation):
@@ -417,6 +422,7 @@ class UpdateUndesirableEventFields(graphene.Mutation):
                 if employee_user:
                     notify_undesirable_event(sender=creator, recipient=employee_user, undesirable_event=undesirable_event)
             undesirable_event.refresh_from_db()
+            broadcastUndesirableEventUpdated(undesirable_event=undesirable_event)
         except Exception as e:
             done = False
             success = False
@@ -445,6 +451,7 @@ class UpdateUndesirableEventState(graphene.Mutation):
             undesirable_event = UndesirableEvent.objects.get(pk=id)
             UndesirableEvent.objects.filter(pk=id).update(is_active=not undesirable_event.is_active)
             undesirable_event.refresh_from_db()
+            broadcastUndesirableEventUpdated(undesirable_event=undesirable_event)
         except Exception as e:
             done = False
             success = False
@@ -492,7 +499,10 @@ class CreateUndesirableEventTicket(graphene.Mutation):
                         if ue_establishment.establishment:
                             ticket.establishments.add(ue_establishment.establishment)
                     UndesirableEvent.objects.filter(pk=id).update(status='IN_PROGRESS')
+                    ticket.refresh_from_db()
+                    broadcastTicketAdded(ticket=ticket)
                     undesirable_event.refresh_from_db()
+                    broadcastUndesirableEventUpdated(undesirable_event=undesirable_event)
                     message = 'Ticket créé avec succès avec les établissements associés.'
             employee_user = undesirable_event.employee.user if undesirable_event.employee else undesirable_event.creator
             if employee_user:
@@ -536,6 +546,7 @@ class DeleteUndesirableEvent(graphene.Mutation):
             UndesirableEvent.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
+            broadcastUndesirableEventDeleted(undesirable_event=undesirable_event)
         else:
             deleted = False
             success = False
@@ -551,3 +562,113 @@ class QualitiesMutation(graphene.ObjectType):
     update_undesirable_event_state = UpdateUndesirableEventState.Field()
     create_undesirable_event_ticket = CreateUndesirableEventTicket.Field()
     delete_undesirable_event = DeleteUndesirableEvent.Field()
+
+
+
+
+#*********************************Subscription****************************************#
+
+
+class OnUndesirableEventAdded(channels_graphql_ws.Subscription):
+    """Simple GraphQL subscription."""
+
+    # Leave only latest 64 messages in the server queue.
+    notification_queue_limit = 64
+
+    # Subscription payload.
+    undesirable_event = graphene.Field(UndesirableEventType)
+
+    class Arguments:
+        """That is how subscription arguments are defined."""
+
+    @staticmethod
+    def subscribe(root, info):
+        """Called when user subscribes."""
+
+        # Return the list of subscription group names.
+        return ["ON_EI_ADDED"]
+
+    @staticmethod
+    def publish(payload, info):
+        """Called to notify the client."""
+
+        # Here `payload` contains the `payload` from the `broadcast()`
+        # invocation (see below). You can return `MySubscription.SKIP`
+        # if you wish to suppress the notification to a particular
+        # client. For example, this allows to avoid notifications for
+        # the actions made by this particular client.
+        user = info.context.user
+        if str(user.the_current_company.id) != str(payload.company.id) and not user.can_manage_quality():
+            return OnUndesirableEventAdded.SKIP
+        return OnUndesirableEventAdded(undesirable_event=payload)
+
+class OnUndesirableEventUpdated(channels_graphql_ws.Subscription):
+    """Simple GraphQL subscription."""
+
+    # Leave only latest 64 messages in the server queue.
+    notification_queue_limit = 64
+
+    # Subscription payload.
+    undesirable_event = graphene.Field(UndesirableEventType)
+
+    class Arguments:
+        """That is how subscription arguments are defined."""
+
+    @staticmethod
+    def subscribe(root, info):
+        """Called when user subscribes."""
+
+        # Return the list of subscription group names.
+        return ["ON_EI_UPDATED"]
+
+    @staticmethod
+    def publish(payload, info):
+        """Called to notify the client."""
+
+        # Here `payload` contains the `payload` from the `broadcast()`
+        # invocation (see below). You can return `MySubscription.SKIP`
+        # if you wish to suppress the notification to a particular
+        # client. For example, this allows to avoid notifications for
+        # the actions made by this particular client.
+        user = info.context.user
+        if str(user.the_current_company.id) != str(payload.company.id):
+            return OnUndesirableEventUpdated.SKIP
+        return OnUndesirableEventUpdated(undesirable_event=payload)
+
+class OnUndesirableEventDeleted(channels_graphql_ws.Subscription):
+    """Simple GraphQL subscription."""
+
+    # Leave only latest 64 messages in the server queue.
+    notification_queue_limit = 64
+
+    # Subscription payload.
+    undesirable_event = graphene.Field(UndesirableEventType)
+
+    class Arguments:
+        """That is how subscription arguments are defined."""
+
+    @staticmethod
+    def subscribe(root, info):
+        """Called when user subscribes."""
+
+        # Return the list of subscription group names.
+        return ["ON_EI_DELETED"]
+
+    @staticmethod
+    def publish(payload, info):
+        """Called to notify the client."""
+
+        # Here `payload` contains the `payload` from the `broadcast()`
+        # invocation (see below). You can return `MySubscription.SKIP`
+        # if you wish to suppress the notification to a particular
+        # client. For example, this allows to avoid notifications for
+        # the actions made by this particular client.
+        user = info.context.user
+        if str(user.the_current_company.id) != str(payload.company.id):
+            return OnUndesirableEventDeleted.SKIP
+        return OnUndesirableEventDeleted(undesirable_event=payload)
+
+class QualitiesSubscription(graphene.ObjectType):
+    on_undesirable_event_added = OnUndesirableEventAdded.Field()
+    on_undesirable_event_updated = OnUndesirableEventUpdated.Field()
+    on_undesirable_event_deleted = OnUndesirableEventDeleted.Field()

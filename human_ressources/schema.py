@@ -240,6 +240,14 @@ class EmployeeGroupInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     employees = graphene.List(graphene.Int, required=False)
 
+class EmployeeContractReplacedEmployeeInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    position = graphene.String(required=False)
+    reason = graphene.String(required=False)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+
 class EmployeeContractInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -262,6 +270,7 @@ class EmployeeContractInput(graphene.InputObjectType):
     contract_type = graphene.String(required=False)
     employee_id = graphene.Int(name="employee", required=False)
     custom_field_values = graphene.List(CustomFieldValueInput, required=False)
+    replaced_employees = graphene.List(EmployeeContractReplacedEmployeeInput, required=False)
 
 class BeneficiaryAdmissionDocumentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -664,6 +673,7 @@ class CreateEmployeeContract(graphene.Mutation):
         creator = info.context.user
         mission_ids = employee_contract_data.pop("missions")
         establishment_ids = employee_contract_data.pop("establishments")
+        replaced_employees = employee_contract_data.pop("replaced_employees")
         custom_field_values = employee_contract_data.pop("custom_field_values")
         employee_contract = EmployeeContract(**employee_contract_data)
         employee_contract.creator = creator
@@ -702,6 +712,13 @@ class CreateEmployeeContract(graphene.Mutation):
                         establishment=establishment,
                         creator=creator
                     )
+
+        for item in replaced_employees:
+            replaced_employee = EmployeeContractReplacedEmployee(**item)
+            replaced_employee.employee_contract = employee_contract
+            replaced_employee.save()
+
+
         employee_contract.save()
         CustomFieldEntityBase.save_custom_fields(employee_contract, custom_field_values)
         return CreateEmployeeContract(employee_contract=employee_contract)
@@ -718,6 +735,7 @@ class UpdateEmployeeContract(graphene.Mutation):
         creator = info.context.user
         mission_ids = employee_contract_data.pop("missions")
         establishment_ids = employee_contract_data.pop("establishments")
+        replaced_employees = employee_contract_data.pop("replaced_employees")
         custom_field_values = employee_contract_data.pop("custom_field_values")
         EmployeeContract.objects.filter(pk=id).update(**employee_contract_data)
         employee_contract = EmployeeContract.objects.get(pk=id)
@@ -762,6 +780,16 @@ class UpdateEmployeeContract(graphene.Mutation):
                         establishment=establishment,
                         creator=creator
                     )
+        replaced_employee_ids = [item.id for item in replaced_employees if item.id is not None]
+        EmployeeContractReplacedEmployee.objects.filter(employee_contract=employee_contract).exclude(id__in=replaced_employee_ids).delete()
+        for item in replaced_employees:
+            if id in item or 'id' in item:
+                EmployeeContractReplacedEmployee.objects.filter(pk=item.id).update(**item)
+            else:
+                replaced_employee = EmployeeContractReplacedEmployee(**item)
+                replaced_employee.employee_contract = employee_contract
+                replaced_employee.save()
+
         CustomFieldEntityBase.save_custom_fields(employee_contract, custom_field_values)
         return UpdateEmployeeContract(employee_contract=employee_contract)
 

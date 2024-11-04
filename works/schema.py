@@ -1,4 +1,5 @@
 import graphene
+import channels_graphql_ws
 from graphene_django import DjangoObjectType
 from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
@@ -9,6 +10,10 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 
 from works.models import Task, TaskEstablishment, TaskWorker, TaskMaterial, TaskVehicle, TaskChecklistItem, TaskStep, STEP_TYPES_LABELS, STEP_TYPES_ALL, STATUS_All, Ticket, EfcReport, TaskAction
+from works.broadcaster import broadcastTicketAdded, broadcastTicketUpdated, broadcastTicketDeleted
+
+from qualities.models import UndesirableEvent
+
 from human_ressources.models import Employee
 from companies.models import Establishment
 from vehicles.models import Vehicle
@@ -914,6 +919,7 @@ class CreateTicket(graphene.Mutation):
                         notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action,)
 
         ticket.save()
+        broadcastTicketAdded(ticket=ticket)
         return CreateTicket(ticket=ticket)
 
 class UpdateTicket(graphene.Mutation):
@@ -983,7 +989,7 @@ class UpdateTicket(graphene.Mutation):
                     employee_user = employee.user
                     if employee_user:
                         notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action)
-
+        broadcastTicketUpdated(ticket=ticket)
         return UpdateTicket(ticket=ticket)
 
 class UpdateTicketFields(graphene.Mutation):
@@ -1006,6 +1012,7 @@ class UpdateTicketFields(graphene.Mutation):
             ticket = Ticket.objects.get(pk=id)
             Ticket.objects.filter(pk=id).update(**ticket_data)
             ticket.refresh_from_db()
+            broadcastTicketUpdated(ticket=ticket)
         except Exception as e:
             done = False
             success = False
@@ -1035,6 +1042,7 @@ class DeleteTicket(graphene.Mutation):
             Ticket.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
+            broadcastTicketDeleted(ticket=ticket)
         else:
             message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteTicket(deleted=deleted, success=success, message=message, id=id)
@@ -1116,6 +1124,15 @@ class UpdateTaskAction(graphene.Mutation):
             task_action.save()
         if employees_ids and employees_ids is not None:
             task_action.employees.set(employees_ids)
+        if task_action.ticket:
+            if task_action.ticket.undesirable_event.completion_percentage >= 100:
+                Ticket.objects.filter(pk=id).update(status='IN_PROGRESS')
+            elif task_action.ticket.undesirable_event.completion_percentage > 0:
+                Ticket.objects.filter(pk=id).update(status='COMPLETED')
+            if task_action.ticket.undesirable_event:
+                if task_action.ticket.undesirable_event.completion_percentage >= 100:
+                    UndesirableEvent.objects.filter(pk=id).update(status='COMPLETED')
+
         return UpdateTaskAction(task_action=task_action)
 
 
@@ -1166,3 +1183,111 @@ class WorksMutation(graphene.ObjectType):
     create_task_action = CreateTaskAction.Field()
     update_task_action = UpdateTaskAction.Field()
     delete_task_action = DeleteTaskAction.Field()
+
+
+#*********************************Subscription****************************************#
+
+
+class OnTicketAdded(channels_graphql_ws.Subscription):
+    """Simple GraphQL subscription."""
+
+    # Leave only latest 64 messages in the server queue.
+    notification_queue_limit = 64
+
+    # Subscription payload.
+    ticket = graphene.Field(TicketType)
+
+    class Arguments:
+        """That is how subscription arguments are defined."""
+
+    @staticmethod
+    def subscribe(root, info):
+        """Called when user subscribes."""
+
+        # Return the list of subscription group names.
+        return ["ON_TICKET_ADDED"]
+
+    @staticmethod
+    def publish(payload, info):
+        """Called to notify the client."""
+
+        # Here `payload` contains the `payload` from the `broadcast()`
+        # invocation (see below). You can return `MySubscription.SKIP`
+        # if you wish to suppress the notification to a particular
+        # client. For example, this allows to avoid notifications for
+        # the actions made by this particular client.
+        user = info.context.user
+        if str(user.the_current_company.id) != str(payload.company.id) and not user.can_manage_quality():
+            return OnTicketAdded.SKIP
+        return OnTicketAdded(ticket=payload)
+
+class OnTicketUpdated(channels_graphql_ws.Subscription):
+    """Simple GraphQL subscription."""
+
+    # Leave only latest 64 messages in the server queue.
+    notification_queue_limit = 64
+
+    # Subscription payload.
+    ticket = graphene.Field(TicketType)
+
+    class Arguments:
+        """That is how subscription arguments are defined."""
+
+    @staticmethod
+    def subscribe(root, info):
+        """Called when user subscribes."""
+
+        # Return the list of subscription group names.
+        return ["ON_TICKET_UPDATED"]
+
+    @staticmethod
+    def publish(payload, info):
+        """Called to notify the client."""
+
+        # Here `payload` contains the `payload` from the `broadcast()`
+        # invocation (see below). You can return `MySubscription.SKIP`
+        # if you wish to suppress the notification to a particular
+        # client. For example, this allows to avoid notifications for
+        # the actions made by this particular client.
+        user = info.context.user
+        if str(user.the_current_company.id) != str(payload.company.id):
+            return OnTicketUpdated.SKIP
+        return OnTicketUpdated(ticket=payload)
+
+class OnTicketDeleted(channels_graphql_ws.Subscription):
+    """Simple GraphQL subscription."""
+
+    # Leave only latest 64 messages in the server queue.
+    notification_queue_limit = 64
+
+    # Subscription payload.
+    ticket = graphene.Field(TicketType)
+
+    class Arguments:
+        """That is how subscription arguments are defined."""
+
+    @staticmethod
+    def subscribe(root, info):
+        """Called when user subscribes."""
+
+        # Return the list of subscription group names.
+        return ["ON_TICKET_DELETED"]
+
+    @staticmethod
+    def publish(payload, info):
+        """Called to notify the client."""
+
+        # Here `payload` contains the `payload` from the `broadcast()`
+        # invocation (see below). You can return `MySubscription.SKIP`
+        # if you wish to suppress the notification to a particular
+        # client. For example, this allows to avoid notifications for
+        # the actions made by this particular client.
+        user = info.context.user
+        if str(user.the_current_company.id) != str(payload.company.id):
+            return OnTicketDeleted.SKIP
+        return OnTicketDeleted(ticket=payload)
+
+class WorksSubscription(graphene.ObjectType):
+    on_ticket_added = OnTicketAdded.Field()
+    on_ticket_updated = OnTicketUpdated.Field()
+    on_ticket_deleted = OnTicketDeleted.Field()

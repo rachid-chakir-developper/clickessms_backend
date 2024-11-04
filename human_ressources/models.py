@@ -290,11 +290,22 @@ class EmployeeContractEstablishment(models.Model):
 class EmployeeContractReplacedEmployee(models.Model):
     employee_contract = models.ForeignKey(EmployeeContract, on_delete=models.SET_NULL, null=True, related_name='replaced_employees')
     employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, related_name='employee_contract_eeplaced_employee', null=True)
+    position = models.CharField(max_length=255, null=True, blank=True)
+    reason = models.CharField(max_length=255, null=True, blank=True)
     starting_date = models.DateTimeField(null=True)
     ending_date = models.DateTimeField(null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='employee_contract_eeplaced_employee_former', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    @property
+    def text(self):
+        """Retourne une description complète de l'instance."""
+        if self.employee and self.starting_date and self.ending_date:
+            start_date_formatted = self.starting_date.strftime('%d %B %Y')
+            end_date_formatted = self.ending_date.strftime('%d %B %Y')
+            return f"{self.employee.last_name.upper()} {self.employee.first_name}, {self.position}, en {self.reason} du {start_date_formatted} au {end_date_formatted}"
+        return f"Contrat employé remplacé ID: {self.id}"
 
 # Create your models here.
 class Beneficiary(models.Model):
