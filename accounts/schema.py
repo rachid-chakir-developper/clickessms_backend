@@ -266,14 +266,11 @@ class CreateUser(graphene.Mutation):
         supplier_id = user_data.pop("supplier_id") if ('supplier_id' in user_data) else None
         # company_id = user_data.pop("company_id")
 
-        password1 = user_data.username if 'username' in user_data else 'password1'
-        password2 = user_data.username if 'username' in user_data else 'password2'
-        if password1 in user_data:
-            password1 = user_data.pop("password1")
-        if password2 in user_data:
-            password2 = user_data.pop("password2")
+        password1 = user_data.pop("password1") if 'password1' in user_data and user_data.password1!='' else 'password1'
+        password2 = user_data.pop("password2") if 'password2' in user_data and user_data.password2!='' else 'password2'
         if password1 and password1 and password1 != password2:
             raise ValueError("Les mots de passe ne correspondent pas")
+
         user = User(**user_data)
         user.creator = creator
         user.company = creator.company
@@ -313,7 +310,7 @@ class CreateUser(graphene.Mutation):
                 cover_image_file.image = cover_image
                 cover_image_file.save()
                 user.cover_image = cover_image_file
-        if password1:
+        if password1 and password1!='':
             user.set_password(password1)
         user.status.verified = True
         user.status.save(update_fields=["verified"])
@@ -339,14 +336,12 @@ class UpdateUser(graphene.Mutation):
         financier_id = user_data.pop("financier_id") if ('financier_id' in user_data) else None
         supplier_id = user_data.pop("supplier_id") if ('supplier_id' in user_data) else None
         # company_id = user_data.pop("company_id")
-        password1 = None
-        password2 = None
-        if password1 in user_data:
-            password1 = user_data.pop("password1")
-        if password2 in user_data:
-            password2 = user_data.pop("password2")
+
+        password1 = user_data.pop("password1") if 'password1' in user_data and user_data.password1!='' else None
+        password2 = user_data.pop("password2")if 'password2' in user_data and user_data.password2!='' else None
         if password1 and password1 and password1 != password2:
             raise ValueError("Les mots de passe ne correspondent pas")
+
         User.objects.filter(pk=id).update(**user_data)
         user = User.objects.get(pk=id)
         user.set_roles_in_company(roles_names=roles)
@@ -391,10 +386,10 @@ class UpdateUser(graphene.Mutation):
                 cover_image_file.save()
                 user.cover_image = cover_image_file
             user.save()
-        # if password1:
-        #     user.set_password(password1)
-        #     user.save()
-        user = User.objects.get(pk=id)
+        if password1 and password1!='':
+            user.set_password(password1)
+            user.save()
+        user.refresh_from_db()
         return UpdateUser(user=user)
 
 class UpdateUserState(graphene.Mutation):

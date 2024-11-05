@@ -315,7 +315,7 @@ class CreateCompany(graphene.Mutation):
                 creator=creator,
                 company=company
             )
-            if password1 and password1:
+            if password1 and password1!='':
                 user.set_password(password1)
             user.save()
             if user:
@@ -405,7 +405,7 @@ class UpdateCompany(graphene.Mutation):
                 user.save()
             User.objects.filter(pk=user.id).update(first_name=company_admin.first_name, last_name=company_admin.last_name)
             user.refresh_from_db()
-            if password1 and password1:
+            if password1 and password1!='':
                 user.set_password(password1)
                 user.save()
             if user:
