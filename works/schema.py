@@ -1088,6 +1088,10 @@ class CreateTaskAction(graphene.Mutation):
         task_action.save()
         if employees_ids and employees_ids is not None:
             task_action.employees.set(employees_ids)
+            for employee in task_action.employees.all():
+                employee_user = employee.user
+                if employee_user:
+                    notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action)
         return CreateTaskAction(task_action=task_action)
 
 
@@ -1124,7 +1128,13 @@ class UpdateTaskAction(graphene.Mutation):
                 task_action.document = document_file
             task_action.save()
         if employees_ids and employees_ids is not None:
+            existing_employee_ids = set(task_action.employees.values_list('id', flat=True))
+            new_employee_ids = set(employees_ids) - existing_employee_ids
             task_action.employees.set(employees_ids)
+            for employee in task_action.employees.filter(id__in=new_employee_ids):
+                employee_user = employee.user
+                if employee_user:
+                    notify_employee_task_action(sender=creator, recipient=employee_user, task_action=task_action)
         if task_action.ticket:
             ticket = task_action.ticket
             if ticket.completion_percentage >= 100 and ticket.status!='COMPLETED':
