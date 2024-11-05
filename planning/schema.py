@@ -8,7 +8,7 @@ from django.core.exceptions import PermissionDenied
 
 from django.db.models import Q
 
-from planning.models import EmployeeAbsence, EmployeeAbsenceItem
+from planning.models import EmployeeAbsence, EmployeeAbsenceItem, EmployeeShift
 from data_management.models import AbsenceReason
 from medias.models import Folder, File
 from human_ressources.models import Employee
@@ -58,14 +58,47 @@ class EmployeeAbsenceInput(graphene.InputObjectType):
     other_reasons = graphene.String(required=False)
     status = graphene.String(required=False)
 
+class EmployeeShiftType(DjangoObjectType):
+    class Meta:
+        model = EmployeeShift
+        fields = "__all__"
+
+class EmployeeShiftNodeType(graphene.ObjectType):
+    nodes = graphene.List(EmployeeShiftType)
+    total_count = graphene.Int()
+
+class EmployeeShiftFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    employees = graphene.List(graphene.Int, required=False)
+
+class EmployeeShiftInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    title = graphene.String(required=False)
+    description = graphene.String(required=False)
+    is_recurring = graphene.Boolean(required=False)
+    recurrence_rule = graphene.String(required=False)
+    shift_type = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    scheduled_date_time = graphene.DateTime(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    employee_group_id = graphene.Int(name="employeeGroup", required=False)
+    status = graphene.String(required=False)
+
 class PlanningQuery(graphene.ObjectType):
     employee_absences = graphene.Field(EmployeeAbsenceNodeType, employee_absence_filter= EmployeeAbsenceFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     employee_absence = graphene.Field(EmployeeAbsenceType, id = graphene.ID())
 
+    employee_shifts = graphene.Field(EmployeeShiftNodeType, employee_shift_filter= EmployeeShiftFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    employee_shift = graphene.Field(EmployeeShiftType, id = graphene.ID())
+
     def resolve_employee_absences(root, info, employee_absence_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         employee_absences = EmployeeAbsence.objects.filter(company=company)
         if not user.can_manage_human_ressources():
@@ -103,6 +136,47 @@ class PlanningQuery(graphene.ObjectType):
             employee_absence = None
         return employee_absence
 
+    def resolve_employee_shifts(root, info, employee_shift_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        employee_shifts = EmployeeShift.objects.filter(company=company)
+        if not user.can_manage_human_ressources():
+            if user.is_manager():
+                employee_shifts = employee_shifts.filter(Q(employee__employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                employee_shifts = employee_shifts.filter(creator=user)
+        if employee_shift_filter:
+            keyword = employee_shift_filter.get('keyword', '')
+            starting_date_time = employee_shift_filter.get('starting_date_time')
+            ending_date_time = employee_shift_filter.get('ending_date_time')
+            employees = employee_shift_filter.get('employees')
+            if employees:
+                employee_shifts = employee_shifts.filter(employee__id__in=employees)
+            if keyword:
+                employee_shifts = employee_shifts.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
+            if starting_date_time:
+                employee_shifts = employee_shifts.filter(starting_date_time__gte=starting_date_time)
+            if ending_date_time:
+                employee_shifts = employee_shifts.filter(starting_date_time__lte=ending_date_time)
+
+        employee_shifts = employee_shifts.order_by('-created_at').distinct()
+        total_count = employee_shifts.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            employee_shifts = employee_shifts[offset:offset + limit]
+        return EmployeeShiftNodeType(nodes=employee_shifts, total_count=total_count)
+
+    def resolve_employee_shift(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            employee_shift = EmployeeShift.objects.get(pk=id)
+        except EmployeeShift.DoesNotExist:
+            employee_shift = None
+        return employee_shift
+
 #************************************************************************
 
 #************************************************************************
@@ -120,7 +194,7 @@ class CreateEmployeeAbsence(graphene.Mutation):
         reason_ids = employee_absence_data.pop("reasons")
         employee_absence = EmployeeAbsence(**employee_absence_data)
         employee_absence.creator = creator
-        employee_absence.company = creator.current_company if creator.current_company is not None else creator.company
+        employee_absence.company = creator.the_current_company
         folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.title,creator=creator)
         employee_absence.folder = folder
         if info.context.FILES:
@@ -280,8 +354,105 @@ class DeleteEmployeeAbsence(graphene.Mutation):
         return DeleteEmployeeAbsence(deleted=deleted, success=success, message=message, id=id)
         
 #*************************************************************************#
+
+#************************************************************************
+
+class CreateEmployeeShift(graphene.Mutation):
+    class Arguments:
+        employee_shift_data = EmployeeShiftInput(required=True)
+
+    employee_shift = graphene.Field(EmployeeShiftType)
+
+    def mutate(root, info, employee_shift_data=None):
+        creator = info.context.user
+        employee_shift = EmployeeShift(**employee_shift_data)
+        employee_shift.creator = creator
+        employee_shift.company = creator.the_current_company
+        employee_shift.save()
+        return CreateEmployeeShift(employee_shift=employee_shift)
+
+class UpdateEmployeeShift(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        employee_shift_data = EmployeeShiftInput(required=True)
+
+    employee_shift = graphene.Field(EmployeeShiftType)
+
+    def mutate(root, info, id, employee_shift_data=None):
+        creator = info.context.user
+        employee_shift = EmployeeShift.objects.get(pk=id)
+        if not creator.can_manage_human_ressources() and employee_shift.status != 'PENDING':
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
+        EmployeeShift.objects.filter(pk=id).update(**employee_shift_data)
+        employee_shift.refresh_from_db()
+        return UpdateEmployeeShift(employee_shift=employee_shift)
+
+class UpdateEmployeeShiftFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        employee_shift_data = EmployeeShiftInput(required=True)
+
+    employee_shift = graphene.Field(EmployeeShiftType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, employee_shift_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        employee_shift = None
+        message = ''
+        if not creator.can_manage_human_ressources() and employee_shift.status != 'PENDING':
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
+        try:
+            employee_shift = EmployeeShift.objects.get(pk=id)
+            EmployeeShift.objects.filter(pk=id).update(**employee_shift_data)
+            employee_shift.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            employee_shift=None
+            message = "Une erreur s'est produite."
+        return UpdateEmployeeShiftFields(done=done, success=success, message=message, employee_shift=employee_shift)
+
+
+class DeleteEmployeeShift(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    employee_shift = graphene.Field(EmployeeShiftType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        employee_shift = EmployeeShift.objects.get(pk=id)
+        if current_user.can_manage_human_ressources() or current_user.is_manager() or (employee_shift.creator == current_user and employee_shift.status == 'PENDING'):
+            # employee_shift = EmployeeShift.objects.get(pk=id)
+            # employee_shift.delete()
+            EmployeeShift.objects.filter(pk=id).update(is_deleted=True)
+            deleted = True
+            success = True
+        else:
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
+        return DeleteEmployeeShift(deleted=deleted, success=success, message=message, id=id)
+        
+#*************************************************************************#
+
 class PlanningMutation(graphene.ObjectType):
     create_employee_absence = CreateEmployeeAbsence.Field()
     update_employee_absence = UpdateEmployeeAbsence.Field()
     update_employee_absence_fields = UpdateEmployeeAbsenceFields.Field()
     delete_employee_absence = DeleteEmployeeAbsence.Field()
+
+
+    create_employee_shift = CreateEmployeeShift.Field()
+    update_employee_shift = UpdateEmployeeShift.Field()
+    update_employee_shift_fields = UpdateEmployeeShiftFields.Field()
+    delete_employee_shift = DeleteEmployeeShift.Field()
