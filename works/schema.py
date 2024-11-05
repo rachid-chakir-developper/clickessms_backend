@@ -13,6 +13,7 @@ from works.models import Task, TaskEstablishment, TaskWorker, TaskMaterial, Task
 from works.broadcaster import broadcastTicketAdded, broadcastTicketUpdated, broadcastTicketDeleted
 
 from qualities.models import UndesirableEvent
+from qualities.broadcaster import broadcastUndesirableEventUpdated
 
 from human_ressources.models import Employee
 from companies.models import Establishment
@@ -1125,13 +1126,25 @@ class UpdateTaskAction(graphene.Mutation):
         if employees_ids and employees_ids is not None:
             task_action.employees.set(employees_ids)
         if task_action.ticket:
-            if task_action.ticket.undesirable_event.completion_percentage >= 100:
-                Ticket.objects.filter(pk=id).update(status='IN_PROGRESS')
-            elif task_action.ticket.undesirable_event.completion_percentage > 0:
-                Ticket.objects.filter(pk=id).update(status='COMPLETED')
+            ticket = task_action.ticket
+            if ticket.completion_percentage >= 100 and ticket.status!='COMPLETED':
+                Ticket.objects.filter(pk=ticket.id).update(status='COMPLETED')
+                ticket.refresh_from_db()
+                broadcastTicketUpdated(ticket=ticket)
+            elif ticket.completion_percentage >= 0 and ticket.status!='IN_PROGRESS':
+                Ticket.objects.filter(pk=ticket.id).update(status='IN_PROGRESS')
+                ticket.refresh_from_db()
+                broadcastTicketUpdated(ticket=ticket)
             if task_action.ticket.undesirable_event:
-                if task_action.ticket.undesirable_event.completion_percentage >= 100:
-                    UndesirableEvent.objects.filter(pk=id).update(status='COMPLETED')
+                undesirable_event = task_action.ticket.undesirable_event
+                if undesirable_event.completion_percentage >= 100 and undesirable_event.status!='DONE':
+                    UndesirableEvent.objects.filter(pk=undesirable_event.id).update(status='DONE')
+                    undesirable_event.refresh_from_db()
+                    broadcastUndesirableEventUpdated(undesirable_event=undesirable_event)  
+                elif undesirable_event.completion_percentage >= 0 and undesirable_event.status!='IN_PROGRESS':
+                    UndesirableEvent.objects.filter(pk=undesirable_event.id).update(status='IN_PROGRESS')
+                    undesirable_event.refresh_from_db()
+                    broadcastUndesirableEventUpdated(undesirable_event=undesirable_event)                  
 
         return UpdateTaskAction(task_action=task_action)
 
