@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from django.db.models import Q
 
-from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance
+from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance, Budget
 from medias.models import Folder, File
 
 
@@ -148,6 +148,49 @@ class BalanceInput(graphene.InputObjectType):
     bank_account_id = graphene.Int(name="bankAccount", required=False)
 
 
+class BudgetType(DjangoObjectType):
+    class Meta:
+        model = Budget
+        fields = "__all__"
+
+    image = graphene.String()
+    balance = graphene.Decimal()
+
+    def resolve_image(instance, info, **kwargs):
+        return instance.image and info.context.build_absolute_uri(
+            instance.image.image.url
+        )
+
+    def resolve_balance(instance, info, **kwargs):
+        return instance.current_balance
+
+
+class BudgetNodeType(graphene.ObjectType):
+    nodes = graphene.List(BudgetType)
+    total_count = graphene.Int()
+
+
+class BudgetFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
+
+class BudgetInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    name = graphene.String(required=False)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    amount_allocated = graphene.Decimal(required=False)
+    amount_spent = graphene.Decimal(required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    status = graphene.String(required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
+
 class FinanceQuery(graphene.ObjectType):
     decision_documents = graphene.Field(
         DecisionDocumentNodeType,
@@ -173,15 +216,21 @@ class FinanceQuery(graphene.ObjectType):
         page=graphene.Int(required=False),
     )
     balance = graphene.Field(BalanceType, id=graphene.ID())
+    budgets = graphene.Field(
+        BudgetNodeType,
+        budget_filter=BudgetFilterInput(required=False),
+        offset=graphene.Int(required=False),
+        limit=graphene.Int(required=False),
+        page=graphene.Int(required=False),
+    )
+    budget = graphene.Field(BudgetType, id=graphene.ID())
 
     def resolve_decision_documents(
         root, info, decision_document_filter=None, offset=None, limit=None, page=None
     ):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = (
-            user.current_company if user.current_company is not None else user.company
-        )
+        company = user.the_current_company
         total_count = 0
         decision_documents = DecisionDocument.objects.filter(company=company)
         if not user.can_manage_finance():
@@ -229,9 +278,7 @@ class FinanceQuery(graphene.ObjectType):
     ):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = (
-            user.current_company if user.current_company is not None else user.company
-        )
+        company = user.the_current_company
         total_count = 0
         bank_accounts = BankAccount.objects.filter(company=company)
         if not user.can_manage_finance():
@@ -274,9 +321,7 @@ class FinanceQuery(graphene.ObjectType):
     ):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = (
-            user.current_company if user.current_company is not None else user.company
-        )
+        company = user.the_current_company
         total_count = 0
         balances = Balance.objects.filter(bank_account__company=company)
         if not user.can_manage_finance():
@@ -313,6 +358,54 @@ class FinanceQuery(graphene.ObjectType):
         except Balance.DoesNotExist:
             balance = None
         return balance
+
+    def resolve_budgets(
+        root, info, budget_filter=None, offset=None, limit=None, page=None
+    ):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        budgets = Budget.objects.filter(company=company)
+        if not user.can_manage_finance():
+            if user.is_manager():
+                budgets = budgets.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                budgets = budgets.filter(creator=user)
+        the_order_by = '-created_at'
+        if budget_filter:
+            keyword = budget_filter.get("keyword", "")
+            starting_date_time = budget_filter.get("starting_date_time")
+            ending_date_time = budget_filter.get("ending_date_time")
+            establishments = budget_filter.get('establishments')
+            order_by = budget_filter.get('order_by')
+            if establishments:
+                budgets = budgets.filter(establishment__id__in=establishments)
+            if keyword:
+                budgets = budgets.filter(
+                    Q(name__icontains=keyword)
+                )
+            if starting_date_time:
+                budgets = budgets.filter(starting_date__gte=starting_date_time)
+            if ending_date_time:
+                budgets = budgets.filter(starting_date__lte=ending_date_time)
+            if order_by:
+                the_order_by = order_by
+        budgets = budgets.order_by(the_order_by).distinct()
+        total_count = budgets.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            budgets = budgets[offset : offset + limit]
+        return BudgetNodeType(nodes=budgets, total_count=total_count)
+
+    def resolve_budget(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            budget = Budget.objects.get(pk=id)
+        except Budget.DoesNotExist:
+            budget = None
+        return budget
 
 
 # ************************************************************************
@@ -442,6 +535,33 @@ class UpdateDecisionDocumentState(graphene.Mutation):
             decision_document=decision_document,
         )
 
+class UpdateBudgetFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        budget_data = BudgetInput(required=True)
+
+    budget = graphene.Field(BudgetType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, budget_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        budget = None
+        message = ''
+        try:
+            budget = Budget.objects.get(pk=id)
+            Budget.objects.filter(pk=id).update(**budget_data)
+            budget.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            budget=None
+            message = "Une erreur s'est produite."
+        return UpdateBudgetFields(done=done, success=success, message=message, budget=budget)
+
 
 class DeleteDecisionDocument(graphene.Mutation):
     class Arguments:
@@ -486,11 +606,7 @@ class CreateBankAccount(graphene.Mutation):
         creator = info.context.user
         bank_account = BankAccount(**bank_account_data)
         bank_account.creator = creator
-        bank_account.company = (
-            creator.current_company
-            if creator.current_company is not None
-            else creator.company
-        )
+        bank_account.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -618,11 +734,7 @@ class CreateBalance(graphene.Mutation):
         creator = info.context.user
         balance = Balance(**balance_data)
         balance.creator = creator
-        balance.company = (
-            creator.current_company
-            if creator.current_company is not None
-            else creator.company
-        )
+        balance.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if document and isinstance(document, UploadedFile):
@@ -692,7 +804,113 @@ class DeleteBalance(graphene.Mutation):
 
 
 # *************************************************************************#
+# ************************************************************************
 
+
+class CreateBudget(graphene.Mutation):
+    class Arguments:
+        budget_data = BudgetInput(required=True)
+
+    budget = graphene.Field(BudgetType)
+
+    def mutate(root, info, budget_data=None):
+        creator = info.context.user
+        budget = Budget(**budget_data)
+        budget.creator = creator
+        budget.company = creator.the_current_company
+        budget.save()
+        folder = Folder.objects.create(
+            name=str(budget.id) + "_" + budget.name, creator=creator
+        )
+        budget.folder = folder
+        budget.save()
+        return CreateBudget(budget=budget)
+
+
+class UpdateBudget(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        budget_data = BudgetInput(required=True)
+        image = Upload(required=False)
+
+    budget = graphene.Field(BudgetType)
+
+    def mutate(root, info, id, image=None, budget_data=None):
+        creator = info.context.user
+        Budget.objects.filter(pk=id).update(**budget_data)
+        budget = Budget.objects.get(pk=id)
+        is_draft = True if budget.status == 'DRAFT' else False
+        if not budget.folder or budget.folder is None:
+            folder = Folder.objects.create(
+                name=str(budget.id) + "_" + budget.name, creator=creator
+            )
+            Budget.objects.filter(pk=id).update(folder=folder)
+        if is_draft:
+            Budget.objects.filter(pk=id).update(status='PENDING')
+            budget.refresh_from_db()
+        return UpdateBudget(budget=budget)
+
+
+class UpdateBudgetState(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    budget = graphene.Field(BudgetType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, budget_fields=None):
+        creator = info.context.user
+        done = True
+        success = True
+        budget = None
+        message = ""
+        try:
+            budget = Budget.objects.get(pk=id)
+            Budget.objects.filter(pk=id).update(
+                is_active=not budget.is_active
+            )
+            budget.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            budget = None
+            message = "Une erreur s'est produite."
+        return UpdateBudgetState(
+            done=done, success=success, message=message, budget=budget
+        )
+
+
+class DeleteBudget(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    budget = graphene.Field(BudgetType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            budget = Budget.objects.get(pk=id)
+            budget.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteBudget(
+            deleted=deleted, success=success, message=message, id=id
+        )
+
+
+# *************************************************************************#
+# *************************************************************************#
 
 class FinanceMutation(graphene.ObjectType):
     create_decision_document = CreateDecisionDocument.Field()
@@ -708,3 +926,9 @@ class FinanceMutation(graphene.ObjectType):
     create_balance = CreateBalance.Field()
     update_balance = UpdateBalance.Field()
     delete_balance = DeleteBalance.Field()
+
+    create_budget = CreateBudget.Field()
+    update_budget = UpdateBudget.Field()
+    update_budget_state = UpdateBudgetState.Field()
+    update_budget_fields = UpdateBudgetFields.Field()
+    delete_budget = DeleteBudget.Field()

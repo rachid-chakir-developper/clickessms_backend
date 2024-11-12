@@ -231,3 +231,70 @@ class Balance(models.Model):
 
     def __str__(self):
         return self.amount
+
+class Budget(models.Model):
+    STATUS_CHOICES = [
+        ("DRAFT", "Brouillon"),                           # Budget en cours de préparation, pas encore soumis
+        ("NEW", "Nouveau"),
+        ("PENDING", "En attente de validation"), # En attente d'approbation
+        ("APPROVED", "Validé"),                           # Budget approuvé pour utilisation
+        ("REJECTED", "Rejeté"),                           # Budget rejeté lors de l'approbation
+        ("IN_PROGRESS", "En cours"),                      # Budget en cours d'utilisation
+        ("PARTIALLY_USED", "Partiellement utilisé"),      # Budget partiellement utilisé mais encore actif
+        ("COMPLETED", "Complété"),                        # Budget entièrement consommé selon le montant alloué
+        ("OVERSPENT", "Dépassement"),                     # Budget dépassé au-delà du montant alloué
+        ("ON_HOLD", "En attente"),                        # Budget mis en pause temporairement
+        ("CANCELLED", "Annulé"),                          # Budget annulé, inutilisable
+        ("CLOSED", "Clôturé")                             # Budget clôturé pour toute transaction future
+    ]
+ 
+    number = models.CharField(max_length=255, editable=False, null=True)
+    name = models.CharField(max_length=255, null=True)
+    amount_allocated = models.DecimalField(max_digits=10, decimal_places=2)  # Montant prévu
+    amount_spent = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant dépensé
+    starting_date = models.DateTimeField(null=True)
+    ending_date = models.DateTimeField(null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    description = models.TextField(default="", null=True, blank=True)
+    observation = models.TextField(default="", null=True, blank=True)
+    is_active = models.BooleanField(default=True, null=True)
+    folder = models.ForeignKey("medias.Folder", on_delete=models.SET_NULL, null=True)
+    establishment = models.ForeignKey(
+        "companies.Establishment",
+        on_delete=models.SET_NULL,
+        related_name="establishment_budgets",
+        null=True,
+    )
+    company = models.ForeignKey(
+        "companies.Company",
+        on_delete=models.SET_NULL,
+        related_name="company_budgets",
+        null=True,
+    )
+    creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.number}"
+
+    def save(self, *args, **kwargs):
+        # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+        if not self.number:
+            self.number = self.generate_unique_number()
+        
+        super(Budget, self).save(*args, **kwargs)
+    
+    def generate_unique_number(self):
+        """Génère un numéro unique pour le budget."""
+        current_time = datetime.now()
+        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+        number_prefix = "".join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ", k=2))
+        number = f"{number_prefix}{number_suffix}"
+
+        while Budget.objects.filter(number=number).exists():
+            number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+            number = f"{number_prefix}{number_suffix}"
+        
+        return number
