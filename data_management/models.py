@@ -171,3 +171,7 @@ class VehicleModel(DataModel):
 class EmployeeMission(DataModel):
 	def __str__(self):
 		return str(self.id)
+
+class AccountingNature(DataModel):
+	def __str__(self):
+		return str(self.id)

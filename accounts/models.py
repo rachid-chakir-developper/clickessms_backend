@@ -270,6 +270,16 @@ class User(AbstractUser):
         if not facility_managers.exists():
             facility_managers = cls.objects.filter(roles__name='FACILITY_MANAGER', company=company).distinct()
         return facility_managers
+    @classmethod
+    def get_finance_managers_in_user_company(cls, user=None, company=None):
+        company = company or user.current_company or user.company
+        finance_managers = cls.objects.filter(
+            managed_companies__roles__name='FINANCE_MANAGER',
+            managed_companies__company=company
+        ).distinct()
+        if not finance_managers.exists():
+            finance_managers = cls.objects.filter(roles__name='FINANCE_MANAGER', company=company).distinct()
+        return finance_managers
 
     def save(self, *args, **kwargs):
         # Générer un nom d'utilisateur à partir de l'email si non fourni

@@ -7,6 +7,7 @@ from graphene_file_upload.scalars import Upload
 
 from feedbacks.models import Comment, Signature, StatusChange, Feedback
 from works.models import Task, TaskStep, Ticket
+from purchases.models import Expense
 from medias.models import File
 from feedbacks.broadcaster import broadcastCommentAdded, broadcastCommentDeleted
 
@@ -72,6 +73,7 @@ class CommentInput(graphene.InputObjectType):
     parent_id = graphene.Int(name="parent", required=False)
     ticket_id = graphene.Int(name="ticket", required=False)
     task_id = graphene.Int(name="task", required=False)
+    expense_id = graphene.Int(name="expense", required=False)
 
 class SignatureInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -87,6 +89,7 @@ class CommentsQuery(graphene.ObjectType):
     task_step_comments = graphene.Field(CommentNodeType, task_step_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     ticket_comments = graphene.Field(CommentNodeType, ticket_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     task_comments = graphene.Field(CommentNodeType, task_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    expense_comments = graphene.Field(CommentNodeType, expense_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     comment = graphene.Field(CommentType, id = graphene.ID())
     feedbacks = graphene.Field(
         FeedbackNodeType,
@@ -149,6 +152,22 @@ class CommentsQuery(graphene.ObjectType):
             task_comments = task.comments.all()
         return CommentNodeType(nodes=task_comments, total_count=total_count)
 
+    def resolve_expense_comments(root, info, expense_id, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        total_count = 0
+        try:
+            expense = Expense.objects.get(pk=expense_id)
+        except Expense.DoesNotExist:
+            raise ValueError("Le expense spécifiée n'existe pas.")
+        total_count = expense.comments.all().count()
+        if page:
+            offset = limit*(page-1)
+        if offset is not None and limit is not None:
+            expense_comments = expense.comments.all()[offset:offset+limit]
+        else:
+            expense_comments = expense.comments.all()
+        return CommentNodeType(nodes=expense_comments, total_count=total_count)
+
     def resolve_comment(root, info, id):
         # We can easily optimize query count in the resolve method
         try:
@@ -204,10 +223,11 @@ class CreateComment(graphene.Mutation):
         task_step_id = graphene.ID(required=False)
         ticket_id = graphene.ID(required=False)
         task_id = graphene.ID(required=False)
+        expense_id = graphene.ID(required=False)
 
     comment = graphene.Field(CommentType)
 
-    def mutate(root, info, task_id=None, task_step_id=None, ticket_id=None, image=None, comment_data=None):
+    def mutate(root, info, task_id=None, task_step_id=None, ticket_id=None, expense_id=None, image=None, comment_data=None):
         creator = info.context.user
         comment = Comment(**comment_data)
         comment.creator = creator
@@ -228,6 +248,8 @@ class CreateComment(graphene.Mutation):
             Ticket.objects.get(pk=ticket_id).comments.add(comment)
         if task_id and task_id is not None:
             Task.objects.get(pk=task_id).comments.add(comment)
+        if expense_id and expense_id is not None:
+            Expense.objects.get(pk=expense_id).comments.add(comment)
         comment.refresh_from_db()
         broadcastCommentAdded(comment)
         return CreateComment(comment=comment)
@@ -440,16 +462,17 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
         task_id = graphene.ID(required=False)
         task_step_id = graphene.ID(required=False)
         ticket_id = graphene.ID(required=False)
+        expense_id = graphene.ID(required=False)
 
     @staticmethod
-    def subscribe(root, info, task_id=None, task_step_id=None, ticket_id=None):
+    def subscribe(root, info, task_id=None, task_step_id=None, ticket_id=None, expense_id=None):
         """Called when user subscribes."""
 
         # Return the list of subscription group names.
         return ["ON_COMMENT_ADDED"]
 
     @staticmethod
-    def publish(payload, info, task_id=None, task_step_id=None, ticket_id=None):
+    def publish(payload, info, task_id=None, task_step_id=None, ticket_id=None, expense_id=None):
         """Called to notify the client."""
         #print('send -*******************')
         #print(payload)
@@ -469,6 +492,10 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
         if ticket_id and ticket_id is not None:
             if 'comment' in payload and payload['comment'].ticket:
                 if str(ticket_id) != str(payload['comment'].ticket.id):
+                    return OnCommentAdded.SKIP
+        if expense_id and expense_id is not None:
+            if 'comment' in payload and payload['comment'].expense:
+                if str(expense_id) != str(payload['comment'].expense.id):
                     return OnCommentAdded.SKIP
         return OnCommentAdded(comment=payload['comment'])
 
@@ -488,16 +515,17 @@ class OnCommentDeleted(channels_graphql_ws.Subscription):
         task_id = graphene.ID(required=False)
         task_step_id = graphene.ID(required=False)
         ticket_id = graphene.ID(required=False)
+        expense_id = graphene.ID(required=False)
 
     @staticmethod
-    def subscribe(root, info, task_id=None, task_step_id=None, ticket_id=None):
+    def subscribe(root, info, task_id=None, task_step_id=None, ticket_id=None, expense_id=None):
         """Called when user subscribes."""
 
         # Return the list of subscription group names.
         return ["ON_COMMENT_DELETED"]
 
     @staticmethod
-    def publish(payload, info, task_step_id=None, ticket_id=None):
+    def publish(payload, info, task_id=None, task_step_id=None, ticket_id=None, expense_id=None):
         """Called to notify the client."""
         #print('send -*******************')
         #print(payload)
@@ -517,6 +545,10 @@ class OnCommentDeleted(channels_graphql_ws.Subscription):
         if ticket_id and ticket_id is not None:
             if 'comment' in payload and payload['comment'].ticket:
                 if str(ticket_id) != str(payload['comment'].ticket.id):
+                    return OnCommentDeleted.SKIP
+        if expense_id and expense_id is not None:
+            if 'comment' in payload and payload['comment'].expense:
+                if str(expense_id) != str(payload['comment'].expense.id):
                     return OnCommentDeleted.SKIP
         return OnCommentDeleted(comment=payload['comment'])
 

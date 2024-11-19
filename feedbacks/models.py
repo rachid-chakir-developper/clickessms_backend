@@ -7,6 +7,7 @@ class Comment(models.Model):
 	parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE)
 	ticket = models.ForeignKey('works.Ticket', on_delete=models.SET_NULL, related_name='comments', null=True)
 	task = models.ForeignKey('works.Task', on_delete=models.SET_NULL, related_name='comments', null=True)
+	expense = models.ForeignKey('purchases.Expense', on_delete=models.SET_NULL, related_name='comments', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

@@ -662,7 +662,7 @@ class UpdateTaskFields(graphene.Mutation):
                     facility_managers = User.get_facility_managers_in_user_company(user=creator)
                     for facility_manager in facility_managers:
                         notify_task(sender=creator, recipient=facility_manager, task=task)
-            task.refresh_from_db()
+                task.refresh_from_db()
         except Exception as e:
             done = False
             success = False

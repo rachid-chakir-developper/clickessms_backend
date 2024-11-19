@@ -12,7 +12,7 @@ from django.db.models import Q
 from django.db import transaction
 import openpyxl
 
-from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel, EmployeeMission, CustomField, CustomFieldOption, CustomFieldValue
+from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel, EmployeeMission, AccountingNature, CustomField, CustomFieldOption, CustomFieldValue
 
 
 
@@ -109,6 +109,11 @@ class VehicleModelType(DjangoObjectType):
 class EmployeeMissionType(DjangoObjectType):
     class Meta:
         model = EmployeeMission
+        fields = "__all__"
+     
+class AccountingNatureType(DjangoObjectType):
+    class Meta:
+        model = AccountingNature
         fields = "__all__"
 
 class CustomFieldOptionType(DjangoObjectType):

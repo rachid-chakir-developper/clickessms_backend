@@ -1,6 +1,10 @@
 from django.db import models
+from django.db.models import Sum
 from datetime import datetime
+from decimal import Decimal
 import random
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 # Create your models here.
 class Supplier(models.Model):
@@ -69,3 +73,91 @@ class Supplier(models.Model):
         
 	def __str__(self):
 		return self.email
+
+
+
+class Expense(models.Model):
+    STATUS_CHOICES = [
+        ("DRAFT", "Brouillon"),
+        ("NEW", "Nouveau"),
+        ('PENDING', 'En Attente'),
+        ('APPROVED', 'Approuvé'),
+        ('REJECTED', 'Rejeté'),
+        ('PAID', 'Payé'),
+        ('UNPAID', 'Non payé')
+    ]
+    number = models.CharField(max_length=255, editable=False, null=True)
+    label = models.CharField(max_length=255, null=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
+    expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    description = models.TextField(default="", null=True, blank=True)
+    observation = models.TextField(default="", null=True, blank=True)
+    is_active = models.BooleanField(default=True, null=True)
+    files = models.ManyToManyField('medias.File', related_name='file_expenses')
+    folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_expenses', null=True)
+    company = models.ForeignKey(
+        "companies.Company",
+        on_delete=models.SET_NULL,
+        related_name="company_expenses",
+        null=True,
+    )
+    creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.number}"
+
+    def calculate_total_amount(self):
+        """Calcule le total_amount en fonction des ExpenseItem associés."""
+        total = self.expense_items.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
+        return total
+
+# Create your models here.
+class ExpenseEstablishment(models.Model):
+	expense = models.ForeignKey(Expense, on_delete=models.SET_NULL, null=True, related_name='establishments')
+	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='expense_establishments', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='expense_establishments', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return str(self.id)
+
+class ExpenseItem(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'En Attente'),
+        ('APPROVED', 'Approuvé'),
+        ('REJECTED', 'Rejeté'),
+        ('PAID', 'Payé'),
+        ('UNPAID', 'Non payé')
+    ]
+    expense = models.ForeignKey(Expense, on_delete=models.CASCADE, related_name="expense_items")
+    accounting_nature = models.ForeignKey('data_management.AccountingNature', on_delete=models.SET_NULL, related_name='expense_items', null=True)
+    establishment = models.ForeignKey(
+        "companies.Establishment",
+        on_delete=models.SET_NULL,
+        related_name="expense_items",
+        null=True,
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant
+    expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
+    description = models.TextField(default="", null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+    def __str__(self):
+        return f"{self.amount} - {self.amount}"
+
+@receiver(post_save, sender=ExpenseItem)
+@receiver(post_delete, sender=ExpenseItem)
+def update_total_amount(sender, instance, **kwargs):
+    """Met à jour le total_amount d'une Expense lorsque ses ExpenseItems changent."""
+    expense = instance.expense
+    expense.total_amount = expense.calculate_total_amount()
+    expense.save()

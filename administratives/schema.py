@@ -437,7 +437,7 @@ class CreateCall(graphene.Mutation):
         caller_data = call_data.pop("caller")
         call = Call(**call_data)
         call.creator = creator
-        call.company = creator.current_company if creator.current_company is not None else creator.company
+        call.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -625,7 +625,7 @@ class CreateLetter(graphene.Mutation):
         beneficiary_ids = letter_data.pop("beneficiaries")
         letter = Letter(**letter_data)
         letter.creator = creator
-        letter.company = creator.current_company if creator.current_company is not None else creator.company
+        letter.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -812,7 +812,7 @@ class CreateMeeting(graphene.Mutation):
         meeting_review_points = meeting_data.pop("meeting_review_points")
         meeting = Meeting(**meeting_data)
         meeting.creator = creator
-        meeting.company = creator.current_company if creator.current_company is not None else creator.company
+        meeting.company = creator.the_current_company
         meeting.save()
         folder = Folder.objects.create(name=str(meeting.id)+'_'+meeting.title,creator=creator)
         meeting.folder = folder

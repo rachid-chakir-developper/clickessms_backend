@@ -153,17 +153,6 @@ class BudgetType(DjangoObjectType):
         model = Budget
         fields = "__all__"
 
-    image = graphene.String()
-    balance = graphene.Decimal()
-
-    def resolve_image(instance, info, **kwargs):
-        return instance.image and info.context.build_absolute_uri(
-            instance.image.image.url
-        )
-
-    def resolve_balance(instance, info, **kwargs):
-        return instance.current_balance
-
 
 class BudgetNodeType(graphene.ObjectType):
     nodes = graphene.List(BudgetType)
@@ -535,33 +524,6 @@ class UpdateDecisionDocumentState(graphene.Mutation):
             decision_document=decision_document,
         )
 
-class UpdateBudgetFields(graphene.Mutation):
-    class Arguments:
-        id = graphene.ID()
-        budget_data = BudgetInput(required=True)
-
-    budget = graphene.Field(BudgetType)
-    done = graphene.Boolean()
-    success = graphene.Boolean()
-    message = graphene.String()
-
-    def mutate(root, info, id, budget_data=None):
-        creator = info.context.user
-        done = True
-        success = True
-        budget = None
-        message = ''
-        try:
-            budget = Budget.objects.get(pk=id)
-            Budget.objects.filter(pk=id).update(**budget_data)
-            budget.refresh_from_db()
-        except Exception as e:
-            done = False
-            success = False
-            budget=None
-            message = "Une erreur s'est produite."
-        return UpdateBudgetFields(done=done, success=success, message=message, budget=budget)
-
 
 class DeleteDecisionDocument(graphene.Mutation):
     class Arguments:
@@ -881,6 +843,32 @@ class UpdateBudgetState(graphene.Mutation):
             done=done, success=success, message=message, budget=budget
         )
 
+class UpdateBudgetFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        budget_data = BudgetInput(required=True)
+
+    budget = graphene.Field(BudgetType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, budget_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        budget = None
+        message = ''
+        try:
+            budget = Budget.objects.get(pk=id)
+            Budget.objects.filter(pk=id).update(**budget_data)
+            budget.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            budget=None
+            message = "Une erreur s'est produite."
+        return UpdateBudgetFields(done=done, success=success, message=message, budget=budget)
 
 class DeleteBudget(graphene.Mutation):
     class Arguments:
@@ -910,7 +898,7 @@ class DeleteBudget(graphene.Mutation):
 
 
 # *************************************************************************#
-# *************************************************************************#
+
 
 class FinanceMutation(graphene.ObjectType):
     create_decision_document = CreateDecisionDocument.Field()

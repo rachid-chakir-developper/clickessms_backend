@@ -90,7 +90,7 @@ class CreatePost(graphene.Mutation):
         creator = info.context.user
         post = Post(**post_data)
         post.creator = creator
-        post.company = creator.current_company if creator.current_company is not None else creator.company
+        post.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):

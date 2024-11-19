@@ -28,6 +28,13 @@ NOTIF_TYPES_ALL = {
     "EMPLOYEE_ABSENCE_PENDING": "EMPLOYEE_ABSENCE_PENDING",
     "EMPLOYEE_ABSENCE_APPROVED": "EMPLOYEE_ABSENCE_APPROVED",
     "EMPLOYEE_ABSENCE_REJECTED": "EMPLOYEE_ABSENCE_REJECTED",
+    "EXPENSE_ADDED": "EXPENSE_ADDED",
+    "EXPENSE_UPDATED": "EXPENSE_UPDATED",
+    "EXPENSE_PENDING": "EXPENSE_PENDING",
+    "EXPENSE_APPROVED": "EXPENSE_APPROVED",
+    "EXPENSE_REJECTED": "EXPENSE_REJECTED",
+    "EXPENSE_PAID": "EXPENSE_PAID",
+    "EXPENSE_UNPAID": "EXPENSE_UNPAID",
 }
 class Notification(models.Model):
 	NOTIF_TYPES = [
@@ -56,6 +63,13 @@ class Notification(models.Model):
         ("EMPLOYEE_ABSENCE_PENDING", "Demande de congé en attente de décision"),
         ("EMPLOYEE_ABSENCE_APPROVED", "Demande de congé approuvée"),
         ("EMPLOYEE_ABSENCE_REJECTED", "Demande de congé rejetée"),
+        ("EXPENSE_ADDED", "Nouvelle demande de dépense ajoutée"),
+        ("EXPENSE_UPDATED", "Demande de dépense mise à jour"),
+        ("EXPENSE_PENDING", "Demande de dépense en attente d'approbation"),
+        ("EXPENSE_APPROVED", "Demande de dépense approuvée"),
+        ("EXPENSE_REJECTED", "Demande de dépense rejetée"),
+        ("EXPENSE_PAID", "Dépense payée."),
+        ("EXPENSE_UNPAID", "Dépense non payée."),
     ]
 	sender = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='notification_sender', null=True)
 	recipient = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='notification_recipient', null=True)
