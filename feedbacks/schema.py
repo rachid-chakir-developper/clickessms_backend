@@ -181,9 +181,7 @@ class CommentsQuery(graphene.ObjectType):
     ):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = (
-            user.current_company if user.current_company is not None else user.company
-        )
+        company = user.the_current_company
         total_count = 0
         feedbacks = Feedback.objects.all()
         if not user.is_superuser:
@@ -307,8 +305,8 @@ class DeleteComment(graphene.Mutation):
         else:
             message = "Vous n'êtes pas un Superuser."
         return DeleteComment(deleted=deleted, success=success, message=message, id=id)
-# ************************************************************************
 
+# **********************************************************************************************
 
 class CreateFeedback(graphene.Mutation):
     class Arguments:
@@ -321,11 +319,7 @@ class CreateFeedback(graphene.Mutation):
         creator = info.context.user
         feedback = Feedback(**feedback_data)
         feedback.creator = creator
-        feedback.company = (
-            creator.current_company
-            if creator.current_company is not None
-            else creator.company
-        )
+        feedback.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):

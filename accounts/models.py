@@ -207,6 +207,9 @@ class User(AbstractUser):
         except Role.DoesNotExist:
             return False
         return False
+    def is_admin(self, user=None):
+        roles = ['ADMIN']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def is_manager(self, user=None):
         roles = ['MANAGER']
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)

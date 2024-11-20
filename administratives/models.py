@@ -230,6 +230,7 @@ class Meeting(models.Model):
 	    ('PV', 'Procès-Verbal'),
 	    ('PV_SCE', 'Procès-Verbal cse'),
 	    ('SIMPLE', 'Réunion Simple'),
+	    ('INTERVIEW', 'Entretien'),
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255, null=True)

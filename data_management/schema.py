@@ -173,7 +173,7 @@ class DataQuery(graphene.ObjectType):
     
     def resolve_datas(root, info, typeData):
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         # We can easily optimize query count in the resolve method
         datas = apps.get_model('data_management', typeData).objects.filter(Q(company=company) | Q(creator__is_superuser=True))
         for data in datas:
@@ -189,7 +189,7 @@ class DataQuery(graphene.ObjectType):
     def resolve_custom_fields(root, info, custom_field_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         custom_fields = CustomField.objects.filter(company__id=id_company) if id_company else CustomField.objects.filter(company=company)
         if custom_field_filter:
@@ -219,15 +219,17 @@ class CreateData(graphene.Mutation):
     class Arguments:
         name = graphene.String()
         description = graphene.String(required=False)
+        code = graphene.String(required=False)
+        parent_id = graphene.ID(required=False)
         typeData = graphene.String()
 
     data = graphene.Field(DataType)
 
-    def mutate(root, info, typeData, **otherFields):
+    def mutate(root, info, typeData, parent_id=None, **otherFields):
         creator = info.context.user
         data = apps.get_model('data_management', typeData)(**otherFields)
         data.creator = creator
-        data.company = creator.current_company if creator.current_company is not None else creator.company
+        data.company = creator.the_current_company
         data.save()
         data.__class__ = DataModel
         return CreateData(data=data)
@@ -237,11 +239,13 @@ class UpdateData(graphene.Mutation):
         name = graphene.String()
         description = graphene.String(required=False)
         typeData = graphene.String()
+        code = graphene.String(required=False)
+        parent_id = graphene.ID(required=False)
         id = graphene.ID()
 
     data = graphene.Field(DataType)
 
-    def mutate(root, info, id, typeData, **otherFields):
+    def mutate(root, info, id, typeData, parent_id=None, **otherFields):
         apps.get_model('data_management', typeData).objects.filter(pk=id).update(**otherFields)
         data = apps.get_model('data_management', typeData).objects.get(pk=id)
         # data.name = name
@@ -396,7 +400,7 @@ class CreateCustomField(graphene.Mutation):
         options = custom_field_data.pop("options")
         custom_field = CustomField(**custom_field_data)
         custom_field.creator = creator
-        custom_field.company = creator.current_company if creator.current_company is not None else creator.company
+        custom_field.company = creator.the_current_company
         custom_field.save()
         for option in options:
             custom_field_option = CustomFieldOption(**option)

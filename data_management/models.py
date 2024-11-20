@@ -104,8 +104,11 @@ class HomeAddress(models.Model):
 # Create your models here.
 class DataModel(models.Model):
 	id = models.AutoField(primary_key=True)
+	number = models.CharField(max_length=255, null=True)
+	code = models.CharField(max_length=255, null=True)
 	name = models.CharField(max_length=255)
 	description = models.TextField(default='', null=True)
+	parent = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='children', null=True, blank=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
 	creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 

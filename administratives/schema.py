@@ -345,17 +345,22 @@ class AdministrativesQuery(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
         meetings = Meeting.objects.filter(company=company)
-        if not user.can_manage_administration():
+        if not user.can_manage_administration() and not user.can_manage_human_ressources():
             if user.is_manager():
                 meetings = meetings.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
             else:
-                meetings = meetings.filter(creator=user)
+                meetings = meetings.filter(Q(participants__employee=user.get_employee_in_company()) | Q(creator=user))
         if meeting_filter:
             keyword = meeting_filter.get('keyword', '')
             starting_date_time = meeting_filter.get('starting_date_time')
             ending_date_time = meeting_filter.get('ending_date_time')
             establishments = meeting_filter.get('establishments')
             meeting_mode = meeting_filter.get('meeting_mode', 'SIMPLE')
+            if meeting_mode == 'INTERVIEW':
+                if user.is_admin():
+                    meetings = Meeting.objects.filter(company=company)
+                else:
+                    meetings = meetings.filter(Q(participants__employee=user.get_employee_in_company()) | Q(creator=user))
             meetings = meetings.filter(meeting_mode=meeting_mode if meeting_mode else 'SIMPLE')
             if keyword:
                 meetings = meetings.filter(Q(title__icontains=keyword))
