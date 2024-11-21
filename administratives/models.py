@@ -148,7 +148,7 @@ class Letter(models.Model):
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255)
 	letter_type = models.CharField(max_length=50, choices=CALL_TYPES, default= "INCOMING", null=True)
-	image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='letter_image', null=True)
+	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='document_letters', null=True)
 	entry_date_time = models.DateTimeField(null=True)
 	duration = models.FloatField(null=True)
 	description = models.TextField(default='', null=True)

@@ -76,9 +76,9 @@ class LetterType(DjangoObjectType):
     class Meta:
         model = Letter
         fields = "__all__"
-    image = graphene.String()
-    def resolve_image( instance, info, **kwargs ):
-        return instance.image and info.context.build_absolute_uri(instance.image.image.url)
+    document = graphene.String()
+    def resolve_document( instance, info, **kwargs ):
+        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
 
 class LetterNodeType(graphene.ObjectType):
     nodes = graphene.List(LetterType)
@@ -619,11 +619,11 @@ class DeleteCall(graphene.Mutation):
 class CreateLetter(graphene.Mutation):
     class Arguments:
         letter_data = LetterInput(required=True)
-        image = Upload(required=False)
+        document = Upload(required=False)
 
     letter = graphene.Field(LetterType)
 
-    def mutate(root, info, image=None, letter_data=None):
+    def mutate(root, info, document=None, letter_data=None):
         creator = info.context.user
         establishment_ids = letter_data.pop("establishments")
         employee_ids = letter_data.pop("employees")
@@ -633,14 +633,14 @@ class CreateLetter(graphene.Mutation):
         letter.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
-            if image and isinstance(image, UploadedFile):
-                image_file = letter.image
-                if not image_file:
-                    image_file = File()
-                    image_file.creator = creator
-                image_file.image = image
-                image_file.save()
-                letter.image = image_file
+            if document and isinstance(document, UploadedFile):
+                document_file = letter.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                letter.document = document_file
         letter.save()
         folder = Folder.objects.create(name=str(letter.id)+'_'+letter.title,creator=creator)
         letter.folder = folder
@@ -681,11 +681,11 @@ class UpdateLetter(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
         letter_data = LetterInput(required=True)
-        image = Upload(required=False)
+        document = Upload(required=False)
 
     letter = graphene.Field(LetterType)
 
-    def mutate(root, info, id, image=None, letter_data=None):
+    def mutate(root, info, id, document=None, letter_data=None):
         creator = info.context.user
         establishment_ids = letter_data.pop("establishments")
         employee_ids = letter_data.pop("employees")
@@ -695,19 +695,19 @@ class UpdateLetter(graphene.Mutation):
         if not letter.folder or letter.folder is None:
             folder = Folder.objects.create(name=str(letter.id)+'_'+letter.title,creator=creator)
             Letter.objects.filter(pk=id).update(folder=folder)
-        if not image and letter.image:
-            image_file = letter.image
-            image_file.delete()
+        if not document and letter.document:
+            document_file = letter.document
+            document_file.delete()
         if info.context.FILES:
             # file1 = info.context.FILES['1']
-            if image and isinstance(image, UploadedFile):
-                image_file = letter.image
-                if not image_file:
-                    image_file = File()
-                    image_file.creator = creator
-                image_file.image = image
-                image_file.save()
-                letter.image = image_file
+            if document and isinstance(document, UploadedFile):
+                document_file = letter.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                letter.document = document_file
             letter.save()
         LetterEstablishment.objects.filter(letter=letter).exclude(establishment__id__in=establishment_ids).delete()
         establishments = Establishment.objects.filter(id__in=establishment_ids)
