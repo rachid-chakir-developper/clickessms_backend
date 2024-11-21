@@ -165,18 +165,32 @@ class CustomFieldInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     options = graphene.List(CustomFieldOptionInput, required=False)
 
+class AccountingNatureInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    code = graphene.String(required=True)
+    name = graphene.String(required=True)
+    description = graphene.String(required=True)
+    parent_id = graphene.Int(name="parent", required=False)
+
 class DataQuery(graphene.ObjectType):
-    datas = graphene.List(DataType, typeData = graphene.String())
+    datas = graphene.List(DataType, typeData = graphene.String(), id_parent = graphene.ID(required=False))
     data = graphene.Field(DataType, typeData = graphene.String(), id = graphene.ID())
+    accounting_natures = graphene.List(AccountingNatureType, id_parent = graphene.ID(required=False))
+    accounting_nature = graphene.Field(AccountingNatureType, id = graphene.ID())
     custom_fields = graphene.Field(CustomFieldNodeType, custom_field_filter= CustomFieldFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     custom_field = graphene.Field(CustomFieldType, id = graphene.ID())
     
-    def resolve_datas(root, info, typeData):
+    def resolve_datas(root, info, typeData, id_parent=None):
         user = info.context.user
         company = user.the_current_company
         # We can easily optimize query count in the resolve method
         datas = apps.get_model('data_management', typeData).objects.filter(Q(company=company) | Q(creator__is_superuser=True))
+        if id_parent:
+            datas = datas.filter(parent_id=id_parent)
+        else:
+            datas = datas.filter(parent__isnull=True)
         for data in datas:
+            parent = data.parent
             data.__class__ = DataModel
         return datas
 
@@ -185,6 +199,24 @@ class DataQuery(graphene.ObjectType):
         data = apps.get_model('data_management', typeData).objects.get(pk=id)
         data.__class__ = DataModel
         return data
+    
+    def resolve_accounting_natures(root, info, id_parent=None):
+        user = info.context.user
+        company = user.the_current_company
+        accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True))
+        if id_parent:
+            accounting_natures = accounting_natures.filter(parent_id=id_parent)
+        else:
+            accounting_natures = accounting_natures.filter(parent__isnull=True)
+        return accounting_natures
+
+    def resolve_accounting_nature(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            accounting_nature = AccountingNature.objects.get(pk=id)
+        except CustomField.DoesNotExist:
+            accounting_nature = None
+        return accounting_nature
 
     def resolve_custom_fields(root, info, custom_field_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
@@ -238,14 +270,13 @@ class UpdateData(graphene.Mutation):
     class Arguments:
         name = graphene.String()
         description = graphene.String(required=False)
-        typeData = graphene.String()
         code = graphene.String(required=False)
-        parent_id = graphene.ID(required=False)
+        typeData = graphene.String()
         id = graphene.ID()
 
     data = graphene.Field(DataType)
 
-    def mutate(root, info, id, typeData, parent_id=None, **otherFields):
+    def mutate(root, info, id, typeData, **otherFields):
         apps.get_model('data_management', typeData).objects.filter(pk=id).update(**otherFields)
         data = apps.get_model('data_management', typeData).objects.get(pk=id)
         # data.name = name
@@ -267,6 +298,63 @@ class DeleteData(graphene.Mutation):
         return DeleteData(deleted=True)
 
 #**************************************************************************************************
+
+#**************************************************************************************************
+
+class CreateAccountingNature(graphene.Mutation):
+    class Arguments:
+        accounting_nature_data = AccountingNatureInput(required=True)
+
+    accounting_nature = graphene.Field(AccountingNatureType)
+
+    def mutate(root, info, accounting_nature_data=None):
+        creator = info.context.user
+        accounting_nature = AccountingNature(**accounting_nature_data)
+        accounting_nature.creator = creator
+        accounting_nature.company = creator.the_current_company
+        accounting_nature.save()
+        return CreateAccountingNature(accounting_nature=accounting_nature)
+
+class UpdateAccountingNature(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        accounting_nature_data = AccountingNatureInput(required=True)
+        image = Upload(required=False)
+
+    accounting_nature = graphene.Field(AccountingNatureType)
+
+    def mutate(root, info, id, image=None, accounting_nature_data=None):
+        creator = info.context.user
+        AccountingNature.objects.filter(pk=id).update(**accounting_nature_data)
+        accounting_nature = AccountingNature.objects.get(pk=id)
+        return UpdateAccountingNature(accounting_nature=accounting_nature)
+
+class DeleteAccountingNature(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    accounting_nature = graphene.Field(AccountingNatureType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            accounting_nature = AccountingNature.objects.get(pk=id)
+            accounting_nature.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
+        return DeleteAccountingNature(deleted=deleted, success=success, message=message, id=id)
+
+#**************************************************************************************************
+
 
 def extract_parts_name(full_name):
     words = full_name.split()

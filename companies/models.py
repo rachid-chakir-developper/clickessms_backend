@@ -4,6 +4,18 @@ import random
 
 # Create your models here.
 
+
+class CompanyMedia(models.Model):
+    sce_shop_url = models.URLField(max_length=255, null=True)
+    collective_agreement = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='collective_agreement_company_medias', null=True)
+    company_agreement = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='company_agreement_company_medias', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='company_medias', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.id
+
 class Company(models.Model):
     COMPANY_STATUS_CHOICES=[
         ('ACTIVE', 'Active'),
@@ -48,6 +60,7 @@ class Company(models.Model):
     observation = models.TextField(default='', null=True)
     status = models.CharField(max_length=20, choices=COMPANY_STATUS_CHOICES, default='TRIAL')
     is_active = models.BooleanField(default=True, null=True)
+    company_media = models.ForeignKey(CompanyMedia, on_delete=models.SET_NULL, null=True, related_name='companies') 
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='company_creator', null=True)
     is_deleted = models.BooleanField(default=False, null=True)
@@ -92,8 +105,6 @@ class Company(models.Model):
     def __str__(self):
         return self.name
 
-
-# Create your models here.
 
 class Establishment(models.Model):
     MEASUREMENT_ACTIVITY_UNITS = [

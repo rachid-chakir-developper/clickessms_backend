@@ -7,11 +7,22 @@ from django.utils import timezone
 
 from django.db.models import Q
 
-from companies.models import Company, Establishment, EstablishmentManager, ActivityAuthorization
+from companies.models import CompanyMedia, Company, Establishment, EstablishmentManager, ActivityAuthorization
 from medias.models import File, Folder
 from human_ressources.models import Employee
 from accounts.models import User
 from accounts.schema import UserType
+
+class CompanyMediaType(DjangoObjectType):
+    class Meta:
+        model = CompanyMedia
+        fields = "__all__"
+    collective_agreement = graphene.String()
+    company_agreement = graphene.String()
+    def resolve_collective_agreement( instance, info, **kwargs ):
+        return instance.collective_agreement and info.context.build_absolute_uri(instance.collective_agreement.file.url)
+    def resolve_company_agreement( instance, info, **kwargs ):
+        return instance.company_agreement and info.context.build_absolute_uri(instance.company_agreement.file.url)
 
 class CompanyType(DjangoObjectType):
     class Meta:
@@ -19,6 +30,8 @@ class CompanyType(DjangoObjectType):
         fields = "__all__"
     logo = graphene.String()
     cover_image = graphene.String()
+    collective_agreement = graphene.String()
+    company_agreement = graphene.String()
     company_admin = graphene.Field(UserType)
     def resolve_logo( instance, info, **kwargs ):
         return instance.logo and info.context.build_absolute_uri(instance.logo.image.url)
@@ -130,6 +143,12 @@ class CompanyInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     company_admin = graphene.Field(CompanyAdminInput, required=False)
 
+
+class CompanyMediaInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    sce_shop_url = graphene.String(required=False)
+
+
 class ActivityAuthorizationInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     document = Upload(required=False)
@@ -183,6 +202,7 @@ class EstablishmentInput(graphene.InputObjectType):
 class CompanyQuery(graphene.ObjectType):
     companies = graphene.Field(CompanyNodeType, company_filter= CompanyFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     company = graphene.Field(CompanyType, id = graphene.ID(required=False))
+    company_media = graphene.Field(CompanyMediaType, id = graphene.ID(required=False))
     establishments = graphene.Field(EstablishmentNodeType, id_parent = graphene.ID(required=False), establishment_filter= EstablishmentFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     establishment = graphene.Field(EstablishmentType, id = graphene.ID())
 
@@ -219,11 +239,24 @@ class CompanyQuery(graphene.ObjectType):
             if id:
                 company = Company.objects.get(pk=id)
             else:
-                company = user.company
+                company = user.the_current_company
         except Exception as e:
             print(f"Exception: {e}")
             company = None
         return company
+
+    def resolve_company_media(root, info, id=None):
+        user = info.context.user
+        # We can easily optimize query count in the resolve method
+        try:
+            if id:
+                company_media = CompanyMedia.objects.get(pk=id)
+            else:
+                company_media = user.the_current_company.company_media
+        except Exception as e:
+            print(f"Exception: {e}")
+            company_media = None
+        return company_media
 
     def resolve_establishments(root, info, id_parent=None, establishment_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
@@ -472,6 +505,64 @@ class DeleteCompany(graphene.Mutation):
             message = "Vous n'êtes pas un Superuser."
         return DeleteCompany(deleted=deleted, success=success, message=message, id=id)
 
+
+#************************************************************************************************
+
+class UpdateCompanyMedia(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID(required=False)
+        company_media_data = CompanyMediaInput(required=True)
+        collective_agreement = Upload(required=False)
+        company_agreement = Upload(required=False)
+
+    company_media = graphene.Field(CompanyMediaType)
+
+    def mutate(root, info, id=None, collective_agreement=None, company_agreement=None, company_media_data=None):
+        creator = info.context.user
+        company = creator.the_current_company
+        if id:
+            company_media = CompanyMedia.objects.get(pk=id)
+            if not creator.is_superuser and company.company_media != company_media:
+                raise ValueError("Vous n'êtes pas un Superuser.")
+        else:
+            company_media = company.company_media
+        if not company_media:
+            company_media = CompanyMedia(**company_media_data)
+            company_media.creator = creator
+            company_media.save()
+            company.company_media = company_media
+            company.save()
+        else:
+            CompanyMedia.objects.filter(pk=company_media.id).update(**company_media_data)
+        company_media = CompanyMedia.objects.get(pk=company_media.id)
+
+        if not collective_agreement and company_media.collective_agreement:
+            collective_agreement_file = company_media.collective_agreement
+            collective_agreement_file.delete()
+        if not company_agreement and company_media.company_agreement:
+            company_agreement_file = company_media.company_agreement
+            company_agreement_file.delete()
+        if info.context.FILES:
+            if collective_agreement and isinstance(collective_agreement, UploadedFile):
+                collective_agreement_file = company_media.collective_agreement
+                if not collective_agreement_file:
+                    collective_agreement_file = File()
+                    collective_agreement_file.creator = creator
+                collective_agreement_file.file = collective_agreement
+                collective_agreement_file.save()
+                company_media.collective_agreement = collective_agreement_file
+            # file2 = info.context.FILES['2']
+            if company_agreement and isinstance(company_agreement, UploadedFile):
+                company_agreement_file = company_media.company_agreement
+                if not company_agreement_file:
+                    company_agreement_file = File()
+                    company_agreement_file.creator = creator
+                company_agreement_file.file = company_agreement
+                company_agreement_file.save()
+                company_media.company_agreement = company_agreement_file
+            company_media.save()
+        return UpdateCompanyMedia(company_media=company_media)
+
 #************************************************************************
 
 class CreateEstablishment(graphene.Mutation):
@@ -687,6 +778,8 @@ class CompanyMutation(graphene.ObjectType):
     update_company = UpdateCompany.Field()
     update_company_fields = UpdateCompanyFields.Field()
     delete_company = DeleteCompany.Field()
+    
+    update_company_media = UpdateCompanyMedia.Field()
 
     create_establishment = CreateEstablishment.Field()
     update_establishment = UpdateEstablishment.Field()
