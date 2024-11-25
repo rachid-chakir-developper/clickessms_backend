@@ -19,10 +19,19 @@ class CompanyMediaType(DjangoObjectType):
         fields = "__all__"
     collective_agreement = graphene.String()
     company_agreement = graphene.String()
+    labor_law = graphene.String()
+    associations_foundations_code = graphene.String()
+    safc_code = graphene.String()
     def resolve_collective_agreement( instance, info, **kwargs ):
         return instance.collective_agreement and info.context.build_absolute_uri(instance.collective_agreement.file.url)
     def resolve_company_agreement( instance, info, **kwargs ):
         return instance.company_agreement and info.context.build_absolute_uri(instance.company_agreement.file.url)
+    def resolve_labor_law( instance, info, **kwargs ):
+        return instance.labor_law and info.context.build_absolute_uri(instance.labor_law.file.url)
+    def resolve_associations_foundations_code( instance, info, **kwargs ):
+        return instance.associations_foundations_code and info.context.build_absolute_uri(instance.associations_foundations_code.file.url)
+    def resolve_safc_code( instance, info, **kwargs ):
+        return instance.safc_code and info.context.build_absolute_uri(instance.safc_code.file.url)
 
 class CompanyType(DjangoObjectType):
     class Meta:
@@ -514,10 +523,13 @@ class UpdateCompanyMedia(graphene.Mutation):
         company_media_data = CompanyMediaInput(required=True)
         collective_agreement = Upload(required=False)
         company_agreement = Upload(required=False)
+        labor_law = Upload(required=False)
+        associations_foundations_code = Upload(required=False)
+        safc_code = Upload(required=False)
 
     company_media = graphene.Field(CompanyMediaType)
 
-    def mutate(root, info, id=None, collective_agreement=None, company_agreement=None, company_media_data=None):
+    def mutate(root, info, id=None, collective_agreement=None, company_agreement=None, labor_law=None, associations_foundations_code=None, safc_code=None, company_media_data=None):
         creator = info.context.user
         company = creator.the_current_company
         if id:
@@ -542,6 +554,15 @@ class UpdateCompanyMedia(graphene.Mutation):
         if not company_agreement and company_media.company_agreement:
             company_agreement_file = company_media.company_agreement
             company_agreement_file.delete()
+        if not labor_law and company_media.labor_law:
+            labor_law_file = company_media.labor_law
+            labor_law_file.delete()
+        if not associations_foundations_code and company_media.associations_foundations_code:
+            associations_foundations_code_file = company_media.associations_foundations_code
+            associations_foundations_code_file.delete()
+        if not safc_code and company_media.safc_code:
+            safc_code_file = company_media.safc_code
+            safc_code_file.delete()
         if info.context.FILES:
             if collective_agreement and isinstance(collective_agreement, UploadedFile):
                 collective_agreement_file = company_media.collective_agreement
@@ -560,6 +581,31 @@ class UpdateCompanyMedia(graphene.Mutation):
                 company_agreement_file.file = company_agreement
                 company_agreement_file.save()
                 company_media.company_agreement = company_agreement_file
+            if labor_law and isinstance(labor_law, UploadedFile):
+                labor_law_file = company_media.labor_law
+                if not labor_law_file:
+                    labor_law_file = File()
+                    labor_law_file.creator = creator
+                labor_law_file.file = labor_law
+                labor_law_file.save()
+                company_media.labor_law = labor_law_file
+            # file2 = info.context.FILES['2']
+            if associations_foundations_code and isinstance(associations_foundations_code, UploadedFile):
+                associations_foundations_code_file = company_media.associations_foundations_code
+                if not associations_foundations_code_file:
+                    associations_foundations_code_file = File()
+                    associations_foundations_code_file.creator = creator
+                associations_foundations_code_file.file = associations_foundations_code
+                associations_foundations_code_file.save()
+                company_media.associations_foundations_code = associations_foundations_code_file
+            if safc_code and isinstance(safc_code, UploadedFile):
+                safc_code_file = company_media.safc_code
+                if not safc_code_file:
+                    safc_code_file = File()
+                    safc_code_file.creator = creator
+                safc_code_file.file = safc_code
+                safc_code_file.save()
+                company_media.safc_code = safc_code_file
             company_media.save()
         return UpdateCompanyMedia(company_media=company_media)
 

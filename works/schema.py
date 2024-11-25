@@ -389,7 +389,7 @@ class WorksQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        task_actions = TaskAction.objects.filter(company=company, employees=user.get_employee_in_company(), is_deleted=False)
+        task_actions = TaskAction.objects.filter(Q(employees=user.get_employee_in_company()) | Q(creator=user), company=company, is_deleted=False)
         the_order_by = '-created_at'
         is_archived=False
         if task_action_filter:
@@ -401,7 +401,9 @@ class WorksQuery(graphene.ObjectType):
             list_type = task_action_filter.get('list_type') # ALL / MY_TASK_ACTIONS / TASK_ACTION_ARCHIVED
             order_by = task_action_filter.get('order_by')
             if list_type:
-                if list_type == 'MY_TASK_ACTIONS':
+                if list_type == 'TASK_ACTION_RECEIVED':
+                    task_actions = task_actions.filter(employees=user.get_employee_in_company())
+                elif list_type == 'TASK_ACTION_GIVEN':
                     task_actions = task_actions.filter(creator=user)
                 elif list_type == 'TASK_ACTION_ARCHIVED':
                     is_archived=True
