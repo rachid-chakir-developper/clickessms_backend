@@ -299,6 +299,7 @@ class TaskAction(models.Model):
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	ticket = models.ForeignKey(Ticket, on_delete=models.SET_NULL, null=True, related_name='actions')
+	meeting_decision = models.ForeignKey("administratives.MeetingDecision", on_delete=models.SET_NULL, null=True, related_name='actions')
 	description = models.TextField(default='', null=True)
 	document = models.ForeignKey("medias.File",on_delete=models.SET_NULL,related_name="task_actions", null=True)
 	due_date = models.DateTimeField(null=True)

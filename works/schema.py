@@ -1107,9 +1107,12 @@ class UpdateTaskAction(graphene.Mutation):
 
     def mutate(root, info, id, document=None, task_action_data=None):
         creator = info.context.user
+        task_action = TaskAction.objects.get(pk=id)
+        if creator != task_action.creator and not creator.is_admin():
+            raise ValueError("Vous n'avez pas les droits nécessaires pour modifier cette action.")
         employees_ids = task_action_data.pop("employees") if "employees" in task_action_data else None
         TaskAction.objects.filter(pk=id).update(**task_action_data)
-        task_action = TaskAction.objects.get(pk=id)
+        task_action.refresh_from_db()
         if not task_action.folder or task_action.folder is None:
             folder = Folder.objects.create(
                 name=str(task_action.id) + "_", creator=creator
@@ -1177,13 +1180,13 @@ class DeleteTaskAction(graphene.Mutation):
         message = ""
         current_user = info.context.user
         task_action = TaskAction.objects.get(pk=id)
-        if current_user.is_superuser or current_user.is_manager() or (task_action.creator==current_user):
+        if current_user.is_superuser or current_user.is_admin() or (task_action.creator==current_user):
             # task_action.delete()
             TaskAction.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Vous n'avez pas les droits nécessaires pour modifier cette action."
         return DeleteTaskAction(deleted=deleted, success=success, message=message, id=id)
 
 

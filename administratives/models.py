@@ -4,6 +4,10 @@ from django.utils import timezone
 import random
 from data_management.models import PhoneNumber, HomeAddress
 from qualities.models import UndesirableEvent
+from works.models import TaskAction
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 # Create your models here.
 class Call(models.Model):
@@ -45,30 +49,30 @@ class Call(models.Model):
 		return None
 
 	def save(self, *args, **kwargs):
-	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
-	    if not self.number:
-	        self.number = self.generate_unique_number()
+		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+		if not self.number:
+			self.number = self.generate_unique_number()
 
-	    super(Call, self).save(*args, **kwargs)
+		super(Call, self).save(*args, **kwargs)
 
 	def generate_unique_number(self):
-	    # Implémentez la logique de génération du numéro unique ici
-	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
-	    # par exemple, en utilisant la fonction strftime de l'objet datetime
-	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+		# Implémentez la logique de génération du numéro unique ici
+		# Vous pouvez utiliser des combinaisons de date, heure, etc.
+		# par exemple, en utilisant la fonction strftime de l'objet datetime
+		# pour générer une chaîne basée sur la date et l'heure actuelles.
 
-	    # Exemple : Utilisation de la date et de l'heure actuelles
-	    current_time = datetime.now()
-	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
-	    number = f'{number_prefix}{number_suffix}'
+		# Exemple : Utilisation de la date et de l'heure actuelles
+		current_time = datetime.now()
+		number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+		number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+		number = f'{number_prefix}{number_suffix}'
 
-	    # Vérifier s'il est unique dans la base de données
-	    while Call.objects.filter(number=number).exists():
-	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	        number = f'{number_prefix}{number_suffix}'
+		# Vérifier s'il est unique dans la base de données
+		while Call.objects.filter(number=number).exists():
+			number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+			number = f'{number_prefix}{number_suffix}'
 
-	    return number
+		return number
 
 	def setCaller(self, caller_data=None, creator=None):
 		if self.id and Caller.objects.filter(call__id=self.id).exists():
@@ -161,33 +165,33 @@ class Letter(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
-    
+	
 	def save(self, *args, **kwargs):
-	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
-	    if not self.number:
-	        self.number = self.generate_unique_number()
+		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+		if not self.number:
+			self.number = self.generate_unique_number()
 
-	    super(Letter, self).save(*args, **kwargs)
+		super(Letter, self).save(*args, **kwargs)
 
 	def generate_unique_number(self):
-	    # Implémentez la logique de génération du numéro unique ici
-	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
-	    # par exemple, en utilisant la fonction strftime de l'objet datetime
-	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+		# Implémentez la logique de génération du numéro unique ici
+		# Vous pouvez utiliser des combinaisons de date, heure, etc.
+		# par exemple, en utilisant la fonction strftime de l'objet datetime
+		# pour générer une chaîne basée sur la date et l'heure actuelles.
 
-	    # Exemple : Utilisation de la date et de l'heure actuelles
-	    current_time = datetime.now()
-	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
-	    number = f'{number_prefix}{number_suffix}'
+		# Exemple : Utilisation de la date et de l'heure actuelles
+		current_time = datetime.now()
+		number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+		number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+		number = f'{number_prefix}{number_suffix}'
 
-	    # Vérifier s'il est unique dans la base de données
-	    while Letter.objects.filter(number=number).exists():
-	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	        number = f'{number_prefix}{number_suffix}'
+		# Vérifier s'il est unique dans la base de données
+		while Letter.objects.filter(number=number).exists():
+			number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+			number = f'{number_prefix}{number_suffix}'
 
-	    return number
-	    
+		return number
+		
 	def __str__(self):
 		return self.title
 		
@@ -227,10 +231,10 @@ class LetterBeneficiary(models.Model):
 # Create your models here.
 class Meeting(models.Model):
 	MEETING_MODES = [
-	    ('PV', 'Procès-Verbal'),
-	    ('PV_SCE', 'Procès-Verbal cse'),
-	    ('SIMPLE', 'Réunion Simple'),
-	    ('INTERVIEW', 'Entretien'),
+		('PV', 'Procès-Verbal'),
+		('PV_SCE', 'Procès-Verbal cse'),
+		('SIMPLE', 'Réunion Simple'),
+		('INTERVIEW', 'Entretien'),
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255, null=True)
@@ -254,33 +258,33 @@ class Meeting(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
-    
+	
 	def save(self, *args, **kwargs):
-	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
-	    if not self.number:
-	        self.number = self.generate_unique_number()
+		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+		if not self.number:
+			self.number = self.generate_unique_number()
 
-	    super(Meeting, self).save(*args, **kwargs)
+		super(Meeting, self).save(*args, **kwargs)
 
 	def generate_unique_number(self):
-	    # Implémentez la logique de génération du numéro unique ici
-	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
-	    # par exemple, en utilisant la fonction strftime de l'objet datetime
-	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+		# Implémentez la logique de génération du numéro unique ici
+		# Vous pouvez utiliser des combinaisons de date, heure, etc.
+		# par exemple, en utilisant la fonction strftime de l'objet datetime
+		# pour générer une chaîne basée sur la date et l'heure actuelles.
 
-	    # Exemple : Utilisation de la date et de l'heure actuelles
-	    current_time = datetime.now()
-	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
-	    number = f'{number_prefix}{number_suffix}'
+		# Exemple : Utilisation de la date et de l'heure actuelles
+		current_time = datetime.now()
+		number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+		number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+		number = f'{number_prefix}{number_suffix}'
 
-	    # Vérifier s'il est unique dans la base de données
-	    while Meeting.objects.filter(number=number).exists():
-	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	        number = f'{number_prefix}{number_suffix}'
+		# Vérifier s'il est unique dans la base de données
+		while Meeting.objects.filter(number=number).exists():
+			number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+			number = f'{number_prefix}{number_suffix}'
 
-	    return number
-	    
+		return number
+		
 	def __str__(self):
 		return self.title
 
@@ -310,6 +314,48 @@ class MeetingDecision(models.Model):
 	def __str__(self):
 		return str(self.id)
 
+@receiver(post_save, sender=MeetingDecision)
+def create_or_update_task_action(sender, instance, created, **kwargs):
+	"""
+	Signal pour créer ou mettre à jour une TaskAction
+	lorsqu'une MeetingDecision est sauvegardée.
+	"""
+	if created:
+		# Créer une nouvelle TaskAction
+		print('h11111')
+		task_action = TaskAction.objects.create(
+			meeting_decision=instance,
+			description=instance.decision,
+			due_date=instance.due_date,
+			company=instance.meeting.creator.company if instance.meeting.creator else None,
+			creator=instance.meeting.creator,
+		)
+		task_action.employees.set(instance.employees.all())
+	else:
+		# Mettre à jour la TaskAction existante
+		print('h222')
+		task_action = TaskAction.objects.filter(meeting_decision=instance).first()
+		if task_action:
+			print(task_action.creator)
+			task_action.description = instance.decision
+			task_action.due_date = instance.due_date
+			task_action.company=instance.meeting.creator.company if instance.meeting.creator else None
+			task_action.creator=instance.meeting.creator
+			task_action.save()
+			task_action.employees.set(instance.employees.all())
+		else:
+			# Si aucune TaskAction n'existe, en créer une nouvelle
+			print('h444')
+			task_action = TaskAction.objects.create(
+				ticket=None,  # Ajustez si nécessaire
+				meeting_decision=instance,
+				description=instance.decision,
+				due_date=instance.due_date,
+				company=instance.meeting.creator.company if instance.meeting.creator else None,
+				creator=instance.meeting.creator,
+			)
+			task_action.employees.set(instance.employees.all())
+
 # Create your models here.
 class MeetingReviewPoint(models.Model):
 	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True, related_name='meeting_review_points')
@@ -324,9 +370,9 @@ class MeetingReviewPoint(models.Model):
 # Create your models here.
 class MeetingParticipant(models.Model):
 	STATUS_CHOICES = [
-	    ('PRESENT', 'Present'),
-	    ('ABSENT', 'Absent'),
-	    ('EXCUSED', 'Excused'),
+		('PRESENT', 'Present'),
+		('ABSENT', 'Absent'),
+		('EXCUSED', 'Excused'),
 	]
 	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True, related_name='participants')
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='participant_meetings', null=True)

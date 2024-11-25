@@ -967,14 +967,18 @@ class UpdateMeeting(graphene.Mutation):
             for_voters_ids = item.pop("for_voters") if "for_voters" in item else None
             against_voters_ids = item.pop("against_voters") if "against_voters" in item else None
             if id in item or 'id' in item:
-                MeetingDecision.objects.filter(pk=item.id).update(**item)
                 meeting_decision = MeetingDecision.objects.get(pk=item.id)
+                for key, value in item.items():
+                    setattr(meeting_decision, key, value)
+                meeting_decision.save()
+                meeting_decision.refresh_from_db()
             else:
                 meeting_decision = MeetingDecision(**item)
                 meeting_decision.meeting = meeting
                 meeting_decision.save()
             if employees_ids and employees_ids is not None:
                 meeting_decision.employees.set(employees_ids)
+                meeting_decision.save()
                 for employee in meeting_decision.employees.all():
                     employee_user = employee.user
                     if employee_user:
