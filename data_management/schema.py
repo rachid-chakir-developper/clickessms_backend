@@ -115,6 +115,16 @@ class AccountingNatureType(DjangoObjectType):
     class Meta:
         model = AccountingNature
         fields = "__all__"
+    children_number = graphene.Int()
+    def resolve_children_number( instance, info, **kwargs ):
+        return instance.children.count() if hasattr(instance, "children") else 0
+
+class AccountingNatureFilterInput(graphene.InputObjectType):
+        keyword = graphene.String(required=False)
+
+class AccountingNatureNodeType(graphene.ObjectType):
+    nodes = graphene.List(AccountingNatureType)
+    total_count = graphene.Int()
 
 class CustomFieldOptionType(DjangoObjectType):
     class Meta:
@@ -175,7 +185,7 @@ class AccountingNatureInput(graphene.InputObjectType):
 class DataQuery(graphene.ObjectType):
     datas = graphene.List(DataType, typeData = graphene.String(), id_parent = graphene.ID(required=False))
     data = graphene.Field(DataType, typeData = graphene.String(), id = graphene.ID())
-    accounting_natures = graphene.List(AccountingNatureType, id_parent = graphene.ID(required=False))
+    accounting_natures = graphene.Field(AccountingNatureNodeType, accounting_nature_filter= AccountingNatureFilterInput(required=False), id_parent = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     accounting_nature = graphene.Field(AccountingNatureType, id = graphene.ID())
     custom_fields = graphene.Field(CustomFieldNodeType, custom_field_filter= CustomFieldFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     custom_field = graphene.Field(CustomFieldType, id = graphene.ID())
@@ -200,21 +210,33 @@ class DataQuery(graphene.ObjectType):
         data.__class__ = DataModel
         return data
     
-    def resolve_accounting_natures(root, info, id_parent=None):
+    def resolve_accounting_natures(root, info, accounting_nature_filter=None, id_parent=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
+        total_count = 0
         accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True))
         if id_parent:
             accounting_natures = accounting_natures.filter(parent_id=id_parent)
         else:
             accounting_natures = accounting_natures.filter(parent__isnull=True)
-        return accounting_natures
+        if accounting_nature_filter:
+            keyword = accounting_nature_filter.get('keyword', '')
+            if keyword:
+                accounting_natures = accounting_natures.filter(Q(code__icontains=keyword) | Q(name__icontains=keyword) | Q(description__icontains=keyword))
+        accounting_natures = accounting_natures.order_by('created_at')
+        total_count = accounting_natures.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            accounting_natures = accounting_natures[offset:offset + limit]
+        return AccountingNatureNodeType(nodes=accounting_natures, total_count=total_count)
 
     def resolve_accounting_nature(root, info, id):
         # We can easily optimize query count in the resolve method
         try:
             accounting_nature = AccountingNature.objects.get(pk=id)
-        except CustomField.DoesNotExist:
+        except AccountingNature.DoesNotExist:
             accounting_nature = None
         return accounting_nature
 
@@ -319,11 +341,10 @@ class UpdateAccountingNature(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
         accounting_nature_data = AccountingNatureInput(required=True)
-        image = Upload(required=False)
 
     accounting_nature = graphene.Field(AccountingNatureType)
 
-    def mutate(root, info, id, image=None, accounting_nature_data=None):
+    def mutate(root, info, id, accounting_nature_data=None):
         creator = info.context.user
         AccountingNature.objects.filter(pk=id).update(**accounting_nature_data)
         accounting_nature = AccountingNature.objects.get(pk=id)
@@ -554,6 +575,10 @@ class DataMutation(graphene.ObjectType):
     create_data = CreateData.Field()
     update_data = UpdateData.Field()
     delete_data = DeleteData.Field()
+
+    create_accounting_nature = CreateAccountingNature.Field()
+    update_accounting_nature = UpdateAccountingNature.Field()
+    delete_accounting_nature = DeleteAccountingNature.Field()
 
     import_data = ImportDataMutation.Field()
 

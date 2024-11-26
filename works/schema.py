@@ -1164,6 +1164,55 @@ class UpdateTaskAction(graphene.Mutation):
         return UpdateTaskAction(task_action=task_action)
 
 
+class UpdateTaskActionFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        task_action_data = TaskActionInput(required=True)
+
+    task_action = graphene.Field(TaskActionType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, task_action_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        task_action = None
+        message = ''
+        try:
+            task_action = TaskAction.objects.get(pk=id)
+            TaskAction.objects.filter(pk=id).update(**task_action_data)
+            task_action.refresh_from_db()
+            if 'status' in task_action_data:
+                if task_action.ticket:
+                    ticket = task_action.ticket
+                    if ticket.completion_percentage >= 100 and ticket.status!='COMPLETED':
+                        Ticket.objects.filter(pk=ticket.id).update(status='COMPLETED')
+                        ticket.refresh_from_db()
+                        broadcastTicketUpdated(ticket=ticket)
+                    elif ticket.completion_percentage >= 0 and ticket.status!='IN_PROGRESS':
+                        Ticket.objects.filter(pk=ticket.id).update(status='IN_PROGRESS')
+                        ticket.refresh_from_db()
+                        broadcastTicketUpdated(ticket=ticket)
+                    if task_action.ticket.undesirable_event:
+                        undesirable_event = task_action.ticket.undesirable_event
+                        if undesirable_event.completion_percentage >= 100 and undesirable_event.status!='DONE':
+                            UndesirableEvent.objects.filter(pk=undesirable_event.id).update(status='DONE')
+                            undesirable_event.refresh_from_db()
+                            broadcastUndesirableEventUpdated(undesirable_event=undesirable_event)  
+                        elif undesirable_event.completion_percentage >= 0 and undesirable_event.status!='IN_PROGRESS':
+                            UndesirableEvent.objects.filter(pk=undesirable_event.id).update(status='IN_PROGRESS')
+                            undesirable_event.refresh_from_db()
+                            broadcastUndesirableEventUpdated(undesirable_event=undesirable_event)
+                task_action.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            task_action=None
+            message = "Une erreur s'est produite."
+        return UpdateTaskActionFields(done=done, success=success, message=message, task_action=task_action)
+        
 class DeleteTaskAction(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -1210,6 +1259,7 @@ class WorksMutation(graphene.ObjectType):
 
     create_task_action = CreateTaskAction.Field()
     update_task_action = UpdateTaskAction.Field()
+    update_task_action_fields = UpdateTaskActionFields.Field()
     delete_task_action = DeleteTaskAction.Field()
 
 

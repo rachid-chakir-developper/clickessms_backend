@@ -111,6 +111,9 @@ class DataModel(models.Model):
 	parent = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='children', null=True, blank=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
 	creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
 
 	def __str__(self):
 		return str(self.id)
