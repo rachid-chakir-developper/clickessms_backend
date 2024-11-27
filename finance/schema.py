@@ -7,7 +7,8 @@ from decimal import Decimal
 
 from django.db.models import Q
 
-from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance, Budget
+from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance, Budget, BudgetAccountingNature
+from data_management.models import AccountingNature
 from medias.models import Folder, File
 
 
@@ -148,6 +149,11 @@ class BalanceInput(graphene.InputObjectType):
     bank_account_id = graphene.Int(name="bankAccount", required=False)
 
 
+class BudgetAccountingNatureType(DjangoObjectType):
+    class Meta:
+        model = BudgetAccountingNature
+        fields = "__all__"
+
 class BudgetType(DjangoObjectType):
     class Meta:
         model = Budget
@@ -165,6 +171,12 @@ class BudgetFilterInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     establishments = graphene.List(graphene.Int, required=False)
     order_by = graphene.String(required=False)
+
+class BudgetAccountingNatureInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    amount_allocated = graphene.Decimal(required=False)
+    budget_id = graphene.Int(name="budget", required=False)
+    accounting_nature_id = graphene.Int(name="accountingNature", required=False)
 
 class BudgetInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -793,11 +805,10 @@ class UpdateBudget(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
         budget_data = BudgetInput(required=True)
-        image = Upload(required=False)
 
     budget = graphene.Field(BudgetType)
 
-    def mutate(root, info, id, image=None, budget_data=None):
+    def mutate(root, info, id, budget_data=None):
         creator = info.context.user
         Budget.objects.filter(pk=id).update(**budget_data)
         budget = Budget.objects.get(pk=id)
@@ -812,6 +823,51 @@ class UpdateBudget(graphene.Mutation):
             budget.refresh_from_db()
         return UpdateBudget(budget=budget)
 
+class UpdateBudgetAccountingNature(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID(required=False)
+        budget_accounting_nature_data = BudgetAccountingNatureInput(required=True)
+
+    budget_accounting_nature = graphene.Field(BudgetAccountingNatureType)
+
+    def mutate(root, info, id=None, budget_accounting_nature_data=None):
+        creator = info.context.user
+        budget_id = budget_accounting_nature_data.get("budget_id", None)
+        accounting_nature_id = budget_accounting_nature_data.get("accounting_nature_id", None)
+
+         # Vérifier que le budget existe
+        try:
+            budget = Budget.objects.get(pk=budget_id)
+        except Budget.DoesNotExist:
+            raise Exception(f"Aucun budget trouvé avec l'ID {budget_id}.")
+
+        # Vérifier que la nature comptable existe
+        try:
+            accounting_nature = AccountingNature.objects.get(pk=accounting_nature_id)
+        except AccountingNature.DoesNotExist:
+            raise Exception(f"Aucune nature comptable trouvée avec l'ID {accounting_nature_id}.")
+
+        # Rechercher un BudgetAccountingNature existant
+        budget_accounting_nature = BudgetAccountingNature.objects.filter(
+            budget_id=budget_id,
+            accounting_nature_id=accounting_nature_id
+        ).first()
+
+        if budget_accounting_nature:
+            # Mettre à jour les champs dynamiquement si l'objet existe
+            for key, value in budget_accounting_nature_data.items():
+                setattr(budget_accounting_nature, key, value)
+            budget_accounting_nature.save()
+        else:
+            # Créer un nouvel objet si aucun n'existe
+            budget_accounting_nature = BudgetAccountingNature.objects.create(
+                budget=budget,
+                accounting_nature=accounting_nature,
+                creator=creator,
+                **budget_accounting_nature_data
+            )
+
+        return UpdateBudgetAccountingNature(budget_accounting_nature=budget_accounting_nature)
 
 class UpdateBudgetState(graphene.Mutation):
     class Arguments:
@@ -917,6 +973,7 @@ class FinanceMutation(graphene.ObjectType):
 
     create_budget = CreateBudget.Field()
     update_budget = UpdateBudget.Field()
+    update_budget_accounting_nature = UpdateBudgetAccountingNature.Field()
     update_budget_state = UpdateBudgetState.Field()
     update_budget_fields = UpdateBudgetFields.Field()
     delete_budget = DeleteBudget.Field()

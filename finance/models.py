@@ -298,3 +298,15 @@ class Budget(models.Model):
             number = f"{number_prefix}{number_suffix}"
         
         return number
+
+# Create your models here.
+class BudgetAccountingNature(models.Model):
+    budget = models.ForeignKey(Budget, on_delete=models.SET_NULL, null=True, related_name='budget_accounting_natures')
+    accounting_nature = models.ForeignKey('data_management.AccountingNature', on_delete=models.SET_NULL, related_name='budget_accounting_natures', null=True)
+    amount_allocated = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Montant prévu
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='budget_accounting_natures', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return str(self.id)

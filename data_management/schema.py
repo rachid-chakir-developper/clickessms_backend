@@ -12,6 +12,7 @@ from django.db.models import Q
 from django.db import transaction
 import openpyxl
 
+from finance.models import BudgetAccountingNature
 from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel, EmployeeMission, AccountingNature, CustomField, CustomFieldOption, CustomFieldValue
 
 
@@ -116,11 +117,27 @@ class AccountingNatureType(DjangoObjectType):
         model = AccountingNature
         fields = "__all__"
     children_number = graphene.Int()
+    amount_allocated = graphene.Decimal(required=False)
     def resolve_children_number( instance, info, **kwargs ):
         return instance.children.count() if hasattr(instance, "children") else 0
+    def resolve_amount_allocated(instance, info, **kwargs):
+        accounting_nature_filter = getattr(info.context, 'accounting_nature_filter', None)
+        if accounting_nature_filter:
+            budget_id = accounting_nature_filter.get('budget', None)
+            if budget_id:
+                try:
+                    budget_accounting_nature = BudgetAccountingNature.objects.filter(
+                        budget_id=budget_id,
+                        accounting_nature=instance
+                    ).first()
+                    return budget_accounting_nature.amount_allocated if budget_accounting_nature else None
+                except BudgetAccountingNature.DoesNotExist:
+                    return None
+        return None
 
 class AccountingNatureFilterInput(graphene.InputObjectType):
         keyword = graphene.String(required=False)
+        budget = graphene.Int(required=False)
 
 class AccountingNatureNodeType(graphene.ObjectType):
     nodes = graphene.List(AccountingNatureType)
@@ -213,6 +230,7 @@ class DataQuery(graphene.ObjectType):
     def resolve_accounting_natures(root, info, accounting_nature_filter=None, id_parent=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
+        info.context.accounting_nature_filter = accounting_nature_filter
         company = user.the_current_company
         total_count = 0
         accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True))
@@ -331,6 +349,8 @@ class CreateAccountingNature(graphene.Mutation):
 
     def mutate(root, info, accounting_nature_data=None):
         creator = info.context.user
+        if not creator.is_superuser:
+            raise ValueError("Impossible d'ajouter : vous n'avez pas les droits nécessaires.")
         accounting_nature = AccountingNature(**accounting_nature_data)
         accounting_nature.creator = creator
         accounting_nature.company = creator.the_current_company
@@ -346,6 +366,9 @@ class UpdateAccountingNature(graphene.Mutation):
 
     def mutate(root, info, id, accounting_nature_data=None):
         creator = info.context.user
+        if not creator.is_superuser:
+            raise ValueError("Impossible de modifier : vous n'avez pas les droits nécessaires.")
+        accounting_nature_data.pop('parent_id')
         AccountingNature.objects.filter(pk=id).update(**accounting_nature_data)
         accounting_nature = AccountingNature.objects.get(pk=id)
         return UpdateAccountingNature(accounting_nature=accounting_nature)
