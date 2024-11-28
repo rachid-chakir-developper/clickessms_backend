@@ -106,6 +106,7 @@ class ExpenseInput(graphene.InputObjectType):
     label = graphene.String(required=False)
     total_amount = graphene.Decimal(required=False)
     expense_date_time = graphene.DateTime(required=False)
+    payment_method = graphene.String(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     status = graphene.String(required=False)
