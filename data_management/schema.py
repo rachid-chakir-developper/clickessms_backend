@@ -137,6 +137,7 @@ class AccountingNatureType(DjangoObjectType):
 
 class AccountingNatureFilterInput(graphene.InputObjectType):
         keyword = graphene.String(required=False)
+        list_type = graphene.String(required=False)
         budget = graphene.Int(required=False)
 
 class AccountingNatureNodeType(graphene.ObjectType):
@@ -240,6 +241,9 @@ class DataQuery(graphene.ObjectType):
             accounting_natures = accounting_natures.filter(parent__isnull=True)
         if accounting_nature_filter:
             keyword = accounting_nature_filter.get('keyword', '')
+            list_type = accounting_nature_filter.get('list_type', None)
+            if list_type and list_type=='ALL':
+                accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True))
             if keyword:
                 accounting_natures = accounting_natures.filter(Q(code__icontains=keyword) | Q(name__icontains=keyword) | Q(description__icontains=keyword))
         accounting_natures = accounting_natures.order_by('created_at')

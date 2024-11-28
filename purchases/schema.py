@@ -96,6 +96,7 @@ class ExpenseExpenseItemInput(graphene.InputObjectType):
     expense_date_time = graphene.DateTime(required=False)
     status = graphene.String(required=False)
     description = graphene.String(required=False)
+    comment = graphene.String(required=False)
     accounting_nature_id = graphene.Int(name="accountingNature", required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
 

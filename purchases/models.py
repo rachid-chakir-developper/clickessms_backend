@@ -145,6 +145,7 @@ class ExpenseItem(models.Model):
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant
     expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
+    comment = models.TextField(default="", null=True, blank=True)
     description = models.TextField(default="", null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
     creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
