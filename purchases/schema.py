@@ -88,6 +88,8 @@ class ExpenseFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     establishments = graphene.List(graphene.Int, required=False)
+    statuses = graphene.List(graphene.String, required=False)
+    list_type = graphene.String(required=False)
     order_by = graphene.String(required=False)
 
 class ExpenseExpenseItemInput(graphene.InputObjectType):
@@ -107,12 +109,17 @@ class ExpenseInput(graphene.InputObjectType):
     total_amount = graphene.Decimal(required=False)
     expense_date_time = graphene.DateTime(required=False)
     payment_method = graphene.String(required=False)
+    expense_type = graphene.String(required=False)
     description = graphene.String(required=False)
+    comment = graphene.String(required=False)
     observation = graphene.String(required=False)
     status = graphene.String(required=False)
+    is_amount_accurate = graphene.Boolean(required=False)
+    is_planned_in_budget = graphene.Boolean(required=False)
     is_active = graphene.Boolean(required=False)
     establishments = graphene.List(graphene.Int, required=False)
     expense_items = graphene.List(ExpenseExpenseItemInput, required=False)
+    supplier_id = graphene.Int(name="supplier", required=False)
     employee_id = graphene.Int(name="employee", required=False)
 
 class PurchasesQuery(graphene.ObjectType):
@@ -177,9 +184,18 @@ class PurchasesQuery(graphene.ObjectType):
             starting_date_time = expense_filter.get("starting_date_time")
             ending_date_time = expense_filter.get("ending_date_time")
             establishments = expense_filter.get('establishments')
+            statuses = expense_filter.get('statuses')
+            list_type = expense_filter.get('list_type') # ALL_EXPENSE_REQUESTS / MY_EXPENSES / MY_EXPENSE_REQUESTS / ALL
             order_by = expense_filter.get('order_by')
             if establishments:
                 expenses = expenses.filter(establishment__id__in=establishments)
+            if list_type:
+                if list_type == 'MY_EXPENSES':
+                    expenses = expenses.filter(creator=user)
+                elif list_type == 'MY_EXPENSE_REQUESTS':
+                    expenses = expenses.filter(creator=user)
+                elif list_type == 'ALL':
+                    pass
             if keyword:
                 expenses = expenses.filter(
                     Q(name__icontains=keyword)
@@ -188,6 +204,8 @@ class PurchasesQuery(graphene.ObjectType):
                 expenses = expenses.filter(starting_date__gte=starting_date_time)
             if ending_date_time:
                 expenses = expenses.filter(starting_date__lte=ending_date_time)
+            if statuses:
+                expenses = expenses.filter(status__in=statuses)
             if order_by:
                 the_order_by = order_by
         expenses = expenses.order_by(the_order_by).distinct()
