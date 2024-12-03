@@ -403,6 +403,7 @@ class FrameDocument(models.Model):
 	document_type = models.ForeignKey('data_management.DocumentType', on_delete=models.SET_NULL, related_name='frame_documents', null=True)
 	description = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
+	establishments = models.ManyToManyField('companies.Establishment', related_name='frame_documents')
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='frame_documents', null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='frame_documents', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)

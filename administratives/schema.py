@@ -147,6 +147,8 @@ class FrameDocumentFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
     
 class MeetingFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
@@ -242,6 +244,7 @@ class FrameDocumentInput(graphene.InputObjectType):
     name = graphene.String(required=False)
     description = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
     employee_id = graphene.Int(name="employee", required=False)
     document_type_id = graphene.Int(name="documentType", required=False)
 
@@ -397,19 +400,26 @@ class AdministrativesQuery(graphene.ObjectType):
         )
         total_count = 0
         frame_documents = FrameDocument.objects.filter(company=company)
+        the_order_by = '-created_at'
         if frame_document_filter:
             keyword = frame_document_filter.get("keyword", "")
             starting_date_time = frame_document_filter.get("starting_date_time")
             ending_date_time = frame_document_filter.get("ending_date_time")
+            establishments = frame_document_filter.get('establishments')
+            order_by = frame_document_filter.get('order_by')
             if keyword:
                 frame_documents = frame_documents.filter(
                     Q(name__icontains=keyword)
                 )
+            if establishments:
+                frame_documents = frame_documents.filter(establishments__id__in=establishments)
             if starting_date_time:
                 frame_documents = frame_documents.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 frame_documents = frame_documents.filter(created_at__lte=ending_date_time)
-        frame_documents = frame_documents.order_by("-created_at").distinct()
+            if order_by:
+                the_order_by = order_by
+        frame_documents = frame_documents.order_by(the_order_by).distinct()
         total_count = frame_documents.count()
         if page:
             offset = limit * (page - 1)
@@ -1037,13 +1047,10 @@ class CreateFrameDocument(graphene.Mutation):
 
     def mutate(root, info, document=None, frame_document_data=None):
         creator = info.context.user
+        establishment_ids = frame_document_data.pop("establishments", None)
         frame_document = FrameDocument(**frame_document_data)
         frame_document.creator = creator
-        frame_document.company = (
-            creator.current_company
-            if creator.current_company is not None
-            else creator.company
-        )
+        frame_document.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if document and isinstance(document, UploadedFile):
@@ -1055,6 +1062,8 @@ class CreateFrameDocument(graphene.Mutation):
                 document_file.save()
                 frame_document.document = document_file
         frame_document.save()
+        if establishment_ids and establishment_ids is not None:
+            frame_document.establishments.set(establishment_ids)
         return CreateFrameDocument(frame_document=frame_document)
 
 
@@ -1068,8 +1077,11 @@ class UpdateFrameDocument(graphene.Mutation):
 
     def mutate(root, info, id, document=None, frame_document_data=None):
         creator = info.context.user
+        establishment_ids = frame_document_data.pop("establishments", None)
         FrameDocument.objects.filter(pk=id).update(**frame_document_data)
         frame_document = FrameDocument.objects.get(pk=id)
+        if establishment_ids and establishment_ids is not None:
+            frame_document.establishments.set(establishment_ids)
         if not document and frame_document.document:
             document_file = frame_document.document
             document_file.delete()
