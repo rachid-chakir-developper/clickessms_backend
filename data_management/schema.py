@@ -198,6 +198,7 @@ class AccountingNatureInput(graphene.InputObjectType):
     code = graphene.String(required=True)
     name = graphene.String(required=True)
     description = graphene.String(required=True)
+    is_active = graphene.Boolean(required=False)
     parent_id = graphene.Int(name="parent", required=False)
 
 class DataQuery(graphene.ObjectType):
@@ -243,10 +244,10 @@ class DataQuery(graphene.ObjectType):
             keyword = accounting_nature_filter.get('keyword', '')
             list_type = accounting_nature_filter.get('list_type', None)
             if list_type and list_type=='ALL':
-                accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True))
+                accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True), is_active=True)
             if keyword:
                 accounting_natures = accounting_natures.filter(Q(code__icontains=keyword) | Q(name__icontains=keyword) | Q(description__icontains=keyword))
-        accounting_natures = accounting_natures.order_by('created_at')
+        accounting_natures = accounting_natures.order_by('code').distinct()
         total_count = accounting_natures.count()
         if page:
             offset = limit * (page - 1)

@@ -83,6 +83,7 @@ class Notification(models.Model):
 	task_action = models.ForeignKey('works.TaskAction', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	meeting_decision = models.ForeignKey('administratives.MeetingDecision', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	employee_absence = models.ForeignKey('planning.EmployeeAbsence', on_delete=models.SET_NULL, null=True, related_name='notifications')
+	expense = models.ForeignKey('purchases.Expense', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_notifications', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

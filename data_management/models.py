@@ -109,6 +109,7 @@ class DataModel(models.Model):
 	name = models.CharField(max_length=255)
 	description = models.TextField(default='', null=True)
 	parent = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='children', null=True, blank=True)
+	is_active = models.BooleanField(default=True, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
 	creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 	is_deleted = models.BooleanField(default=False, null=True)
@@ -179,5 +180,20 @@ class EmployeeMission(DataModel):
 		return str(self.id)
 
 class AccountingNature(DataModel):
+	starting_date = models.DateField(null=True)
+	ending_date = models.DateField(null=True)
+	replaced_accounting_nature = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='replaced_by', null=True, blank=True)
 	def __str__(self):
 		return str(self.id)
+	class Meta:
+		ordering = ['code']
+
+	def save(self, *args, **kwargs):
+		# Vérifier si cette nature remplace une autre nature
+		if self.replaced_accounting_nature:
+			# Mettre à jour l'ending_date de la nature remplacée avec le starting_date de la nouvelle nature
+			self.replaced_accounting_nature.ending_date = self.starting_date
+			self.replaced_accounting_nature.save()  # Enregistrer la nature remplacée après modification
+
+		# Appeler la méthode save() du parent pour enregistrer l'objet actuel
+		super().save(*args, **kwargs)

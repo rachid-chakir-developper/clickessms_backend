@@ -555,11 +555,10 @@ class UpdateExpenseFields(graphene.Mutation):
                         notify_expense(sender=creator, recipient=finance_manager, expense=expense)
                 expense.refresh_from_db()
         except Exception as e:
+            print(e)
             done = False
             success = False
             expense=None
-
-            
             message = "Une erreur s'est produite."
         return UpdateExpenseFields(done=done, success=success, message=message, expense=expense)
 
