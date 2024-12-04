@@ -182,7 +182,7 @@ class EmployeeMission(DataModel):
 class AccountingNature(DataModel):
 	starting_date = models.DateField(null=True)
 	ending_date = models.DateField(null=True)
-	replaced_accounting_nature = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='replaced_by', null=True, blank=True)
+	replaced_accounting_nature = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='replaced_by_accounting_natures', null=True, blank=True)
 	def __str__(self):
 		return str(self.id)
 	class Meta:

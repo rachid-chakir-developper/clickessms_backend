@@ -199,6 +199,9 @@ class AccountingNatureInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     description = graphene.String(required=True)
     is_active = graphene.Boolean(required=False)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    replaced_accounting_nature_id = graphene.Int(name="parent", required=False)
     parent_id = graphene.Int(name="parent", required=False)
 
 class DataQuery(graphene.ObjectType):
@@ -235,7 +238,7 @@ class DataQuery(graphene.ObjectType):
         info.context.accounting_nature_filter = accounting_nature_filter
         company = user.the_current_company
         total_count = 0
-        accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True))
+        accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True), replaced_accounting_nature__isnull=True, is_deleted=False)
         if id_parent:
             accounting_natures = accounting_natures.filter(parent_id=id_parent)
         else:
@@ -244,7 +247,7 @@ class DataQuery(graphene.ObjectType):
             keyword = accounting_nature_filter.get('keyword', '')
             list_type = accounting_nature_filter.get('list_type', None)
             if list_type and list_type=='ALL':
-                accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True), is_active=True)
+                accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True), replaced_accounting_nature__isnull=True)
             if keyword:
                 accounting_natures = accounting_natures.filter(Q(code__icontains=keyword) | Q(name__icontains=keyword) | Q(description__icontains=keyword))
         accounting_natures = accounting_natures.order_by('code').distinct()
@@ -373,7 +376,8 @@ class UpdateAccountingNature(graphene.Mutation):
         creator = info.context.user
         if not creator.is_superuser:
             raise ValueError("Impossible de modifier : vous n'avez pas les droits nécessaires.")
-        accounting_nature_data.pop('parent_id')
+        accounting_nature_data.pop('parent_id', None)
+        accounting_nature_data.pop('replaced_accounting_nature_id', None)
         AccountingNature.objects.filter(pk=id).update(**accounting_nature_data)
         accounting_nature = AccountingNature.objects.get(pk=id)
         return UpdateAccountingNature(accounting_nature=accounting_nature)
@@ -450,7 +454,7 @@ def import_data_from_file(entity, model, file, fields, user=None):
                     #     last_name=preferred_name if preferred_name else last_name,
                     #     preferred_name=last_name if preferred_name else preferred_name,
                     #     social_security_number=social_security_number,
-                    #     company=user.company,
+                    #     company=user.the_current_company,
                     #     creator=user,
                     #     ))
                     pass
@@ -486,10 +490,64 @@ def import_data_from_file(entity, model, file, fields, user=None):
                             address=address,
                             zip_code=zip_code,
                             city=city,
-                            company=user.company,
+                            company=user.the_current_company,
                             creator=user,
                             ))
                         count += 1
+                except Exception as e:
+                    raise e
+            if entity == 'AccountingNature':
+                if not user.is_superuser:
+                    raise ValueError("Impossible d'ajouter : vous n'avez pas les droits nécessaires.")
+                try:
+                    code, name, description = str(data['code']), str(data['name']), str(data['description'])
+
+                    # Vérifiez si le champ `code` ou `name` est manquant
+                    if not code or not name:
+                        print("Erreur : Le champ 'code' ou 'name' est vide. Ligne ignorée.")
+                    else:
+                        # Déterminer le code du parent
+                        parent_code = code[:-1] if len(code) > 1 else None  # Retire le dernier caractère pour trouver le parent
+                        parent = None
+
+                        # Trouver le parent si `parent_code` existe
+                        if parent_code:
+                            try:
+                                parent = model.objects.get(code=parent_code)
+                            except model.DoesNotExist:
+                                parent = None  # Aucun parent trouvé, l'objet sera racine
+
+                        # Vérifiez si un objet existe déjà avec le même code
+                        try:
+                            accounting_nature = model.objects.get(code=code)
+
+                            # Mise à jour des informations existantes si nécessaires
+                            updated_fields = []
+                            if accounting_nature.name != name:
+                                accounting_nature.name = name
+                                updated_fields.append('name')
+                            if accounting_nature.description != description:
+                                accounting_nature.description = description
+                                updated_fields.append('description')
+                            if accounting_nature.parent != parent:
+                                accounting_nature.parent = parent
+                                updated_fields.append('parent')
+
+                            if updated_fields:
+                                accounting_nature.save(update_fields=updated_fields)
+                                print(f"Objet mis à jour : {code} - Champs modifiés : {', '.join(updated_fields)}")
+
+                        except model.DoesNotExist:
+                            # Si aucun objet existant, créer un nouvel objet
+                            new_objects.append(model(
+                                code=code,
+                                name=name,
+                                description=description,
+                                parent=parent,
+                                company=user.the_current_company,
+                                creator=user,
+                            ))
+                            count += 1
                 except Exception as e:
                     raise e
         model.objects.bulk_create(new_objects)
@@ -513,6 +571,8 @@ class ImportDataMutation(graphene.Mutation):
         try:
             if entity == 'Employee' or entity == 'Beneficiary':
                 model_app = 'human_ressources'
+            if entity == 'AccountingNature':
+                model_app = 'data_management'
             else:
                 done = False
                 success = False
