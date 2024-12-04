@@ -362,6 +362,17 @@ class CreateAccountingNature(graphene.Mutation):
         accounting_nature = AccountingNature(**accounting_nature_data)
         accounting_nature.creator = creator
         accounting_nature.company = creator.the_current_company
+        parent_id = accounting_nature_data.get('parent', None)
+        if not parent_id:
+            code = accounting_nature.code
+            parent_code = code[:-1] if len(code) > 1 else None
+            parent = None
+            if parent_code:
+                try:
+                    parent = AccountingNature.objects.get(code=parent_code)
+                except Exception as e:
+                    parent = None
+            accounting_nature.parent = parent
         accounting_nature.save()
         return CreateAccountingNature(accounting_nature=accounting_nature)
 

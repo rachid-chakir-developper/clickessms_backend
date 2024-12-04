@@ -124,6 +124,12 @@ class Expense(models.Model):
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='supplier_expenses', null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_expenses', null=True)
+    establishment = models.ForeignKey(
+        "companies.Establishment",
+        on_delete=models.SET_NULL,
+        related_name="establishment_expenses",
+        null=True,
+    )
     company = models.ForeignKey(
         "companies.Company",
         on_delete=models.SET_NULL,
@@ -143,16 +149,6 @@ class Expense(models.Model):
         total = self.expense_items.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
         return total
 
-# Create your models here.
-class ExpenseEstablishment(models.Model):
-	expense = models.ForeignKey(Expense, on_delete=models.SET_NULL, null=True, related_name='establishments')
-	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='expense_establishments', null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='expense_establishments', null=True)
-	created_at = models.DateTimeField(auto_now_add=True, null=True)
-	updated_at = models.DateTimeField(auto_now=True, null=True)
-
-	def __str__(self):
-		return str(self.id)
 
 class ExpenseItem(models.Model):
     STATUS_CHOICES = [

@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from purchases.models import Supplier, Expense, ExpenseEstablishment, ExpenseItem
+from purchases.models import Supplier, Expense, ExpenseItem
 from companies.models import Establishment
 from medias.models import Folder, File
 from accounts.models import User
@@ -62,11 +62,6 @@ class SupplierInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
 
-class ExpenseEstablishmentType(DjangoObjectType):
-    class Meta:
-        model = ExpenseEstablishment
-        fields = "__all__"
-
 class ExpenseItemType(DjangoObjectType):
     class Meta:
         model = ExpenseItem
@@ -117,10 +112,10 @@ class ExpenseInput(graphene.InputObjectType):
     is_amount_accurate = graphene.Boolean(required=False)
     is_planned_in_budget = graphene.Boolean(required=False)
     is_active = graphene.Boolean(required=False)
-    establishments = graphene.List(graphene.Int, required=False)
     expense_items = graphene.List(ExpenseExpenseItemInput, required=False)
     supplier_id = graphene.Int(name="supplier", required=False)
     employee_id = graphene.Int(name="employee", required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
 
 class PurchasesQuery(graphene.ObjectType):
     suppliers = graphene.Field(SupplierNodeType, supplier_filter= SupplierFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -369,7 +364,6 @@ class CreateExpense(graphene.Mutation):
 
     def mutate(root, info, files=None, expense_data=None):
         creator = info.context.user
-        establishment_ids = expense_data.pop("establishments")
         expense_items = expense_data.pop("expense_items")
         expense = Expense(**expense_data)
         expense.creator = creator
@@ -397,16 +391,6 @@ class CreateExpense(graphene.Mutation):
         if not expense.employee:
             expense.employee = creator.get_employee_in_company()
             expense.save()
-        establishments = Establishment.objects.filter(id__in=establishment_ids)
-        for establishment in establishments:
-            try:
-                expense_establishment = ExpenseEstablishment.objects.get(establishment__id=establishment.id, expense__id=expense.id)
-            except ExpenseEstablishment.DoesNotExist:
-                ExpenseEstablishment.objects.create(
-                        expense=expense,
-                        establishment=establishment,
-                        creator=creator
-                    )
         for item in expense_items:
             expense_item = ExpenseItem(**item)
             expense_item.expense = expense
@@ -430,7 +414,6 @@ class UpdateExpense(graphene.Mutation):
 
     def mutate(root, info, id, files=None, expense_data=None):
         creator = info.context.user
-        establishment_ids = expense_data.pop("establishments")
         expense_items = expense_data.pop("expense_items")
         Expense.objects.filter(pk=id).update(**expense_data)
         expense = Expense.objects.get(pk=id)
@@ -461,17 +444,6 @@ class UpdateExpense(graphene.Mutation):
             file_file.save()
             expense.files.add(file_file)
         expense.save()
-        ExpenseEstablishment.objects.filter(expense=expense).exclude(establishment__id__in=establishment_ids).delete()
-        establishments = Establishment.objects.filter(id__in=establishment_ids)
-        for establishment in establishments:
-            try:
-                expense_establishment = ExpenseEstablishment.objects.get(establishment__id=establishment.id, expense__id=expense.id)
-            except ExpenseEstablishment.DoesNotExist:
-                ExpenseEstablishment.objects.create(
-                        expense=expense,
-                        establishment=establishment,
-                        creator=creator
-                    )
         expense_item_ids = [
             item.id for item in expense_items if item.id is not None
         ]
