@@ -89,13 +89,13 @@ class ExpenseFilterInput(graphene.InputObjectType):
 
 class ExpenseExpenseItemInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
+    quantity = graphene.Float(required=False)
     amount = graphene.Decimal(required=False)
     expense_date_time = graphene.DateTime(required=False)
     status = graphene.String(required=False)
     description = graphene.String(required=False)
     comment = graphene.String(required=False)
     accounting_nature_id = graphene.Int(name="accountingNature", required=False)
-    establishment_id = graphene.Int(name="establishment", required=False)
 
 class ExpenseInput(graphene.InputObjectType):
     id = graphene.ID(required=False)

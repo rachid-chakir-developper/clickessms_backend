@@ -160,13 +160,8 @@ class ExpenseItem(models.Model):
     ]
     expense = models.ForeignKey(Expense, on_delete=models.CASCADE, related_name="expense_items")
     accounting_nature = models.ForeignKey('data_management.AccountingNature', on_delete=models.SET_NULL, related_name='expense_items', null=True)
-    establishment = models.ForeignKey(
-        "companies.Establishment",
-        on_delete=models.SET_NULL,
-        related_name="expense_items",
-        null=True,
-    )
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant
+    quantity = models.FloatField(null=True, default=1)
     expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
     comment = models.TextField(default="", null=True, blank=True)
     description = models.TextField(default="", null=True, blank=True)
