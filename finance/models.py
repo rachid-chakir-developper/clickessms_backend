@@ -236,7 +236,6 @@ class Balance(models.Model):
 class CashRegister(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)
     name = models.CharField(max_length=255, null=True)
-    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     description = models.TextField(default="", null=True, blank=True)
     observation = models.TextField(default="", null=True, blank=True)
     opening_date = models.DateTimeField(null=True)

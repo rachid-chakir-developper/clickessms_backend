@@ -226,7 +226,6 @@ class CashRegisterInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     name = graphene.String(required=False)
-    balance = graphene.Decimal(required=False)
     opening_date = graphene.DateTime(required=False)
     closing_date = graphene.DateTime(required=False)
     description = graphene.String(required=False)
