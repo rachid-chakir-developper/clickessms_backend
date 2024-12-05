@@ -232,6 +232,50 @@ class Balance(models.Model):
     def __str__(self):
         return self.amount
 
+
+class CashRegister(models.Model):
+    number = models.CharField(max_length=255, editable=False, null=True)
+    name = models.CharField(max_length=255, null=True)
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    description = models.TextField(default="", null=True, blank=True)
+    observation = models.TextField(default="", null=True, blank=True)
+    opening_date = models.DateTimeField(null=True)
+    closing_date = models.DateTimeField(null=True)
+    is_active = models.BooleanField(default=True, null=True)
+    folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+    company = models.ForeignKey(
+        "companies.Company",
+        on_delete=models.SET_NULL,
+        related_name="company_cash_registers",
+        null=True,
+    )
+    creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.number}"
+
+# Create your models here.
+class CashRegisterEstablishment(models.Model):
+    cash_register = models.ForeignKey(CashRegister, on_delete=models.SET_NULL, null=True, related_name='establishments')
+    establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='cash_register_establishments', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='cash_register_establishments', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+# Create your models here.
+class CashRegisterManager(models.Model):
+    cash_register = models.ForeignKey(CashRegister, on_delete=models.SET_NULL, null=True, related_name='managers')
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='cash_register_employee', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='cash_register_manager_former', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return str(self.id)
+
 class Budget(models.Model):
     STATUS_CHOICES = [
         ("DRAFT", "Brouillon"),                           # Budget en cours de préparation, pas encore soumis
