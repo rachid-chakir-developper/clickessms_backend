@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from django.db.models import Q
 
-from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance, CashRegister, CashRegisterEstablishment, CashRegisterManager, Budget, BudgetAccountingNature
+from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance, CashRegister, CashRegisterEstablishment, CashRegisterManager, CashRegisterTransaction, Budget, BudgetAccountingNature
 from data_management.models import AccountingNature
 from medias.models import Folder, File
 from companies.models import Establishment
@@ -234,6 +234,38 @@ class CashRegisterInput(graphene.InputObjectType):
     establishments = graphene.List(graphene.Int, required=False)
     managers = graphene.List(graphene.Int, required=False)
 
+class CashRegisterTransactionType(DjangoObjectType):
+    class Meta:
+        model = CashRegisterTransaction
+        fields = "__all__"
+
+    document = graphene.String()
+
+    def resolve_document(instance, info, **kwargs):
+        return instance.document and info.context.build_absolute_uri(
+            instance.document.file.url
+        )
+
+
+class CashRegisterTransactionNodeType(graphene.ObjectType):
+    nodes = graphene.List(CashRegisterTransactionType)
+    total_count = graphene.Int()
+
+
+class CashRegisterTransactionFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    
+class CashRegisterTransactionInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    name = graphene.String(required=False)
+    date = graphene.DateTime(required=False)
+    amount = graphene.Decimal(required=False)
+    transaction_type = graphene.String(required=False)
+    cash_register_id = graphene.Int(name="cashRegister", required=False)
+
 class FinanceQuery(graphene.ObjectType):
     decision_documents = graphene.Field(
         DecisionDocumentNodeType,
@@ -267,6 +299,14 @@ class FinanceQuery(graphene.ObjectType):
         page=graphene.Int(required=False),
     )
     cash_register = graphene.Field(CashRegisterType, id=graphene.ID())
+    cash_register_transactions = graphene.Field(
+        CashRegisterTransactionNodeType,
+        cash_register_transaction_filter=CashRegisterTransactionFilterInput(required=False),
+        offset=graphene.Int(required=False),
+        limit=graphene.Int(required=False),
+        page=graphene.Int(required=False),
+    )
+    cash_register_transaction = graphene.Field(CashRegisterTransactionType, id=graphene.ID())
     budgets = graphene.Field(
         BudgetNodeType,
         budget_filter=BudgetFilterInput(required=False),
@@ -451,6 +491,48 @@ class FinanceQuery(graphene.ObjectType):
         except CashRegister.DoesNotExist:
             cash_register = None
         return cash_register
+
+    def resolve_cash_register_transactions(
+        root, info, cash_register_transaction_filter=None, offset=None, limit=None, page=None
+    ):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        cash_register_transactions = CashRegisterTransaction.objects.filter(bank_account__company=company)
+        if not user.can_manage_finance():
+            if user.is_manager():
+                cash_register_transactions = cash_register_transactions.filter(Q(cash_register__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                cash_register_transactions = cash_register_transactions.filter(creator=user)
+        if cash_register_transaction_filter:
+            keyword = cash_register_transaction_filter.get("keyword", "")
+            starting_date_time = cash_register_transaction_filter.get("starting_date_time")
+            ending_date_time = cash_register_transaction_filter.get("ending_date_time")
+            if keyword:
+                cash_register_transactions = cash_register_transactions.filter(
+                    Q(name__icontains=keyword)
+                    | Q(description__icontains=keyword)
+                )
+            if starting_date_time:
+                cash_register_transactions = cash_register_transactions.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                cash_register_transactions = cash_register_transactions.filter(created_at__lte=ending_date_time)
+        cash_register_transactions = cash_register_transactions.order_by("-created_at").distinct()
+        total_count = cash_register_transactions.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            cash_register_transactions = cash_register_transactions[offset : offset + limit]
+        return CashRegisterTransactionNodeType(nodes=cash_register_transactions, total_count=total_count)
+
+    def resolve_cash_register_transaction(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            cash_register_transaction = CashRegisterTransaction.objects.get(pk=id)
+        except CashRegisterTransaction.DoesNotExist:
+            cash_register_transaction = None
+        return cash_register_transaction 
 
     def resolve_budgets(
         root, info, budget_filter=None, offset=None, limit=None, page=None
@@ -1020,7 +1102,90 @@ class DeleteCashRegister(graphene.Mutation):
 
 
 # *************************************************************************#
+# ************************************************************************
 
+
+class CreateCashRegisterTransaction(graphene.Mutation):
+    class Arguments:
+        cash_register_transaction_data = CashRegisterTransactionInput(required=True)
+        document = Upload(required=False)
+
+    cash_register_transaction = graphene.Field(CashRegisterTransactionType)
+
+    def mutate(root, info, document=None, cash_register_transaction_data=None):
+        creator = info.context.user
+        cash_register_transaction = CashRegisterTransaction(**cash_register_transaction_data)
+        cash_register_transaction.creator = creator
+        cash_register_transaction.company = creator.the_current_company
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = cash_register_transaction.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                cash_register_transaction.document = document_file
+        cash_register_transaction.save()
+        return CreateCashRegisterTransaction(cash_register_transaction=cash_register_transaction)
+
+
+class UpdateCashRegisterTransaction(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        cash_register_transaction_data = CashRegisterTransactionInput(required=True)
+        document = Upload(required=False)
+
+    cash_register_transaction = graphene.Field(CashRegisterTransactionType)
+
+    def mutate(root, info, id, document=None, cash_register_transaction_data=None):
+        creator = info.context.user
+        CashRegisterTransaction.objects.filter(pk=id).update(**cash_register_transaction_data)
+        cash_register_transaction = CashRegisterTransaction.objects.get(pk=id)
+        if not document and cash_register_transaction.document:
+            document_file = cash_register_transaction.document
+            document_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = cash_register_transaction.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                cash_register_transaction.document = document_file
+            cash_register_transaction.save()
+        return UpdateCashRegisterTransaction(cash_register_transaction=cash_register_transaction)
+
+
+class DeleteCashRegisterTransaction(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    cash_register_transaction = graphene.Field(CashRegisterTransactionType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            cash_register_transaction = CashRegisterTransaction.objects.get(pk=id)
+            cash_register_transaction.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteCashRegisterTransaction(deleted=deleted, success=success, message=message, id=id)
+
+
+# *************************************************************************#
 # ************************************************************************
 
 
@@ -1218,6 +1383,10 @@ class FinanceMutation(graphene.ObjectType):
     update_cash_register = UpdateCashRegister.Field()
     update_cash_register_state = UpdateCashRegisterState.Field()
     delete_cash_register = DeleteCashRegister.Field()
+
+    create_cash_register_transaction = CreateCashRegisterTransaction.Field()
+    update_cash_register_transaction = UpdateCashRegisterTransaction.Field()
+    delete_cash_register_transaction = DeleteCashRegisterTransaction.Field()
 
     create_budget = CreateBudget.Field()
     update_budget = UpdateBudget.Field()

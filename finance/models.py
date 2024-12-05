@@ -267,8 +267,34 @@ class CashRegisterEstablishment(models.Model):
 # Create your models here.
 class CashRegisterManager(models.Model):
     cash_register = models.ForeignKey(CashRegister, on_delete=models.SET_NULL, null=True, related_name='managers')
-    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='cash_register_employee', null=True)
-    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='cash_register_manager_former', null=True)
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='cash_register_employees', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='cash_register_managers', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return str(self.id)
+
+# Create your models here.
+class CashRegisterTransaction(models.Model):
+    TRANSACTION_TYPES = [
+        ('CREDIT', 'Credit'), # Encaissement
+        ('DEBIT', 'Debit'), # Décaissement
+    ]
+    number = models.CharField(max_length=255, editable=False, null=True)
+    label = models.CharField(max_length=255, null=True)
+    document = models.ForeignKey(
+        "medias.File",
+        on_delete=models.SET_NULL,
+        related_name="transaction_document",
+        null=True,
+    )
+    description = models.TextField(default="", null=True, blank=True)
+    cash_register = models.ForeignKey(CashRegister, on_delete=models.SET_NULL, null=True, related_name='transactions')
+    date = models.DateTimeField(null=True)
+    amount = models.DecimalField(decimal_places=2, max_digits=11, null=True)
+    transaction_type = models.CharField(max_length=50, choices=TRANSACTION_TYPES, default="CREDIT")
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='cash_register_transactions', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
