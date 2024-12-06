@@ -252,6 +252,13 @@ class CashRegister(models.Model):
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    @property
+    def current_balance(self):
+        transactions = self.transactions.all()
+        total_credit = transactions.filter(transaction_type='CREDIT').aggregate(total=models.Sum('amount'))['total'] or 0
+        total_debit = transactions.filter(transaction_type='DEBIT').aggregate(total=models.Sum('amount'))['total'] or 0
+        return Decimal(total_credit - total_debit)
     
     def __str__(self):
         return f"{self.name} - {self.number}"
@@ -278,8 +285,8 @@ class CashRegisterManager(models.Model):
 # Create your models here.
 class CashRegisterTransaction(models.Model):
     TRANSACTION_TYPES = [
-        ('CREDIT', 'Credit'), # Encaissement
-        ('DEBIT', 'Debit'), # Décaissement
+        ('CREDIT', 'Encaissement'), # Credit
+        ('DEBIT', 'Décaissement'), # Debit
     ]
     number = models.CharField(max_length=255, editable=False, null=True)
     label = models.CharField(max_length=255, null=True)
@@ -290,6 +297,7 @@ class CashRegisterTransaction(models.Model):
         null=True,
     )
     description = models.TextField(default="", null=True, blank=True)
+    comment = models.TextField(default="", null=True, blank=True)
     cash_register = models.ForeignKey(CashRegister, on_delete=models.SET_NULL, null=True, related_name='transactions')
     date = models.DateTimeField(null=True)
     amount = models.DecimalField(decimal_places=2, max_digits=11, null=True)

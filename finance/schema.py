@@ -210,6 +210,10 @@ class CashRegisterType(DjangoObjectType):
         model = CashRegister
         fields = "__all__"
 
+    balance = graphene.Decimal()
+    def resolve_balance(instance, info, **kwargs):
+        return instance.current_balance
+
 
 class CashRegisterNodeType(graphene.ObjectType):
     nodes = graphene.List(CashRegisterType)
@@ -256,15 +260,18 @@ class CashRegisterTransactionFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
-    
+    cash_registers = graphene.List(graphene.Int, required=False)
+
 class CashRegisterTransactionInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
-    name = graphene.String(required=False)
+    label = graphene.String(required=False)
+    comment = graphene.String(required=False)
+    description = graphene.String(required=False)
     date = graphene.DateTime(required=False)
     amount = graphene.Decimal(required=False)
     transaction_type = graphene.String(required=False)
-    cash_register_id = graphene.Int(name="cashRegister", required=False)
+    cash_register_id = graphene.Int(name="cashRegister", required=True)
 
 class FinanceQuery(graphene.ObjectType):
     decision_documents = graphene.Field(
@@ -499,7 +506,7 @@ class FinanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        cash_register_transactions = CashRegisterTransaction.objects.filter(bank_account__company=company)
+        cash_register_transactions = CashRegisterTransaction.objects.filter(cash_register__company=company)
         if not user.can_manage_finance():
             if user.is_manager():
                 cash_register_transactions = cash_register_transactions.filter(Q(cash_register__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -509,6 +516,9 @@ class FinanceQuery(graphene.ObjectType):
             keyword = cash_register_transaction_filter.get("keyword", "")
             starting_date_time = cash_register_transaction_filter.get("starting_date_time")
             ending_date_time = cash_register_transaction_filter.get("ending_date_time")
+            cash_registers = cash_register_transaction_filter.get("cash_registers")
+            if cash_registers:
+                cash_register_transactions = cash_register_transactions.filter(cash_register__id__in=cash_registers)
             if keyword:
                 cash_register_transactions = cash_register_transactions.filter(
                     Q(name__icontains=keyword)
@@ -598,11 +608,7 @@ class CreateDecisionDocument(graphene.Mutation):
         decision_document_items = decision_document_data.pop("decision_document_items")
         decision_document = DecisionDocument(**decision_document_data)
         decision_document.creator = creator
-        decision_document.company = (
-            creator.current_company
-            if creator.current_company is not None
-            else creator.company
-        )
+        decision_document.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if document and isinstance(document, UploadedFile):
@@ -1114,6 +1120,11 @@ class CreateCashRegisterTransaction(graphene.Mutation):
 
     def mutate(root, info, document=None, cash_register_transaction_data=None):
         creator = info.context.user
+        # Vérification si le cash_register existe
+        try:
+            cash_register = CashRegister.objects.get(pk=cash_register_transaction_data.cash_register_id)
+        except CashRegister.DoesNotExist:
+            raise ValueError("Le registre de caisse spécifié n'existe pas.")
         cash_register_transaction = CashRegisterTransaction(**cash_register_transaction_data)
         cash_register_transaction.creator = creator
         cash_register_transaction.company = creator.the_current_company
@@ -1141,6 +1152,11 @@ class UpdateCashRegisterTransaction(graphene.Mutation):
 
     def mutate(root, info, id, document=None, cash_register_transaction_data=None):
         creator = info.context.user
+        # Vérification si le cash_register existe
+        try:
+            cash_register = CashRegister.objects.get(pk=cash_register_transaction_data.cash_register_id)
+        except CashRegister.DoesNotExist:
+            raise ValueError("Le registre de caisse spécifié n'existe pas.")
         CashRegisterTransaction.objects.filter(pk=id).update(**cash_register_transaction_data)
         cash_register_transaction = CashRegisterTransaction.objects.get(pk=id)
         if not document and cash_register_transaction.document:
