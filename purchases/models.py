@@ -61,122 +61,190 @@ class Supplier(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
-    
+	
 	def save(self, *args, **kwargs):
-	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
-	    if not self.number:
-	        self.number = self.generate_unique_number()
+		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+		if not self.number:
+			self.number = self.generate_unique_number()
 
-	    super(Supplier, self).save(*args, **kwargs)
+		super(Supplier, self).save(*args, **kwargs)
 
 	def generate_unique_number(self):
-	    # Implémentez la logique de génération du numéro unique ici
-	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
-	    # par exemple, en utilisant la fonction strftime de l'objet datetime
-	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+		# Implémentez la logique de génération du numéro unique ici
+		# Vous pouvez utiliser des combinaisons de date, heure, etc.
+		# par exemple, en utilisant la fonction strftime de l'objet datetime
+		# pour générer une chaîne basée sur la date et l'heure actuelles.
 
-	    # Exemple : Utilisation de la date et de l'heure actuelles
-	    current_time = datetime.now()
-	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
-	    number = f'{number_prefix}{number_suffix}'
+		# Exemple : Utilisation de la date et de l'heure actuelles
+		current_time = datetime.now()
+		number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+		number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+		number = f'{number_prefix}{number_suffix}'
 
-	    # Vérifier s'il est unique dans la base de données
-	    while Supplier.objects.filter(number=number).exists():
-	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	        number = f'{number_prefix}{number_suffix}'
+		# Vérifier s'il est unique dans la base de données
+		while Supplier.objects.filter(number=number).exists():
+			number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+			number = f'{number_prefix}{number_suffix}'
 
-	    return number
-        
+		return number
+		
 	def __str__(self):
 		return self.email
 
 
 
 class Expense(models.Model):
-    STATUS_CHOICES = [
-        ("DRAFT", "Brouillon"),
-        ("NEW", "Nouveau"),
-        ('PENDING', 'En Attente'),
-        ('APPROVED', 'Approuvé'),
-        ('REJECTED', 'Rejeté'),
-        ('PAID', 'Payé'),
-        ('UNPAID', 'Non payé')
-    ]
-    EXPENSE_TYPE_CHOICES = [
-        ("INVESTMENT", "Investissement"),
-        ("PURCHASE", "Achat"),
-    ]
-    number = models.CharField(max_length=255, editable=False, null=True)
-    label = models.CharField(max_length=255, null=True)
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
-    expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
-    payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CREDIT_CARD")
-    expense_type = models.CharField(max_length=50, choices=EXPENSE_TYPE_CHOICES, default= "PURCHASE")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
-    description = models.TextField(default="", null=True, blank=True)
-    comment = models.TextField(default="", null=True, blank=True)
-    observation = models.TextField(default="", null=True, blank=True)
-    is_amount_accurate = models.BooleanField(default=True, null=True)
-    is_planned_in_budget = models.BooleanField(default=False, null=True)
-    is_active = models.BooleanField(default=True, null=True)
-    files = models.ManyToManyField('medias.File', related_name='file_expenses')
-    folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
-    supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='supplier_expenses', null=True)
-    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_expenses', null=True)
-    establishment = models.ForeignKey(
-        "companies.Establishment",
-        on_delete=models.SET_NULL,
-        related_name="establishment_expenses",
-        null=True,
-    )
-    company = models.ForeignKey(
-        "companies.Company",
-        on_delete=models.SET_NULL,
-        related_name="company_expenses",
-        null=True,
-    )
-    creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
-    is_deleted = models.BooleanField(default=False, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-    
-    def __str__(self):
-        return f"{self.name} - {self.number}"
+	STATUS_CHOICES = [
+		("DRAFT", "Brouillon"),
+		("NEW", "Nouveau"),
+		('PENDING', 'En Attente'),
+		('APPROVED', 'Approuvé'),
+		('REJECTED', 'Rejeté'),
+		('PAID', 'Payé'),
+		('UNPAID', 'Non payé')
+	]
+	EXPENSE_TYPE_CHOICES = [
+		("INVESTMENT", "Investissement"),
+		("PURCHASE", "Achat"),
+	]
+	number = models.CharField(max_length=255, editable=False, null=True)
+	label = models.CharField(max_length=255, null=True)
+	total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
+	expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
+	payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CREDIT_CARD")
+	expense_type = models.CharField(max_length=50, choices=EXPENSE_TYPE_CHOICES, default= "PURCHASE")
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+	description = models.TextField(default="", null=True, blank=True)
+	comment = models.TextField(default="", null=True, blank=True)
+	observation = models.TextField(default="", null=True, blank=True)
+	is_amount_accurate = models.BooleanField(default=True, null=True)
+	is_planned_in_budget = models.BooleanField(default=False, null=True)
+	is_active = models.BooleanField(default=True, null=True)
+	cash_register = models.ForeignKey('finance.CashRegister', on_delete=models.SET_NULL, null=True, related_name='cash_register_expenses')
+	files = models.ManyToManyField('medias.File', related_name='file_expenses')
+	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='supplier_expenses', null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_expenses', null=True)
+	establishment = models.ForeignKey(
+		"companies.Establishment",
+		on_delete=models.SET_NULL,
+		related_name="establishment_expenses",
+		null=True,
+	)
+	company = models.ForeignKey(
+		"companies.Company",
+		on_delete=models.SET_NULL,
+		related_name="company_expenses",
+		null=True,
+	)
+	creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+	
+	def __str__(self):
+		return f"{self.name} - {self.number}"
 
-    def calculate_total_amount(self):
-        """Calcule le total_amount en fonction des ExpenseItem associés."""
-        total = self.expense_items.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
-        return total
+	def calculate_total_amount(self):
+		"""Calcule le total_amount en fonction des ExpenseItem associés."""
+		total = self.expense_items.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
+		return total
 
 
 class ExpenseItem(models.Model):
-    STATUS_CHOICES = [
-        ('PENDING', 'En Attente'),
-        ('APPROVED', 'Approuvé'),
-        ('REJECTED', 'Rejeté'),
-        ('PAID', 'Payé'),
-        ('UNPAID', 'Non payé')
-    ]
-    expense = models.ForeignKey(Expense, on_delete=models.CASCADE, related_name="expense_items")
-    accounting_nature = models.ForeignKey('data_management.AccountingNature', on_delete=models.SET_NULL, related_name='expense_items', null=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant
-    quantity = models.FloatField(null=True, default=1)
-    expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
-    comment = models.TextField(default="", null=True, blank=True)
-    description = models.TextField(default="", null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
-    creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-    
-    def __str__(self):
-        return f"{self.amount} - {self.amount}"
+	STATUS_CHOICES = [
+		('PENDING', 'En Attente'),
+		('APPROVED', 'Approuvé'),
+		('REJECTED', 'Rejeté'),
+		('PAID', 'Payé'),
+		('UNPAID', 'Non payé')
+	]
+	expense = models.ForeignKey(Expense, on_delete=models.CASCADE, related_name="expense_items")
+	accounting_nature = models.ForeignKey('data_management.AccountingNature', on_delete=models.SET_NULL, related_name='expense_items', null=True)
+	amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant
+	quantity = models.FloatField(null=True, default=1)
+	expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
+	comment = models.TextField(default="", null=True, blank=True)
+	description = models.TextField(default="", null=True, blank=True)
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+	creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+	
+	def __str__(self):
+		return f"{self.amount} - {self.amount}"
 
 @receiver(post_save, sender=ExpenseItem)
 @receiver(post_delete, sender=ExpenseItem)
 def update_total_amount(sender, instance, **kwargs):
-    """Met à jour le total_amount d'une Expense lorsque ses ExpenseItems changent."""
-    expense = instance.expense
-    expense.total_amount = expense.calculate_total_amount()
-    expense.save()
+	"""Met à jour le total_amount d'une Expense lorsque ses ExpenseItems changent."""
+	expense = instance.expense
+	expense.total_amount = expense.calculate_total_amount()
+	expense.save()
+
+class PurchaseOrder(models.Model):
+	STATUS_CHOICES = [
+		("DRAFT", "Brouillon"),
+		("NEW", "Nouveau"),
+		('PENDING', 'En Attente'),
+		('APPROVED', 'Approuvé'),
+		('REJECTED', 'Rejeté'),
+	]
+	number = models.CharField(max_length=255, editable=False, null=True)
+	label = models.CharField(max_length=255, null=True)
+	expense = models.ForeignKey(Expense, on_delete=models.SET_NULL, related_name='purchase_orders', null=True)
+	total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
+	order_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
+	payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CREDIT_CARD")
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+	description = models.TextField(default="", null=True, blank=True)
+	comment = models.TextField(default="", null=True, blank=True)
+	observation = models.TextField(default="", null=True, blank=True)
+	supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='purchase_orders', null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='purchase_orders', null=True)
+	establishment = models.ForeignKey(
+		"companies.Establishment",
+		on_delete=models.SET_NULL,
+		related_name="purchase_orders",
+		null=True,
+	)
+
+	company = models.ForeignKey(
+		"companies.Company",
+		on_delete=models.SET_NULL,
+		related_name="company_purchase_orders",
+		null=True,
+	)
+	creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+	
+	def __str__(self):
+		return f"{self.name} - {self.number}"
+
+	def calculate_total_amount(self):
+		"""Calcule le total_amount en fonction des ExpenseItem associés."""
+		total = self.purchase_order_items.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
+		return total
+
+class PurchaseOrderItem(models.Model):
+	purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="purchase_order_items")
+	amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant
+	quantity = models.FloatField(null=True, default=1)
+	comment = models.TextField(default="", null=True, blank=True)
+	description = models.TextField(default="", null=True, blank=True)
+	creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+	
+	def __str__(self):
+		return f"{self.amount} - {self.amount}"
+
+@receiver(post_save, sender=PurchaseOrderItem)
+@receiver(post_delete, sender=PurchaseOrderItem)
+def update_order_total_amount(sender, instance, **kwargs):
+	"""Met à jour le total_amount d'une PurchaseOrder lorsque ses PurchaseOrderItem changent."""
+	purchase_order = instance.purchase_order
+	purchase_order.total_amount = purchase_order.calculate_total_amount()
+	purchase_order.save()

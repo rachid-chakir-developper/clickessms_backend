@@ -299,6 +299,7 @@ class CashRegisterTransaction(models.Model):
     description = models.TextField(default="", null=True, blank=True)
     comment = models.TextField(default="", null=True, blank=True)
     cash_register = models.ForeignKey(CashRegister, on_delete=models.SET_NULL, null=True, related_name='transactions')
+    expense = models.ForeignKey('purchases.Expense', on_delete=models.SET_NULL, null=True, related_name='cash_register_transactions')
     date = models.DateTimeField(null=True)
     amount = models.DecimalField(decimal_places=2, max_digits=11, null=True)
     transaction_type = models.CharField(max_length=50, choices=TRANSACTION_TYPES, default="CREDIT")
@@ -381,6 +382,7 @@ class BudgetAccountingNature(models.Model):
     budget = models.ForeignKey(Budget, on_delete=models.SET_NULL, null=True, related_name='budget_accounting_natures')
     accounting_nature = models.ForeignKey('data_management.AccountingNature', on_delete=models.SET_NULL, related_name='budget_accounting_natures', null=True)
     amount_allocated = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Montant prévu
+    managers = models.ManyToManyField('human_ressources.Employee', related_name='budget_accounting_natures')
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='budget_accounting_natures', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)

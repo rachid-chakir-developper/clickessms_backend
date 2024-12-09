@@ -179,6 +179,7 @@ class BudgetAccountingNatureInput(graphene.InputObjectType):
     amount_allocated = graphene.Decimal(required=False)
     budget_id = graphene.Int(name="budget", required=False)
     accounting_nature_id = graphene.Int(name="accountingNature", required=False)
+    managers = graphene.List(graphene.Int, required=False)
 
 class BudgetInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -1256,6 +1257,7 @@ class UpdateBudgetAccountingNature(graphene.Mutation):
 
     def mutate(root, info, id=None, budget_accounting_nature_data=None):
         creator = info.context.user
+        managers_ids = budget_accounting_nature_data.pop("managers", None)
         budget_id = budget_accounting_nature_data.get("budget_id", None)
         accounting_nature_id = budget_accounting_nature_data.get("accounting_nature_id", None)
 
@@ -1290,6 +1292,8 @@ class UpdateBudgetAccountingNature(graphene.Mutation):
                 creator=creator,
                 **budget_accounting_nature_data
             )
+        if managers_ids and managers_ids is not None:
+            budget_accounting_nature.managers.set(managers_ids)
 
         return UpdateBudgetAccountingNature(budget_accounting_nature=budget_accounting_nature)
 

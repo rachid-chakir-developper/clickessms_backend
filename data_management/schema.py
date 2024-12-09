@@ -7,6 +7,7 @@ from django.utils.dateparse import parse_date
 from datetime import datetime
 
 from django.apps import apps
+from importlib import import_module
 
 from django.db.models import Q
 from django.db import transaction
@@ -118,6 +119,7 @@ class AccountingNatureType(DjangoObjectType):
         fields = "__all__"
     children_number = graphene.Int()
     amount_allocated = graphene.Decimal(required=False)
+    managers = graphene.List(lambda: import_module('human_ressources.schema').EmployeeType)
     def resolve_children_number( instance, info, **kwargs ):
         return instance.children.count() if hasattr(instance, "children") else 0
     def resolve_amount_allocated(instance, info, **kwargs):
@@ -133,7 +135,20 @@ class AccountingNatureType(DjangoObjectType):
                     return budget_accounting_nature.amount_allocated if budget_accounting_nature else None
                 except BudgetAccountingNature.DoesNotExist:
                     return None
-        return None
+    def resolve_managers(instance, info, **kwargs):
+        accounting_nature_filter = getattr(info.context, 'accounting_nature_filter', None)
+        if accounting_nature_filter:
+            budget_id = accounting_nature_filter.get('budget', None)
+            if budget_id:
+                try:
+                    budget_accounting_nature = BudgetAccountingNature.objects.filter(
+                        budget_id=budget_id,
+                        accounting_nature=instance
+                    ).first()
+                    return budget_accounting_nature.managers.all() if budget_accounting_nature else []
+                except BudgetAccountingNature.DoesNotExist:
+                    return []
+        return []
 
 class AccountingNatureFilterInput(graphene.InputObjectType):
         keyword = graphene.String(required=False)

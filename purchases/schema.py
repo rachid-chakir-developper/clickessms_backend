@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from purchases.models import Supplier, Expense, ExpenseItem
+from purchases.models import Supplier, Expense, ExpenseItem, PurchaseOrder, PurchaseOrderItem
 from companies.models import Establishment
 from medias.models import Folder, File
 from accounts.models import User
@@ -116,6 +116,54 @@ class ExpenseInput(graphene.InputObjectType):
     supplier_id = graphene.Int(name="supplier", required=False)
     employee_id = graphene.Int(name="employee", required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
+    cash_register_id = graphene.Int(name="cashRegister", required=False)
+
+class PurchaseOrderItemType(DjangoObjectType):
+    class Meta:
+        model = PurchaseOrderItem
+        fields = "__all__"
+
+class PurchaseOrderType(DjangoObjectType):
+    class Meta:
+        model = PurchaseOrder
+        fields = "__all__"
+
+
+class PurchaseOrderNodeType(graphene.ObjectType):
+    nodes = graphene.List(PurchaseOrderType)
+    total_count = graphene.Int()
+
+
+class PurchaseOrderFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    statuses = graphene.List(graphene.String, required=False)
+    order_by = graphene.String(required=False)
+
+class PurchaseOrderPurchaseOrderItemInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    quantity = graphene.Float(required=False)
+    amount = graphene.Decimal(required=False)
+    description = graphene.String(required=False)
+    comment = graphene.String(required=False)
+
+class PurchaseOrderInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    label = graphene.String(required=False)
+    total_amount = graphene.Decimal(required=False)
+    order_date_time = graphene.DateTime(required=False)
+    payment_method = graphene.String(required=False)
+    description = graphene.String(required=False)
+    comment = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    status = graphene.String(required=False)
+    purchase_order_items = graphene.List(PurchaseOrderPurchaseOrderItemInput, required=False)
+    supplier_id = graphene.Int(name="supplier", required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
 
 class PurchasesQuery(graphene.ObjectType):
     suppliers = graphene.Field(SupplierNodeType, supplier_filter= SupplierFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -128,6 +176,14 @@ class PurchasesQuery(graphene.ObjectType):
         page=graphene.Int(required=False),
     )
     expense = graphene.Field(ExpenseType, id=graphene.ID())
+    purchase_orders = graphene.Field(
+        PurchaseOrderNodeType,
+        purchase_order_filter=PurchaseOrderFilterInput(required=False),
+        offset=graphene.Int(required=False),
+        limit=graphene.Int(required=False),
+        page=graphene.Int(required=False),
+    )
+    purchase_order = graphene.Field(PurchaseOrderType, id=graphene.ID())
     def resolve_suppliers(root, info, supplier_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -218,6 +274,57 @@ class PurchasesQuery(graphene.ObjectType):
         except Expense.DoesNotExist:
             expense = None
         return expense
+
+    def resolve_purchase_orders(
+        root, info, purchase_order_filter=None, offset=None, limit=None, page=None
+    ):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        purchase_orders = PurchaseOrder.objects.filter(company=company)
+        if not user.can_manage_finance():
+            if user.is_manager():
+                purchase_orders = purchase_orders.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                purchase_orders = purchase_orders.filter(creator=user)
+        the_order_by = '-created_at'
+        if purchase_order_filter:
+            keyword = purchase_order_filter.get("keyword", "")
+            starting_date_time = purchase_order_filter.get("starting_date_time")
+            ending_date_time = purchase_order_filter.get("ending_date_time")
+            establishments = purchase_order_filter.get('establishments')
+            statuses = purchase_order_filter.get('statuses')
+            order_by = purchase_order_filter.get('order_by')
+            if establishments:
+                purchase_orders = purchase_orders.filter(establishment__id__in=establishments)
+            if keyword:
+                purchase_orders = purchase_orders.filter(
+                    Q(name__icontains=keyword)
+                )
+            if starting_date_time:
+                purchase_orders = purchase_orders.filter(starting_date__gte=starting_date_time)
+            if ending_date_time:
+                purchase_orders = purchase_orders.filter(starting_date__lte=ending_date_time)
+            if statuses:
+                purchase_orders = purchase_orders.filter(status__in=statuses)
+            if order_by:
+                the_order_by = order_by
+        purchase_orders = purchase_orders.order_by(the_order_by).distinct()
+        total_count = purchase_orders.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            purchase_orders = purchase_orders[offset : offset + limit]
+        return PurchaseOrderNodeType(nodes=purchase_orders, total_count=total_count)
+
+    def resolve_purchase_order(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            purchase_order = PurchaseOrder.objects.get(pk=id)
+        except PurchaseOrder.DoesNotExist:
+            purchase_order = None
+        return purchase_order
 
 class CreateSupplier(graphene.Mutation):
     class Arguments:
@@ -563,6 +670,150 @@ class DeleteExpense(graphene.Mutation):
 
 
 # *************************************************************************#
+
+class CreatePurchaseOrder(graphene.Mutation):
+    class Arguments:
+        purchase_order_data = PurchaseOrderInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    purchase_order = graphene.Field(PurchaseOrderType)
+
+    def mutate(root, info, files=None, purchase_order_data=None):
+        creator = info.context.user
+        purchase_order_items = purchase_order_data.pop("purchase_order_items")
+        purchase_order = PurchaseOrder(**purchase_order_data)
+        purchase_order.creator = creator
+        purchase_order.company = creator.the_current_company
+        purchase_order.save()
+        if not purchase_order.employee:
+            purchase_order.employee = creator.get_employee_in_company()
+            purchase_order.save()
+        for item in purchase_order_items:
+            purchase_order_item = PurchaseOrderItem(**item)
+            purchase_order_item.purchase_order = purchase_order
+            purchase_order_item.creator = creator
+            purchase_order_item.save()
+        return CreatePurchaseOrder(purchase_order=purchase_order)
+
+
+class UpdatePurchaseOrder(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        purchase_order_data = PurchaseOrderInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    purchase_order = graphene.Field(PurchaseOrderType)
+
+    def mutate(root, info, id, files=None, purchase_order_data=None):
+        creator = info.context.user
+        purchase_order_items = purchase_order_data.pop("purchase_order_items")
+        PurchaseOrder.objects.filter(pk=id).update(**purchase_order_data)
+        purchase_order = PurchaseOrder.objects.get(pk=id)
+        if not purchase_order.employee:
+            purchase_order.employee = creator.get_employee_in_company()
+            purchase_order.save()
+        purchase_order_item_ids = [
+            item.id for item in purchase_order_items if item.id is not None
+        ]
+        PurchaseOrderItem.objects.filter(
+            purchase_order=purchase_order
+        ).exclude(id__in=purchase_order_item_ids).delete()
+        for item in purchase_order_items:
+            if id in item or "id" in item:
+                PurchaseOrderItem.objects.filter(pk=item.id).update(**item)
+            else:
+                purchase_order_item = PurchaseOrderItem(**item)
+                purchase_order_item.purchase_order = purchase_order
+                purchase_order_item.creator = creator
+                purchase_order_item.save()
+        return UpdatePurchaseOrder(purchase_order=purchase_order)
+
+
+class UpdatePurchaseOrderState(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    purchase_order = graphene.Field(PurchaseOrderType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, purchase_order_fields=None):
+        creator = info.context.user
+        done = True
+        success = True
+        purchase_order = None
+        message = ""
+        try:
+            purchase_order = PurchaseOrder.objects.get(pk=id)
+            PurchaseOrder.objects.filter(pk=id).update(
+                is_active=not purchase_order.is_active
+            )
+            purchase_order.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            purchase_order = None
+            message = "Une erreur s'est produite."
+        return UpdatePurchaseOrderState(
+            done=done, success=success, message=message, purchase_order=purchase_order
+        )
+
+class UpdatePurchaseOrderFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        purchase_order_data = PurchaseOrderInput(required=True)
+
+    purchase_order = graphene.Field(PurchaseOrderType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, purchase_order_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        purchase_order = None
+        message = ''
+        try:
+            purchase_order = PurchaseOrder.objects.get(pk=id)
+            PurchaseOrder.objects.filter(pk=id).update(**purchase_order_data)
+            purchase_order.refresh_from_db()
+        except Exception as e:
+            print(e)
+            done = False
+            success = False
+            purchase_order=None
+            message = "Une erreur s'est produite."
+        return UpdatePurchaseOrderFields(done=done, success=success, message=message, purchase_order=purchase_order)
+
+
+class DeletePurchaseOrder(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    purchase_order = graphene.Field(PurchaseOrderType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            purchase_order = PurchaseOrder.objects.get(pk=id)
+            purchase_order.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeletePurchaseOrder(
+            deleted=deleted, success=success, message=message, id=id
+        )
+        
 # *************************************************************************#
 
 class PurchasesMutation(graphene.ObjectType):
@@ -576,3 +827,9 @@ class PurchasesMutation(graphene.ObjectType):
     update_expense_state = UpdateExpenseState.Field()
     update_expense_fields = UpdateExpenseFields.Field()
     delete_expense = DeleteExpense.Field()
+
+    create_purchase_order = CreatePurchaseOrder.Field()
+    update_purchase_order = UpdatePurchaseOrder.Field()
+    update_purchase_order_state = UpdatePurchaseOrderState.Field()
+    update_purchase_order_fields = UpdatePurchaseOrderFields.Field()
+    delete_purchase_order = DeletePurchaseOrder.Field()
