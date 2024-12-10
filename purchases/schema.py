@@ -5,6 +5,7 @@ from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
+from datetime import datetime
 
 from purchases.models import Supplier, Expense, ExpenseItem, PurchaseOrder, PurchaseOrderItem
 from companies.models import Establishment
@@ -667,6 +668,73 @@ class DeleteExpense(graphene.Mutation):
         return DeleteExpense(
             deleted=deleted, success=success, message=message, id=id
         )
+# *****************************************************************************
+
+class GeneratePurchaseOrder(graphene.Mutation):
+    class Arguments:
+        id_expense = graphene.ID(required=True)
+        id_purchase_order = graphene.ID(required=False)
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    purchase_order = graphene.Field(PurchaseOrderType)
+
+    def mutate(self, info, id_expense, id_purchase_order=None):
+        creator = info.context.user
+        # Vérifier si la dépense existe
+        try:
+            expense = Expense.objects.get(id=id_expense)
+        except Expense.DoesNotExist:
+            return GeneratePurchaseOrder(success=False, message="Dépense introuvable.")
+
+        # Si un ID de bon est fourni, vérifier son existence
+        if id_purchase_order:
+            try:
+                purchase_order = PurchaseOrder.objects.get(id=id_purchase_order)
+                purchase_order.purchase_order_items.all().delete()
+                return GeneratePurchaseOrder(
+                    success=True,
+                    message="Bon de commande mis à jour avec succès.",
+                    purchase_order=purchase_order,
+                )
+            except PurchaseOrder.DoesNotExist:
+                return GeneratePurchaseOrder(success=False, message="Bon de commande introuvable.")
+        else:
+            # Créer un nouvel purchase_order
+            purchase_order = PurchaseOrder(creator=creator, employee=creator.get_employee_in_company())
+
+        purchase_order_fields = {
+            'expense': expense,
+            'label': expense.label,
+            'description':expense. description,
+            'total_amount': expense.total_amount,
+            'order_date_time': datetime.now(),
+            'payment_method':expense.payment_method,
+            'supplier': expense.supplier,
+            'establishment': expense.establishment,
+            'company': expense.company,
+            'status': 'APPROVED',
+        }
+
+        for field, value in purchase_order_fields.items():
+            setattr(purchase_order, field, value)
+        purchase_order.save()
+
+        purchase_order_items = []
+        for expense_item in expense.expense_items.all():
+            purchase_order_item = PurchaseOrderItem(
+                purchase_order=purchase_order,
+                description=expense_item.description,
+                quantity=expense_item.quantity,
+                amount_ttc=expense_item.amount,
+            )
+            purchase_order_items.append(purchase_order_item)
+        PurchaseOrderItem.objects.bulk_create(purchase_order_items)
+        return GeneratePurchaseOrder(
+            success=True,
+            message="Bon de commande créé avec succès.",
+            purchase_order=purchase_order,
+        )
 
 
 # *************************************************************************#
@@ -813,7 +881,7 @@ class DeletePurchaseOrder(graphene.Mutation):
         return DeletePurchaseOrder(
             deleted=deleted, success=success, message=message, id=id
         )
-        
+
 # *************************************************************************#
 
 class PurchasesMutation(graphene.ObjectType):
@@ -827,6 +895,8 @@ class PurchasesMutation(graphene.ObjectType):
     update_expense_state = UpdateExpenseState.Field()
     update_expense_fields = UpdateExpenseFields.Field()
     delete_expense = DeleteExpense.Field()
+
+    generate_purchase_order = GeneratePurchaseOrder.Field()
 
     create_purchase_order = CreatePurchaseOrder.Field()
     update_purchase_order = UpdatePurchaseOrder.Field()

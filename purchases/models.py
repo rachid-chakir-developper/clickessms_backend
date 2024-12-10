@@ -1,8 +1,8 @@
 from django.db import models
 from django.db.models import Sum
 from datetime import datetime
-from decimal import Decimal
 import random
+from decimal import Decimal
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
@@ -150,6 +150,32 @@ class Expense(models.Model):
 		total = self.expense_items.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
 		return total
 
+	def save(self, *args, **kwargs):
+		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+		if not self.number:
+			self.number = self.generate_unique_number()
+		super(Expense, self).save(*args, **kwargs)
+	
+	def generate_unique_number(self, prefix='DE'):
+		# Ajouter l'année courante au préfixe
+		current_year = datetime.now().year
+		prefix_with_year = f'{prefix}{current_year}'
+
+		# Trouver le dernier devis avec ce préfixe et l'année courante
+		last_expense = Expense.objects.filter(number__startswith=prefix_with_year).order_by('number').last()
+		
+		if last_expense and last_expense.number:
+			# Extraire la partie numérique après l'année
+			last_number = int(last_expense.number.replace(prefix_with_year, ''))
+			new_number = last_number + 1
+		else:
+			new_number = 1
+
+		# Formater le nouveau numéro avec l'année courante
+		formatted_number = f'{prefix_with_year}-{new_number:04d}'
+		
+		return formatted_number
+
 
 class ExpenseItem(models.Model):
 	STATUS_CHOICES = [
@@ -219,18 +245,47 @@ class PurchaseOrder(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	class Meta:
+		ordering = ['-created_at']
 	
 	def __str__(self):
-		return f"{self.name} - {self.number}"
+		return f"{self.label} - {self.number}"
 
 	def calculate_total_amount(self):
 		"""Calcule le total_amount en fonction des ExpenseItem associés."""
-		total = self.purchase_order_items.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
+		total = self.purchase_order_items.aggregate(Sum('amount_ttc'))['amount__sum'] or Decimal('0.00')
 		return total
+
+	def save(self, *args, **kwargs):
+		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+		if not self.number:
+			self.number = self.generate_unique_number()
+		super(PurchaseOrder, self).save(*args, **kwargs)
+	
+	def generate_unique_number(self, prefix='BC'):
+		# Ajouter l'année courante au préfixe
+		current_year = datetime.now().year
+		prefix_with_year = f'{prefix}{current_year}'
+
+		# Trouver le dernier devis avec ce préfixe et l'année courante
+		last_purchase_order = PurchaseOrder.objects.filter(number__startswith=prefix_with_year).order_by('number').last()
+		
+		if last_purchase_order and last_purchase_order.number:
+			# Extraire la partie numérique après l'année
+			last_number = int(last_purchase_order.number.replace(prefix_with_year, ''))
+			new_number = last_number + 1
+		else:
+			new_number = 1
+
+		# Formater le nouveau numéro avec l'année courante
+		formatted_number = f'{prefix_with_year}-{new_number:04d}'
+		
+		return formatted_number
 
 class PurchaseOrderItem(models.Model):
 	purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="purchase_order_items")
-	amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant
+	amount_ttc = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant
 	quantity = models.FloatField(null=True, default=1)
 	comment = models.TextField(default="", null=True, blank=True)
 	description = models.TextField(default="", null=True, blank=True)
@@ -239,7 +294,7 @@ class PurchaseOrderItem(models.Model):
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 	
 	def __str__(self):
-		return f"{self.amount} - {self.amount}"
+		return f"{self.amount_ttc} - {self.amount_ttc}"
 
 @receiver(post_save, sender=PurchaseOrderItem)
 @receiver(post_delete, sender=PurchaseOrderItem)
