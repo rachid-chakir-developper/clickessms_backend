@@ -220,7 +220,7 @@ class PurchaseOrder(models.Model):
 	number = models.CharField(max_length=255, editable=False, null=True)
 	label = models.CharField(max_length=255, null=True)
 	expense = models.ForeignKey(Expense, on_delete=models.SET_NULL, related_name='purchase_orders', null=True)
-	total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
+	total_ttc = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
 	order_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
 	payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CREDIT_CARD")
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
@@ -303,5 +303,5 @@ def update_order_total_amount(sender, instance, **kwargs):
 	"""Met à jour le total_amount d'une PurchaseOrder lorsque ses PurchaseOrderItem changent."""
 	if instance.purchase_order:
 		purchase_order = instance.purchase_order
-		purchase_order.total_amount = purchase_order.calculate_total_amount()
+		purchase_order.total_ttc = purchase_order.calculate_total_amount()
 		purchase_order.save()

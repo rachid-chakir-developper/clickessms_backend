@@ -154,7 +154,7 @@ class PurchaseOrderInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     label = graphene.String(required=False)
-    total_amount = graphene.Decimal(required=False)
+    total_ttc = graphene.Decimal(required=False)
     order_date_time = graphene.DateTime(required=False)
     payment_method = graphene.String(required=False)
     description = graphene.String(required=False)
@@ -707,7 +707,7 @@ class GeneratePurchaseOrder(graphene.Mutation):
             'expense': expense,
             'label': expense.label,
             'description':expense. description,
-            'total_amount': expense.total_amount,
+            'total_ttc': expense.total_amount,
             'order_date_time': datetime.now(),
             'payment_method':expense.payment_method,
             'supplier': expense.supplier,
