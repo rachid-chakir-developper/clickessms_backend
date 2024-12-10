@@ -286,9 +286,9 @@ class PurchasesQuery(graphene.ObjectType):
         purchase_orders = PurchaseOrder.objects.filter(company=company)
         if not user.can_manage_finance():
             if user.is_manager():
-                purchase_orders = purchase_orders.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+                purchase_orders = purchase_orders.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user) | Q(expense__creator=user))
             else:
-                purchase_orders = purchase_orders.filter(creator=user)
+                purchase_orders = purchase_orders.filter(Q(creator=user) | Q(expense__creator=user))
         the_order_by = '-created_at'
         if purchase_order_filter:
             keyword = purchase_order_filter.get("keyword", "")

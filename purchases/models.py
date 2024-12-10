@@ -204,9 +204,10 @@ class ExpenseItem(models.Model):
 @receiver(post_delete, sender=ExpenseItem)
 def update_total_amount(sender, instance, **kwargs):
 	"""Met à jour le total_amount d'une Expense lorsque ses ExpenseItems changent."""
-	expense = instance.expense
-	expense.total_amount = expense.calculate_total_amount()
-	expense.save()
+	if instance.expense:
+		expense = instance.expense
+		expense.total_amount = expense.calculate_total_amount()
+		expense.save()
 
 class PurchaseOrder(models.Model):
 	STATUS_CHOICES = [
@@ -254,7 +255,7 @@ class PurchaseOrder(models.Model):
 
 	def calculate_total_amount(self):
 		"""Calcule le total_amount en fonction des ExpenseItem associés."""
-		total = self.purchase_order_items.aggregate(Sum('amount_ttc'))['amount__sum'] or Decimal('0.00')
+		total = self.purchase_order_items.aggregate(Sum('amount_ttc'))['amount_ttc__sum'] or Decimal('0.00')
 		return total
 
 	def save(self, *args, **kwargs):
@@ -300,6 +301,7 @@ class PurchaseOrderItem(models.Model):
 @receiver(post_delete, sender=PurchaseOrderItem)
 def update_order_total_amount(sender, instance, **kwargs):
 	"""Met à jour le total_amount d'une PurchaseOrder lorsque ses PurchaseOrderItem changent."""
-	purchase_order = instance.purchase_order
-	purchase_order.total_amount = purchase_order.calculate_total_amount()
-	purchase_order.save()
+	if instance.purchase_order:
+		purchase_order = instance.purchase_order
+		purchase_order.total_amount = purchase_order.calculate_total_amount()
+		purchase_order.save()
