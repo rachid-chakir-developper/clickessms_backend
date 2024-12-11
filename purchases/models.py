@@ -159,7 +159,7 @@ class Expense(models.Model):
 	def generate_unique_number(self, prefix='DE'):
 		# Ajouter l'année courante au préfixe
 		current_year = datetime.now().year
-		prefix_with_year = f'{prefix}{current_year}'
+		prefix_with_year = f'{prefix}{current_year}-'
 
 		# Trouver le dernier devis avec ce préfixe et l'année courante
 		last_expense = Expense.objects.filter(number__startswith=prefix_with_year).order_by('number').last()
@@ -172,7 +172,7 @@ class Expense(models.Model):
 			new_number = 1
 
 		# Formater le nouveau numéro avec l'année courante
-		formatted_number = f'{prefix_with_year}-{new_number:04d}'
+		formatted_number = f'{prefix_with_year}{new_number:04d}'
 		
 		return formatted_number
 
@@ -222,6 +222,7 @@ class PurchaseOrder(models.Model):
 	expense = models.ForeignKey(Expense, on_delete=models.SET_NULL, related_name='purchase_orders', null=True)
 	total_ttc = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
 	order_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
+	validity_end_date = models.DateTimeField(null=True)
 	payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CREDIT_CARD")
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
 	description = models.TextField(default="", null=True, blank=True)
@@ -267,7 +268,7 @@ class PurchaseOrder(models.Model):
 	def generate_unique_number(self, prefix='BC'):
 		# Ajouter l'année courante au préfixe
 		current_year = datetime.now().year
-		prefix_with_year = f'{prefix}{current_year}'
+		prefix_with_year = f'{prefix}{current_year}-'
 
 		# Trouver le dernier devis avec ce préfixe et l'année courante
 		last_purchase_order = PurchaseOrder.objects.filter(number__startswith=prefix_with_year).order_by('number').last()
@@ -280,7 +281,7 @@ class PurchaseOrder(models.Model):
 			new_number = 1
 
 		# Formater le nouveau numéro avec l'année courante
-		formatted_number = f'{prefix_with_year}-{new_number:04d}'
+		formatted_number = f'{prefix_with_year}{new_number:04d}'
 		
 		return formatted_number
 

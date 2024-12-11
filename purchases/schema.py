@@ -5,7 +5,7 @@ from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from purchases.models import Supplier, Expense, ExpenseItem, PurchaseOrder, PurchaseOrderItem
 from companies.models import Establishment
@@ -156,6 +156,7 @@ class PurchaseOrderInput(graphene.InputObjectType):
     label = graphene.String(required=False)
     total_ttc = graphene.Decimal(required=False)
     order_date_time = graphene.DateTime(required=False)
+    validity_end_date = graphene.DateTime(required=False)
     payment_method = graphene.String(required=False)
     description = graphene.String(required=False)
     comment = graphene.String(required=False)
@@ -703,12 +704,20 @@ class GeneratePurchaseOrder(graphene.Mutation):
             # Créer un nouvel purchase_order
             purchase_order = PurchaseOrder(creator=creator, employee=creator.get_employee_in_company())
 
+        # Populate or update invoice fields from quote
+        validity_end_date = datetime.now() + timedelta(days=30)
+        if validity_end_date.weekday() == 5:
+            validity_end_date += timedelta(days=2)
+        elif validity_end_date.weekday() == 6:
+            validity_end_date += timedelta(days=1)
+
         purchase_order_fields = {
             'expense': expense,
             'label': expense.label,
             'description':expense. description,
             'total_ttc': expense.total_amount,
             'order_date_time': datetime.now(),
+            'validity_end_date': validity_end_date,
             'payment_method':expense.payment_method,
             'supplier': expense.supplier,
             'establishment': expense.establishment,
