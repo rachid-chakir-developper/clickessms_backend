@@ -230,6 +230,7 @@ class PurchaseOrder(models.Model):
 	observation = models.TextField(default="", null=True, blank=True)
 	supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='purchase_orders', null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='purchase_orders', null=True)
+	generator = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='generated_purchase_orders', null=True)
 	establishment = models.ForeignKey(
 		"companies.Establishment",
 		on_delete=models.SET_NULL,

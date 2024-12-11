@@ -702,7 +702,7 @@ class GeneratePurchaseOrder(graphene.Mutation):
                 return GeneratePurchaseOrder(success=False, message="Bon de commande introuvable.")
         else:
             # Créer un nouvel purchase_order
-            purchase_order = PurchaseOrder(creator=creator, employee=creator.get_employee_in_company())
+            purchase_order = PurchaseOrder(creator=creator, generator=creator.get_employee_in_company())
 
         # Populate or update invoice fields from quote
         validity_end_date = datetime.now() + timedelta(days=30)
@@ -721,6 +721,7 @@ class GeneratePurchaseOrder(graphene.Mutation):
             'payment_method':expense.payment_method,
             'supplier': expense.supplier,
             'establishment': expense.establishment,
+            'employee': expense.employee,
             'company': expense.company,
             'status': 'APPROVED',
         }
