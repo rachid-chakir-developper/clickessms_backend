@@ -11,6 +11,7 @@ from dashboard.schema import DashboardQuery
 from companies.schema import CompanyQuery, CompanyMutation
 from human_ressources.schema import HumanRessourcesQuery, HumanRessourcesMutation
 from stocks.schema import StocksQuery, StocksMutation
+from computers.schema import ComputersQuery, ComputersMutation
 from vehicles.schema import VehiclesQuery, VehiclesMutation
 from partnerships.schema import PartnershipsQuery, PartnershipsMutation
 from sales.schema import SalesQuery, SalesMutation
@@ -59,7 +60,7 @@ class AuthMutation(graphene.ObjectType):
    password_change = mutations.PasswordChange.Field()
 
 class Query(MeQuery, UserQuery, MediasQuery, DataQuery, SearchQuery, DashboardQuery,
-    CompanyQuery, HumanRessourcesQuery, StocksQuery,
+    CompanyQuery, HumanRessourcesQuery, StocksQuery, ComputersQuery,
     VehiclesQuery, PartnershipsQuery, PurchasesQuery, SalesQuery, WorksQuery,
     CommentsQuery, NotificationsQuery, ChatQuery, LoansQuery, ActivitiesQuery,
     QualitiesQuery, AdministrativesQuery, FinanceQuery, GovernanceQuery, SceQuery,
@@ -68,7 +69,7 @@ class Query(MeQuery, UserQuery, MediasQuery, DataQuery, SearchQuery, DashboardQu
     pass
 
 class Mutation(AuthMutation, UserMutation, MediasMutation, DataMutation,
-    CompanyMutation, HumanRessourcesMutation, StocksMutation,
+    CompanyMutation, HumanRessourcesMutation, StocksMutation, ComputersMutation,
     VehiclesMutation, PartnershipsMutation, PurchasesMutation, SalesMutation, WorksMutation,
     CommentsMutation, NotificationsMutation, ChatMutation, LoansMutation, ActivitiesMutation,
     QualitiesMutation, AdministrativesMutation, FinanceMutation, GovernanceMutation, SceMutation,

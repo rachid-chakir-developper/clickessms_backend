@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'companies',
     'human_ressources',
     'stocks',
+    'computers',
     'vehicles',
     'partnerships',
     'sales',
