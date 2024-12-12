@@ -7,6 +7,7 @@ import random
 
 class CompanyMedia(models.Model):
     sce_shop_url = models.URLField(max_length=255, null=True)
+    blog_url = models.URLField(max_length=255, null=True)
     collective_agreement = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='collective_agreement_company_medias', null=True)
     company_agreement = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='company_agreement_company_medias', null=True)
     labor_law = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='labor_law_company_medias', null=True)

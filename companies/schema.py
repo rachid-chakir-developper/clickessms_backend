@@ -157,6 +157,7 @@ class CompanyInput(graphene.InputObjectType):
 class CompanyMediaInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     sce_shop_url = graphene.String(required=False)
+    blog_url = graphene.String(required=False)
 
 
 class ActivityAuthorizationInput(graphene.InputObjectType):
