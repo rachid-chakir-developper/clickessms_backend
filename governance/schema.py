@@ -47,6 +47,7 @@ class GovernanceMemberInput(graphene.InputObjectType):
     country = graphene.String(required=False)
     zip_code = graphene.String(required=False)
     address = graphene.String(required=False)
+    additional_address = graphene.String(required=False)
     mobile = graphene.String(required=False)
     fix = graphene.String(required=False)
     fax = graphene.String(required=False)

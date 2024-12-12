@@ -22,6 +22,7 @@ class Client(models.Model):
 	country = models.CharField(max_length=255, null=True)
 	zip_code = models.CharField(max_length=255, null=True)
 	address = models.TextField(default='', null=True)
+	additional_address = models.TextField(default='', null=True)
 	mobile = models.CharField(max_length=255, null=True)
 	fix = models.CharField(max_length=255, null=True)
 	fax = models.CharField(max_length=255, null=True)
