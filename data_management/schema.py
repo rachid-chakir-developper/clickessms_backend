@@ -14,7 +14,7 @@ from django.db import transaction
 import openpyxl
 
 from finance.models import BudgetAccountingNature
-from data_management.models import HumanGender, AdmissionDocumentType, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel, EmployeeMission, AccountingNature, CustomField, CustomFieldOption, CustomFieldValue
+from data_management.models import HumanGender, AdmissionDocumentType, BeneficiaryStatus, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel, EmployeeMission, AccountingNature, CustomField, CustomFieldOption, CustomFieldValue
 
 
 
@@ -26,6 +26,11 @@ class HumanGenderType(DjangoObjectType):
 class AdmissionDocumentTypeType(DjangoObjectType):
     class Meta:
         model = AdmissionDocumentType
+        fields = "__all__"
+
+class BeneficiaryStatusType(DjangoObjectType):
+    class Meta:
+        model = BeneficiaryStatus
         fields = "__all__"
         
 class PhoneNumberType(DjangoObjectType):

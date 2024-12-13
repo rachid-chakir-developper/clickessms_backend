@@ -388,7 +388,21 @@ class BeneficiaryAdmissionDocument(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
-        return self.name
+        return self.id
+
+# Create your models here.
+class BeneficiaryStatusEntry(models.Model):
+    beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True, related_name='beneficiary_status_entries')
+    document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='beneficiary_status_entries', null=True)
+    beneficiary_status = models.ForeignKey('data_management.BeneficiaryStatus', on_delete=models.SET_NULL, null=True)
+    starting_date = models.DateTimeField(null=True)
+    ending_date = models.DateTimeField(null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.id
 
 # Create your models here.
 class BeneficiaryEntry(models.Model):
@@ -402,7 +416,7 @@ class BeneficiaryEntry(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
-        return self.name
+        return self.id
 
     # Create your models here.
 class BeneficiaryGroup(models.Model):

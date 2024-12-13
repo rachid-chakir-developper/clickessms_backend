@@ -130,6 +130,10 @@ class AdmissionDocumentType(DataModel):
 	def __str__(self):
 		return str(self.id)
 
+class BeneficiaryStatus(DataModel):
+	def __str__(self):
+		return str(self.id)
+
 class EstablishmentCategory(DataModel):
 	def __str__(self):
 		return str(self.id)
