@@ -92,3 +92,23 @@ class BeneficiaryAbsenceItem(models.Model):
 
 	def __str__(self):
 		return str(self.id)
+
+# Create your models here.
+class PersonalizedProject(models.Model):
+	number = models.CharField(max_length=255, editable=False, null=True)
+	title = models.CharField(max_length=255)
+	starting_date_time = models.DateTimeField(null=True)
+	ending_date_time = models.DateTimeField(null=True)
+	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='personalized_projects', null=True)
+	description = models.TextField(default='', null=True)
+	observation = models.TextField(default='', null=True)
+	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='personalized_projects', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='personalized_projects', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+	    
+	def __str__(self):
+		return self.title

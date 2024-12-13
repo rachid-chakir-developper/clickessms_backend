@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from activities.models import TransmissionEvent, TransmissionEventBeneficiary, BeneficiaryAbsence, BeneficiaryAbsenceItem
+from activities.models import TransmissionEvent, TransmissionEventBeneficiary, BeneficiaryAbsence, BeneficiaryAbsenceItem, PersonalizedProject
 from data_management.models import AbsenceReason
 from medias.models import Folder, File
 from human_ressources.models import Beneficiary
@@ -79,15 +79,43 @@ class BeneficiaryAbsenceInput(graphene.InputObjectType):
     reasons = graphene.List(graphene.Int, required=False)
     other_reasons = graphene.String(required=False)
 
+class PersonalizedProjectType(DjangoObjectType):
+    class Meta:
+        model = PersonalizedProject
+        fields = "__all__"
+        
+class PersonalizedProjectNodeType(graphene.ObjectType):
+    nodes = graphene.List(PersonalizedProjectType)
+    total_count = graphene.Int()
+
+class PersonalizedProjectFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    beneficiaries = graphene.List(graphene.Int, required=False)
+
+class PersonalizedProjectInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    title = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+
 class ActivitiesQuery(graphene.ObjectType):
     transmission_events = graphene.Field(TransmissionEventNodeType, transmission_event_filter= TransmissionEventFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     transmission_event = graphene.Field(TransmissionEventType, id = graphene.ID())
     beneficiary_absences = graphene.Field(BeneficiaryAbsenceNodeType, beneficiary_absence_filter= BeneficiaryAbsenceFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     beneficiary_absence = graphene.Field(BeneficiaryAbsenceType, id = graphene.ID())
+    personalized_projects = graphene.Field(PersonalizedProjectNodeType, personalized_project_filter= PersonalizedProjectFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    personalized_project = graphene.Field(PersonalizedProjectType, id = graphene.ID())
     def resolve_transmission_events(root, info, transmission_event_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         transmission_events = TransmissionEvent.objects.filter(company=company)
         if not user.can_manage_activity():
@@ -127,7 +155,7 @@ class ActivitiesQuery(graphene.ObjectType):
     def resolve_beneficiary_absences(root, info, beneficiary_absence_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         beneficiary_absences = BeneficiaryAbsence.objects.filter(company=company)
         if not user.can_manage_activity():
@@ -165,6 +193,47 @@ class ActivitiesQuery(graphene.ObjectType):
             beneficiary_absence = None
         return beneficiary_absence
 
+    def resolve_personalized_projects(root, info, personalized_project_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        personalized_projects = PersonalizedProject.objects.filter(company=company)
+        if not user.can_manage_activity():
+            if user.is_manager():
+                personalized_projects = personalized_projects.filter(Q(beneficiary__beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                personalized_projects = personalized_projects.filter(creator=user)
+        if personalized_project_filter:
+            keyword = personalized_project_filter.get('keyword', '')
+            starting_date_time = personalized_project_filter.get('starting_date_time')
+            ending_date_time = personalized_project_filter.get('ending_date_time')
+            beneficiaries = personalized_project_filter.get('beneficiaries')
+            if beneficiaries:
+                personalized_projects = personalized_projects.filter(beneficiary__id__in=beneficiaries)
+            if keyword:
+                personalized_projects = personalized_projects.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
+            if starting_date_time:
+                personalized_projects = personalized_projects.filter(starting_date_time__gte=starting_date_time)
+            if ending_date_time:
+                personalized_projects = personalized_projects.filter(starting_date_time__lte=ending_date_time)
+
+        personalized_projects = personalized_projects.order_by('-created_at').distinct()
+        total_count = personalized_projects.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            personalized_projects = personalized_projects[offset:offset + limit]
+        return PersonalizedProjectNodeType(nodes=personalized_projects, total_count=total_count)
+
+    def resolve_personalized_project(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            personalized_project = PersonalizedProject.objects.get(pk=id)
+        except PersonalizedProject.DoesNotExist:
+            personalized_project = None
+        return personalized_project
+
 #************************************************************************
 
 class CreateTransmissionEvent(graphene.Mutation):
@@ -179,7 +248,7 @@ class CreateTransmissionEvent(graphene.Mutation):
         beneficiary_ids = transmission_event_data.pop("beneficiaries")
         transmission_event = TransmissionEvent(**transmission_event_data)
         transmission_event.creator = creator
-        transmission_event.company = creator.current_company if creator.current_company is not None else creator.company
+        transmission_event.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -321,7 +390,7 @@ class CreateBeneficiaryAbsence(graphene.Mutation):
         reason_ids = beneficiary_absence_data.pop("reasons")
         beneficiary_absence = BeneficiaryAbsence(**beneficiary_absence_data)
         beneficiary_absence.creator = creator
-        beneficiary_absence.company = creator.current_company if creator.current_company is not None else creator.company
+        beneficiary_absence.company = creator.the_current_company
         folder = Folder.objects.create(name=str(beneficiary_absence.id)+'_'+beneficiary_absence.title,creator=creator)
         beneficiary_absence.folder = folder
         beneficiary_absence.save()
@@ -407,6 +476,74 @@ class DeleteBeneficiaryAbsence(graphene.Mutation):
         return DeleteBeneficiaryAbsence(deleted=deleted, success=success, message=message, id=id)
         
 #*************************************************************************#
+#************************************************************************
+
+class CreatePersonalizedProject(graphene.Mutation):
+    class Arguments:
+        personalized_project_data = PersonalizedProjectInput(required=True)
+
+    personalized_project = graphene.Field(PersonalizedProjectType)
+
+    def mutate(root, info, personalized_project_data=None):
+        creator = info.context.user
+        personalized_project = PersonalizedProject(**personalized_project_data)
+        personalized_project.creator = creator
+        personalized_project.company = creator.the_current_company
+        folder = Folder.objects.create(name=str(personalized_project.id)+'_'+personalized_project.title,creator=creator)
+        personalized_project.folder = folder
+        personalized_project.save()
+        if not personalized_project.employee:
+            personalized_project.employee = creator.get_employee_in_company()
+        personalized_project.save()
+        return CreatePersonalizedProject(personalized_project=personalized_project)
+
+class UpdatePersonalizedProject(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        personalized_project_data = PersonalizedProjectInput(required=True)
+
+    personalized_project = graphene.Field(PersonalizedProjectType)
+
+    def mutate(root, info, id, image=None, personalized_project_data=None):
+        creator = info.context.user
+        PersonalizedProject.objects.filter(pk=id).update(**personalized_project_data)
+        personalized_project = PersonalizedProject.objects.get(pk=id)
+        if not personalized_project.folder or personalized_project.folder is None:
+            folder = Folder.objects.create(name=str(personalized_project.id)+'_'+personalized_project.title,creator=creator)
+            PersonalizedProject.objects.filter(pk=id).update(folder=folder)
+        if not personalized_project.employee:
+            personalized_project.employee = creator.get_employee_in_company()
+            personalized_project.save()
+        return UpdatePersonalizedProject(personalized_project=personalized_project)
+
+class DeletePersonalizedProject(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    personalized_project = graphene.Field(PersonalizedProjectType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        personalized_project = PersonalizedProject.objects.get(pk=id)
+        if current_user.can_manage_activity() or current_user.is_manager() or personalized_project.creator == current_user:
+            # personalized_project = PersonalizedProject.objects.get(pk=id)
+            # personalized_project.delete()
+            PersonalizedProject.objects.filter(pk=id).update(is_deleted=True)
+            deleted = True
+            success = True
+        else:
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
+        return DeletePersonalizedProject(deleted=deleted, success=success, message=message, id=id)
+        
+#*************************************************************************#
+
 class ActivitiesMutation(graphene.ObjectType):
     create_transmission_event = CreateTransmissionEvent.Field()
     update_transmission_event = UpdateTransmissionEvent.Field()
@@ -416,3 +553,7 @@ class ActivitiesMutation(graphene.ObjectType):
     create_beneficiary_absence = CreateBeneficiaryAbsence.Field()
     update_beneficiary_absence = UpdateBeneficiaryAbsence.Field()
     delete_beneficiary_absence = DeleteBeneficiaryAbsence.Field()
+
+    create_personalized_project = CreatePersonalizedProject.Field()
+    update_personalized_project = UpdatePersonalizedProject.Field()
+    delete_personalized_project = DeletePersonalizedProject.Field()
