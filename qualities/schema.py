@@ -109,7 +109,7 @@ class QualitiesQuery(graphene.ObjectType):
     def resolve_undesirable_events(root, info, undesirable_event_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         undesirable_events = UndesirableEvent.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_quality():
@@ -179,7 +179,7 @@ class CreateUndesirableEvent(graphene.Mutation):
         serious_type_ids = undesirable_event_data.pop("serious_types")
         undesirable_event = UndesirableEvent(**undesirable_event_data)
         undesirable_event.creator = creator
-        undesirable_event.company = creator.current_company if creator.current_company is not None else creator.company
+        undesirable_event.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -487,11 +487,12 @@ class CreateUndesirableEventTicket(graphene.Mutation):
                 with transaction.atomic():
                     ticket = Ticket.objects.create(
                         title=f'{undesirable_event.title}',
+                        ticket_type="PLAN_ACTION",
                         description='',
                         employee=creator.get_employee_in_company(),
                         undesirable_event=undesirable_event,
                         is_have_efc_report=True if undesirable_event.undesirable_event_type == 'SERIOUS' else False,
-                        company=creator.current_company if creator.current_company is not None else creator.company,
+                        company=creator.the_current_company,
                         creator=creator,
                     )
                     establishments = UndesirableEventEstablishment.objects.filter(undesirable_event=undesirable_event)

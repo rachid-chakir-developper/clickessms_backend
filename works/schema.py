@@ -133,6 +133,7 @@ class TaskActionInput(graphene.InputObjectType):
 class TicketInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
+    ticket_type = graphene.String(required=False)
     title = graphene.String(required=False)
     description = graphene.String(required=False)
     priority = graphene.String(required=False)
@@ -344,7 +345,7 @@ class WorksQuery(graphene.ObjectType):
     def resolve_tickets(root, info, ticket_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         tickets = Ticket.objects.filter(company=company)
         if not user.can_manage_quality():
@@ -387,7 +388,7 @@ class WorksQuery(graphene.ObjectType):
     def resolve_task_actions(root, info, task_action_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         task_actions = TaskAction.objects.filter(Q(employees=user.get_employee_in_company()) | Q(creator=user), company=company, is_deleted=False)
         the_order_by = '-created_at'
@@ -455,7 +456,7 @@ class CreateTask(graphene.Mutation):
         task_checklist = task_data.pop("task_checklist")
         task = Task(**task_data)
         task.creator = creator
-        task.company = creator.current_company if creator.current_company is not None else creator.company
+        task.company = creator.the_current_company
         task.save()
         folder = Folder.objects.create(name=str(task.id)+'_'+task.name,creator=creator)
         task.folder = folder
@@ -882,7 +883,7 @@ class CreateTicket(graphene.Mutation):
         task_actions = ticket_data.pop("actions")
         ticket = Ticket(**ticket_data)
         ticket.creator = creator
-        company = creator.current_company if creator.current_company is not None else creator.company
+        company = creator.the_current_company
         ticket.company = company
         ticket.save()
         if establishment_ids and establishment_ids is not None:
@@ -1067,11 +1068,7 @@ class CreateTaskAction(graphene.Mutation):
         employees_ids = task_action_data.pop("employees") if "employees" in task_action_data else None
         task_action = TaskAction(**task_action_data)
         task_action.creator = creator
-        task_action.company = (
-            creator.current_company
-            if creator.current_company is not None
-            else creator.company
-        )
+        task_action.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if document and isinstance(document, UploadedFile):

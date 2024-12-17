@@ -7,12 +7,14 @@ from django.utils.dateparse import parse_date
 from datetime import datetime
 
 from django.apps import apps
+from django.core.exceptions import ObjectDoesNotExist
 from importlib import import_module
 
 from django.db.models import Q
 from django.db import transaction
 import openpyxl
 
+from data_management.utils import CustomFieldEntityBase
 from finance.models import BudgetAccountingNature
 from data_management.models import HumanGender, AdmissionDocumentType, BeneficiaryStatus, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel, EmployeeMission, AccountingNature, CustomField, CustomFieldOption, CustomFieldValue
 
@@ -231,6 +233,7 @@ class DataQuery(graphene.ObjectType):
     accounting_nature = graphene.Field(AccountingNatureType, id = graphene.ID())
     custom_fields = graphene.Field(CustomFieldNodeType, custom_field_filter= CustomFieldFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     custom_field = graphene.Field(CustomFieldType, id = graphene.ID())
+    custom_field_values = graphene.List(CustomFieldValueType, form_model = graphene.String(required=True), id_object = graphene.ID(required=True))
     
     def resolve_datas(root, info, typeData, id_parent=None):
         user = info.context.user
@@ -314,6 +317,30 @@ class DataQuery(graphene.ObjectType):
         except CustomField.DoesNotExist:
             custom_field = None
         return custom_field
+
+    def resolve_custom_field_values(root, info, form_model, id_object):
+        try:
+            model = None
+            for app in apps.get_app_configs():
+                try:
+                    model = apps.get_model(app.label, form_model)
+                    break
+                except LookupError:
+                    continue
+
+            if not model:
+                raise ValueError("Modèle introuvable.")
+            try:
+                this_object = model.objects.get(pk=id_object)
+            except ObjectDoesNotExist:
+                raise ValueError("L'objet avec ID {id_object} est introuvable.")
+            if hasattr(this_object, 'custom_field_values'):
+                custom_field_values = this_object.custom_field_values.all()
+            else:
+                custom_field_values = []
+        except Exception as e:
+            custom_field_values = []
+        return custom_field_values
 
 class CreateData(graphene.Mutation):
     class Arguments:
@@ -664,6 +691,42 @@ class UpdateCustomField(graphene.Mutation):
                 custom_field_option.save()
         return UpdateCustomField(custom_field=custom_field)
 
+class UpdateCustomFieldValues(graphene.Mutation):
+    class Arguments:
+        form_model = graphene.String(required=True)
+        id_object = graphene.ID(required=True)
+        custom_field_values_data = graphene.List(CustomFieldValueInput, required=False)
+
+    custom_field_values = graphene.List(CustomFieldValueType)
+
+    def mutate(root, info, form_model, id_object, custom_field_values_data=None):
+        creator = info.context.user
+        custom_field_values = []
+        try:
+            model = None
+            for app in apps.get_app_configs():
+                try:
+                    model = apps.get_model(app.label, form_model)
+                    break
+                except LookupError:
+                    continue
+
+            if not model:
+                raise ValueError("Modèle introuvable.")
+            try:
+                this_object = model.objects.get(pk=id_object)
+                CustomFieldEntityBase.set_custom_fields(form_model, this_object, custom_field_values_data)
+            except ObjectDoesNotExist:
+                raise ValueError("L'objet avec ID {id_object} est introuvable.")
+            if hasattr(this_object, 'custom_field_values'):
+                custom_field_values = this_object.custom_field_values.all()
+            else:
+                custom_field_values = []
+        except Exception as e:
+            custom_field_values = []
+        
+        return UpdateCustomFieldValues(custom_field_values=custom_field_values)
+
 class DeleteCustomField(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -704,3 +767,5 @@ class DataMutation(graphene.ObjectType):
     create_custom_field = CreateCustomField.Field()
     update_custom_field = UpdateCustomField.Field()
     delete_custom_field = DeleteCustomField.Field()
+
+    update_custom_field_values = UpdateCustomFieldValues.Field()

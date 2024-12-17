@@ -198,6 +198,12 @@ class TaskStep(models.Model):
 		return self.name
 
 class Ticket(models.Model):
+	TYPES = [
+		("PLAN_ACTION", "Plan d'action"),
+		("LUP", "Levée d'une non-conformité"),
+		("IT_SUPPORT", "Support informatique"),
+		("GENERAL", "Général"),
+	]
 	STATUS = [
 		("NEW", "Nouveau"),
 		("ACCEPTED", "Accepté"),
@@ -215,6 +221,7 @@ class Ticket(models.Model):
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255, null=True)
+	ticket_type = models.CharField(max_length=50, choices=TYPES, default= "PLAN_ACTION")
 	description = models.TextField(default='', null=True)
 	establishments = models.ManyToManyField('companies.Establishment', related_name='tickets')
 	priority = models.CharField(max_length=50, choices=PRIORITIES, default= "LOW")

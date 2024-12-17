@@ -5,6 +5,7 @@ from accounts.models import User
 class CustomField(models.Model):
 	FIELD_TYPES = [
 		('TEXT', 'Text'),
+		('TEXTAREA', 'Zone du text'),
 		('NUMBER', 'Number'),
 		('DATE', 'Date'),
 		('DATETIME', 'Date et heure'),
@@ -17,6 +18,7 @@ class CustomField(models.Model):
 	MODEL_CHOICES = [
 		('Employee', 'Employé'),
 		('EmployeeContract', 'Contrat Employé'),
+		('Beneficiary', 'Personne accompagnée'),
 		# Ajoutez d'autres modèles si nécessaire
 	]
 	label = models.CharField(max_length=255)
@@ -64,6 +66,7 @@ class CustomFieldOption(models.Model):
 		return f"{self.label} (pour {self.custom_field.label})"
 
 class CustomFieldValue(models.Model):
+	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='custom_field_values', null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='custom_field_values', null=True)
 	employee_contract = models.ForeignKey('human_ressources.EmployeeContract', on_delete=models.SET_NULL, related_name='custom_field_values', null=True)
 	custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE)
