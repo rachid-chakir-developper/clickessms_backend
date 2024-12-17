@@ -48,6 +48,20 @@ class UndesirableEventsWeekType(graphene.ObjectType):
     day = graphene.String()
     count = graphene.Float()
 
+class ActivityTrackingMonthType(graphene.ObjectType):
+    entries_count = graphene.Float()
+    exits_count = graphene.Float()
+    planned_exits_count = graphene.Float()
+    presents_month_count = graphene.Float()
+    days_count = graphene.Float()
+    objective_number = graphene.Float()
+    days_count = graphene.Float()
+    objective_occupancy_rate = graphene.Float()
+    occupancy_rate = graphene.Float()
+    valuation = graphene.Decimal()
+    objective_valuation = graphene.Decimal()
+    gap_valuation = graphene.Decimal()
+
 class DashboardType(graphene.ObjectType):
     budget_month = graphene.Field(BudgetMonthType)
     spendings_month = graphene.Field(SpendingsMonthType)
@@ -137,9 +151,19 @@ class DashboardType(graphene.ObjectType):
         company = user.current_company if user.current_company is not None else user.company
         return user.get_employee_in_company(company=company)
 
+class DashboardActivityType(graphene.ObjectType):
+    activity_tracking_month = graphene.Field(ActivityTrackingMonthType)
+    def resolve_activity_tracking_month ( instance, info, **kwargs ):
+        return ActivityTrackingMonthType()
+
 class DashboardQuery(graphene.ObjectType):
     dashboard = graphene.Field(DashboardType)
+    dashboard_activity = graphene.Field(DashboardActivityType)
     def resolve_dashboard(root, info):
         # We can easily optimize query count in the resolve method
         dashboard = 0
         return dashboard
+    def resolve_dashboard_activity(root, info):
+        # We can easily optimize query count in the resolve method
+        dashboard_activity = 0
+        return dashboard_activity
