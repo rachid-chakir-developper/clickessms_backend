@@ -5,6 +5,7 @@ from graphql_jwt.decorators import login_required
 import datetime
 from django.conf import settings
 from decimal import Decimal
+from statistics import mean
 
 from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncDate
@@ -63,6 +64,24 @@ class ActivityTrackingMonthType(graphene.ObjectType):
     valuation = graphene.Decimal()
     objective_valuation = graphene.Decimal()
     gap_valuation = graphene.Decimal()
+
+class ActivityTrackingAccumulationType(graphene.ObjectType):
+    year = graphene.String()
+    entries_count = graphene.Float()
+    exits_count = graphene.Float()
+    planned_exits_count = graphene.Float()
+    presents_month_count = graphene.Float()
+    days_count = graphene.Float()
+    objective_count = graphene.Float()
+    objective_occupancy_rate = graphene.Float()
+    occupancy_rate = graphene.Float()
+    valuation = graphene.Decimal()
+    objective_valuation = graphene.Decimal()
+    gap_valuation = graphene.Decimal()
+
+class ActivityTrackingType(graphene.ObjectType):
+    activity_tracking_month = graphene.List(ActivityTrackingMonthType)
+    activity_tracking_accumulation = graphene.Field(ActivityTrackingAccumulationType)
 
 class DashboardType(graphene.ObjectType):
     budget_month = graphene.Field(BudgetMonthType)
@@ -154,8 +173,8 @@ class DashboardType(graphene.ObjectType):
         return user.get_employee_in_company(company=company)
 
 class DashboardActivityType(graphene.ObjectType):
-    activity_tracking_month = graphene.List(ActivityTrackingMonthType)
-    def resolve_activity_tracking_month(instance, info, **kwargs):
+    activity_tracking = graphene.Field(ActivityTrackingType)
+    def resolve_activity_tracking(instance, info, **kwargs):
         user = info.context.user
         company = user.the_current_company
 
@@ -172,15 +191,36 @@ class DashboardActivityType(graphene.ObjectType):
             year=str(date.year),
             objective_count=10,
             days_count=4.5,
-            objective_occupancy_rate=2.5,
-            occupancy_rate=10,
+            objective_occupancy_rate=10,
+            occupancy_rate=2.5,
             valuation=Decimal(8.5),
             objective_valuation=Decimal(10),
             gap_valuation=Decimal(-1.5),
             )  # 'day' utilisé pour le nom du mois
             activity_tracking_month.append(item)
 
-        return activity_tracking_month
+        # Calcul des agrégats pour ActivityTrackingAccumulationType
+        objective_count_sum = sum(item.objective_count for item in activity_tracking_month)
+        days_count_sum = sum(item.days_count for item in activity_tracking_month)
+        valuation_sum = sum(item.valuation for item in activity_tracking_month)
+        objective_valuation_sum = sum(item.objective_valuation for item in activity_tracking_month)
+        gap_valuation_sum = sum(item.gap_valuation for item in activity_tracking_month)
+
+        # Calcul de la moyenne pour les pourcentages
+        objective_occupancy_rate_avg = mean(item.objective_occupancy_rate for item in activity_tracking_month)
+        occupancy_rate_avg = mean(item.occupancy_rate for item in activity_tracking_month)
+
+        activity_tracking_accumulation = ActivityTrackingAccumulationType(
+            year=str(date.year),
+            objective_count=objective_count_sum,
+            days_count=days_count_sum,
+            objective_occupancy_rate=objective_occupancy_rate_avg,  # Moyenne des pourcentages
+            occupancy_rate=occupancy_rate_avg,  # Moyenne des pourcentages
+            valuation=valuation_sum,
+            objective_valuation=objective_valuation_sum,
+            gap_valuation=gap_valuation_sum,
+        )
+        return ActivityTrackingType(activity_tracking_month=activity_tracking_month, activity_tracking_accumulation=activity_tracking_accumulation)
 
 class DashboardQuery(graphene.ObjectType):
     dashboard = graphene.Field(DashboardType)
