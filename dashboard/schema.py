@@ -4,6 +4,7 @@ from graphql_jwt.decorators import login_required
 
 import datetime
 from django.conf import settings
+from decimal import Decimal
 
 from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncDate
@@ -49,13 +50,14 @@ class UndesirableEventsWeekType(graphene.ObjectType):
     count = graphene.Float()
 
 class ActivityTrackingMonthType(graphene.ObjectType):
+    month = graphene.String()
+    year = graphene.String()
     entries_count = graphene.Float()
     exits_count = graphene.Float()
     planned_exits_count = graphene.Float()
     presents_month_count = graphene.Float()
     days_count = graphene.Float()
-    objective_number = graphene.Float()
-    days_count = graphene.Float()
+    objective_count = graphene.Float()
     objective_occupancy_rate = graphene.Float()
     occupancy_rate = graphene.Float()
     valuation = graphene.Decimal()
@@ -89,7 +91,7 @@ class DashboardType(graphene.ObjectType):
         
     def resolve_undesirable_events_week ( instance, info, **kwargs ):
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         date = datetime.date.today()
         start_week = date - datetime.timedelta(date.weekday())
         end_week = start_week + datetime.timedelta(7)
@@ -117,7 +119,7 @@ class DashboardType(graphene.ObjectType):
     def resolve_tasks(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         tasks = Task.objects.filter(company=company, status__in=['TO_DO', 'PENDING'])
         if not user.can_manage_facility():
             if user.is_manager():
@@ -129,13 +131,13 @@ class DashboardType(graphene.ObjectType):
     def resolve_task_actions(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         return TaskAction.objects.filter(company=company, employees=user.get_employee_in_company()).exclude(status="DONE").order_by('-due_date')[0:10]
 
     def resolve_undesirable_events(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         undesirable_events = UndesirableEvent.objects.filter(company=company, status="NEW")
         if not user.can_manage_quality():
             if user.is_manager():
@@ -148,13 +150,37 @@ class DashboardType(graphene.ObjectType):
     def resolve_current_employee(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         return user.get_employee_in_company(company=company)
 
 class DashboardActivityType(graphene.ObjectType):
-    activity_tracking_month = graphene.Field(ActivityTrackingMonthType)
-    def resolve_activity_tracking_month ( instance, info, **kwargs ):
-        return ActivityTrackingMonthType()
+    activity_tracking_month = graphene.List(ActivityTrackingMonthType)
+    def resolve_activity_tracking_month(instance, info, **kwargs):
+        user = info.context.user
+        company = user.the_current_company
+
+        # Obtenir l'année en cours pour filtrer par année
+        date = datetime.date.today()
+        start_year = date.replace(month=1, day=1)  # Début de l'année
+        end_year = date.replace(month=12, day=31)  # Fin de l'année
+
+        # Initialiser les activity_tracking_month par mois
+        activity_tracking_month = []
+        for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
+            item = ActivityTrackingMonthType(
+            month=month,
+            year=str(date.year),
+            objective_count=10,
+            days_count=4.5,
+            objective_occupancy_rate=2.5,
+            occupancy_rate=10,
+            valuation=Decimal(8.5),
+            objective_valuation=Decimal(10),
+            gap_valuation=Decimal(-1.5),
+            )  # 'day' utilisé pour le nom du mois
+            activity_tracking_month.append(item)
+
+        return activity_tracking_month
 
 class DashboardQuery(graphene.ObjectType):
     dashboard = graphene.Field(DashboardType)

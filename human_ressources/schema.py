@@ -301,6 +301,7 @@ class BeneficiaryStatusEntryInput(graphene.InputObjectType):
 class BeneficiaryEntryInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     entry_date = graphene.DateTime(required=False)
+    due_date = graphene.DateTime(required=False)
     release_date = graphene.DateTime(required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
     establishments = graphene.List(graphene.Int, required=False)

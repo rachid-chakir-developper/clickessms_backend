@@ -408,6 +408,7 @@ class BeneficiaryStatusEntry(models.Model):
 class BeneficiaryEntry(models.Model):
     beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True, related_name='beneficiary_entries')
     entry_date = models.DateTimeField(null=True)
+    due_date = models.DateTimeField(null=True)
     release_date = models.DateTimeField(null=True)
     establishments = models.ManyToManyField('companies.Establishment', related_name='establishments_beneficiary_entries')
     internal_referents = models.ManyToManyField('human_ressources.Employee', related_name='referents_beneficiary_entries')
