@@ -2,7 +2,9 @@ from django.db import models
 from datetime import datetime
 from decimal import Decimal
 import random
-
+from collections import defaultdict
+from django.db.models import Count, Sum, Q
+from django.db.models.functions import ExtractMonth
 
 # Create your models here.
 class DecisionDocument(models.Model):
@@ -92,6 +94,67 @@ class DecisionDocumentItem(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+    @classmethod
+    def monthly_statistics(cls, year, establishments=None, company=None):
+        # Base queryset
+        queryset = cls.objects.filter(decision_document__company=company)
+
+        # Filtrer par établissements si fourni
+        if establishments:
+            queryset = queryset.filter(establishment__in=establishments)
+
+        # Annoter et grouper les données par mois et établissement
+        data = (
+            queryset
+            .values('establishment__id')  # Utiliser l'ID de l'établissement
+            .annotate(
+                month=ExtractMonth('starting_date_time'),
+                total_price=Sum('price', filter=Q(starting_date_time__year=year)),
+                total_endowment=Sum('endowment', filter=Q(starting_date_time__year=year)),
+                average_occupancy_rate=Sum('occupancy_rate', filter=Q(starting_date_time__year=year)),
+                total_theoretical_number_unit_work=Sum('theoretical_number_unit_work', filter=Q(starting_date_time__year=year)),
+            )
+            .order_by('establishment__id', 'month')
+        )
+
+        # Structurer les données avec des mois manquants initialisés à 0
+        stats = defaultdict(lambda: {month: {
+            "total_price": 0,
+            "total_endowment": 0,
+            "average_occupancy_rate": 0,
+            "total_theoretical_number_unit_work": 0
+        } for month in range(1, 13)})
+
+        for item in data:
+            establishment_id = item['establishment__id']
+            month = item['month']
+            stats[establishment_id][month] = {
+                "total_price": item['total_price'] or 0,
+                "total_endowment": item['total_endowment'] or 0,
+                "average_occupancy_rate": item['average_occupancy_rate'] or 0,
+                "total_theoretical_number_unit_work": item['total_theoretical_number_unit_work'] or 0,
+            }
+
+        # Si aucun établissement n'est fourni, retourner les totaux globaux
+        if establishments is None:
+            totals = {month: {
+                "total_price": 0,
+                "total_endowment": 0,
+                "average_occupancy_rate": 0,
+                "total_theoretical_number_unit_work": 0
+            } for month in range(1, 13)}
+
+            for establishment_data in stats.values():
+                for month, values in establishment_data.items():
+                    totals[month]["total_price"] += values["total_price"]
+                    totals[month]["total_endowment"] += values["total_endowment"]
+                    totals[month]["average_occupancy_rate"] += values["average_occupancy_rate"]
+                    totals[month]["total_theoretical_number_unit_work"] += values["total_theoretical_number_unit_work"]
+
+            return {"global_totals": totals}
+
+        return dict(stats)
 
     def __str__(self):
         return str(self.id)

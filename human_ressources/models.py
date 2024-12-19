@@ -3,6 +3,11 @@ from datetime import datetime, date, timedelta
 import random
 from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
+
+from django.db.models import Count, Q, F, ExpressionWrapper, IntegerField, Sum
+from django.db.models.functions import ExtractMonth, TruncDay
+from collections import defaultdict
+
 from planning.models import EmployeeAbsenceItem
 
 # Create your models here.
@@ -415,6 +420,82 @@ class BeneficiaryEntry(models.Model):
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    @classmethod
+    def monthly_statistics(self, year, establishments=None, company=None):
+        # Filtrer les données de base
+        queryset = self.objects.filter(beneficiary__company=company)
+
+        if establishments:
+            # Filtrer uniquement pour les établissements spécifiés
+            queryset = queryset.filter(establishments__in=establishments)
+
+        # Calculer le nombre de jours pour chaque enregistrement
+        queryset = queryset.annotate(
+            days_present=ExpressionWrapper(
+                F('release_date') - F('entry_date'),
+                output_field=IntegerField()
+            )
+        )
+
+        # Annoter et grouper les données
+        data = (
+            queryset
+            .values('establishments__id')  # Utilisation de l'ID
+            .annotate(
+                month=ExtractMonth('entry_date'),
+                total_entries=Count('id', filter=Q(entry_date__year=year)),
+                total_releases=Count('id', filter=Q(release_date__year=year)),
+                total_due=Count('id', filter=Q(due_date__year=year)),
+                total_days_present=Count(
+                    'days_present',
+                    filter=Q(entry_date__year=year) & Q(release_date__isnull=False)
+                )
+            )
+            .order_by('establishments__id', 'month')
+        )
+
+        # Structurer les données pour inclure les mois manquants
+        stats = defaultdict(lambda: {
+            month: {
+                "total_entries": 0,
+                "total_releases": 0,
+                "total_due": 0,
+                "total_days_present": 0
+            }
+            for month in range(1, 13)
+        })
+
+        for item in data:
+            establishment_id = item['establishments__id']
+            month = item['month']
+            stats[establishment_id][month] = {
+                "total_entries": item['total_entries'],
+                "total_releases": item['total_releases'],
+                "total_due": item['total_due'],
+                "total_days_present": item['total_days_present'],
+            }
+
+        # Si aucun établissement n'est fourni, retourner les totaux globaux
+        if establishments is None:
+            totals = {
+                month: {
+                    "total_entries": 0,
+                    "total_releases": 0,
+                    "total_due": 0,
+                    "total_days_present": 0
+                }
+                for month in range(1, 13)
+            }
+            for establishment, monthly_data in stats.items():
+                for month, values in monthly_data.items():
+                    totals[month]["total_entries"] += values["total_entries"]
+                    totals[month]["total_releases"] += values["total_releases"]
+                    totals[month]["total_due"] += values["total_due"]
+                    totals[month]["total_days_present"] += values["total_days_present"]
+            return {"global_totals": totals}
+
+        return dict(stats)
 
     def __str__(self):
         return self.id
