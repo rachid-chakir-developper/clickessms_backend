@@ -12,10 +12,12 @@ from django.db.models.functions import TruncDate
 
 from works.schema import TaskType,TaskActionType
 from human_ressources.schema import EmployeeType
+from companies.schema import EstablishmentType
 from qualities.schema import UndesirableEventType
 
 from works.models import Task, STATUS_All, TaskAction
 from qualities.models import UndesirableEvent
+from companies.models import Establishment
 
 class BudgetTaskType(graphene.ObjectType):
     name = graphene.String()
@@ -58,7 +60,8 @@ class ActivityTrackingMonthType(graphene.ObjectType):
     planned_exits_count = graphene.Float()
     presents_month_count = graphene.Float()
     days_count = graphene.Float()
-    objective_count = graphene.Float()
+    objective_days_count = graphene.Float()
+    gap_days_count= graphene.Float()
     objective_occupancy_rate = graphene.Float()
     occupancy_rate = graphene.Float()
     valuation = graphene.Decimal()
@@ -66,18 +69,28 @@ class ActivityTrackingMonthType(graphene.ObjectType):
     gap_valuation = graphene.Decimal()
 
 class ActivityTrackingAccumulationType(graphene.ObjectType):
+    label = graphene.String()
     year = graphene.String()
     entries_count = graphene.Float()
     exits_count = graphene.Float()
     planned_exits_count = graphene.Float()
     presents_month_count = graphene.Float()
     days_count = graphene.Float()
-    objective_count = graphene.Float()
+    objective_days_count = graphene.Float()
+    gap_days_count= graphene.Float()
     objective_occupancy_rate = graphene.Float()
     occupancy_rate = graphene.Float()
     valuation = graphene.Decimal()
     objective_valuation = graphene.Decimal()
     gap_valuation = graphene.Decimal()
+
+class ActivityTrackingEstablishmentType(graphene.ObjectType):
+    title = graphene.String()
+    establishment = graphene.Field(EstablishmentType)
+    year = graphene.String()
+    months = graphene.List(graphene.String)
+    activity_tracking_month = graphene.List(ActivityTrackingMonthType)
+    activity_tracking_accumulation = graphene.Field(ActivityTrackingAccumulationType)
 
 class ActivityTrackingType(graphene.ObjectType):
     activity_tracking_month = graphene.List(ActivityTrackingMonthType)
@@ -174,6 +187,7 @@ class DashboardType(graphene.ObjectType):
 
 class DashboardActivityType(graphene.ObjectType):
     activity_tracking = graphene.Field(ActivityTrackingType)
+    activity_tracking_establishments = graphene.List(ActivityTrackingEstablishmentType)
     def resolve_activity_tracking(instance, info, **kwargs):
         user = info.context.user
         company = user.the_current_company
@@ -189,8 +203,9 @@ class DashboardActivityType(graphene.ObjectType):
             item = ActivityTrackingMonthType(
             month=month,
             year=str(date.year),
-            objective_count=10,
+            objective_days_count=10,
             days_count=4.5,
+            gap_days_count=5.5,
             objective_occupancy_rate=10,
             occupancy_rate=2.5,
             valuation=Decimal(8.5),
@@ -200,7 +215,7 @@ class DashboardActivityType(graphene.ObjectType):
             activity_tracking_month.append(item)
 
         # Calcul des agrégats pour ActivityTrackingAccumulationType
-        objective_count_sum = sum(item.objective_count for item in activity_tracking_month)
+        objective_days_count_sum = sum(item.objective_days_count for item in activity_tracking_month)
         days_count_sum = sum(item.days_count for item in activity_tracking_month)
         valuation_sum = sum(item.valuation for item in activity_tracking_month)
         objective_valuation_sum = sum(item.objective_valuation for item in activity_tracking_month)
@@ -212,8 +227,9 @@ class DashboardActivityType(graphene.ObjectType):
 
         activity_tracking_accumulation = ActivityTrackingAccumulationType(
             year=str(date.year),
-            objective_count=objective_count_sum,
+            objective_days_count=objective_days_count_sum,
             days_count=days_count_sum,
+            gap_days_count=objective_days_count_sum-days_count_sum,
             objective_occupancy_rate=objective_occupancy_rate_avg,  # Moyenne des pourcentages
             occupancy_rate=occupancy_rate_avg,  # Moyenne des pourcentages
             valuation=valuation_sum,
@@ -221,6 +237,80 @@ class DashboardActivityType(graphene.ObjectType):
             gap_valuation=gap_valuation_sum,
         )
         return ActivityTrackingType(activity_tracking_month=activity_tracking_month, activity_tracking_accumulation=activity_tracking_accumulation)
+    def resolve_activity_tracking_establishments(instance, info, **kwargs):
+        user = info.context.user
+        company = user.the_current_company
+
+        # Obtenir l'année en cours pour filtrer par année
+        date = datetime.date.today()
+        start_year = date.replace(month=1, day=1)  # Début de l'année
+        end_year = date.replace(month=12, day=31)  # Fin de l'année
+
+        establishments = Establishment.objects.filter(company=company)
+        activity_tracking_establishments = []
+        for i, establishment in enumerate(establishments):
+            # Initialiser les activity_tracking_month par mois
+            activity_tracking_month = []
+            for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
+                item = ActivityTrackingMonthType(
+                month=month,
+                year=str(date.year),
+                entries_count=2,
+                exits_count=2,
+                planned_exits_count=2,
+                presents_month_count=2,
+                objective_days_count=10,
+                days_count=4.5,
+                gap_days_count=5.5,
+                objective_occupancy_rate=10,
+                occupancy_rate=2.5,
+                valuation=Decimal(8.5),
+                objective_valuation=Decimal(10),
+                gap_valuation=Decimal(-1.5),
+                )  # 'day' utilisé pour le nom du mois
+                activity_tracking_month.append(item)
+
+            # Calcul des agrégats pour ActivityTrackingAccumulationType
+            entries_count_sum = sum(item.entries_count for item in activity_tracking_month)
+            exits_count_sum = sum(item.exits_count for item in activity_tracking_month)
+            planned_exits_count_sum = sum(item.planned_exits_count for item in activity_tracking_month)
+            presents_month_count_sum = sum(item.presents_month_count for item in activity_tracking_month)
+            objective_days_count_sum = sum(item.objective_days_count for item in activity_tracking_month)
+            days_count_sum = sum(item.days_count for item in activity_tracking_month)
+            valuation_sum = sum(item.valuation for item in activity_tracking_month)
+            objective_valuation_sum = sum(item.objective_valuation for item in activity_tracking_month)
+            gap_valuation_sum = sum(item.gap_valuation for item in activity_tracking_month)
+
+            # Calcul de la moyenne pour les pourcentages
+            objective_occupancy_rate_avg = mean(item.objective_occupancy_rate for item in activity_tracking_month)
+            occupancy_rate_avg = mean(item.occupancy_rate for item in activity_tracking_month)
+
+            activity_tracking_accumulation = ActivityTrackingAccumulationType(
+                label='Cumul à fin Nov.',
+                year=str(date.year),
+                entries_count=entries_count_sum,
+                exits_count=exits_count_sum,
+                planned_exits_count=planned_exits_count_sum,
+                presents_month_count=presents_month_count_sum,
+                objective_days_count=objective_days_count_sum,
+                days_count=days_count_sum,
+                gap_days_count=objective_days_count_sum-days_count_sum,
+                objective_occupancy_rate=objective_occupancy_rate_avg,  # Moyenne des pourcentages
+                occupancy_rate=occupancy_rate_avg,  # Moyenne des pourcentages
+                valuation=valuation_sum,
+                objective_valuation=objective_valuation_sum,
+                gap_valuation=gap_valuation_sum,
+            )
+            activity_tracking_establishments.append(
+                ActivityTrackingEstablishmentType(
+                    months=settings.MONTHS,
+                    year=str(date.year),
+                    establishment=establishment,
+                    activity_tracking_month=activity_tracking_month,
+                    activity_tracking_accumulation=activity_tracking_accumulation
+                    )
+                )
+        return activity_tracking_establishments
 
 class DashboardQuery(graphene.ObjectType):
     dashboard = graphene.Field(DashboardType)
