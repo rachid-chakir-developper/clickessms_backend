@@ -31,7 +31,6 @@ class PostFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
 
-
 class PostInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -47,7 +46,7 @@ class BlogQuery(graphene.ObjectType):
     def resolve_posts(root, info, post_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         posts = Post.objects.filter(company__id=id_company) if id_company else Post.objects.filter(company=company)
         if post_filter:

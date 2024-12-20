@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'sce',
     'blog',
     'planning',
+    'building_estate',
     'robert_ia'
 ]
 
