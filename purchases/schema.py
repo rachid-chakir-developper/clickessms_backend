@@ -7,7 +7,7 @@ from graphene_file_upload.scalars import Upload
 from django.db.models import Q
 from datetime import datetime, timedelta
 
-from purchases.models import Supplier, Expense, ExpenseItem, PurchaseOrder, PurchaseOrderItem
+from purchases.models import Supplier, PurchaseContract, Expense, ExpenseItem, PurchaseOrder, PurchaseOrderItem
 from companies.models import Establishment
 from medias.models import Folder, File
 from accounts.models import User
@@ -63,6 +63,41 @@ class SupplierInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+
+class PurchaseContractType(DjangoObjectType):
+    class Meta:
+        model = PurchaseContract
+        fields = "__all__"
+
+    document = graphene.String()
+
+    def resolve_document(instance, info, **kwargs):
+        return instance.document and info.context.build_absolute_uri(
+            instance.document.file.url
+        )
+
+class PurchaseContractNodeType(graphene.ObjectType):
+    nodes = graphene.List(PurchaseContractType)
+    total_count = graphene.Int()
+
+class PurchaseContractFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    suppliers = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
+
+class PurchaseContractInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    contract_number = graphene.String(required=False)
+    title = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    is_active = graphene.Boolean(required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    supplier_id = graphene.Int(name="supplier", required=False)
 
 class ExpenseItemType(DjangoObjectType):
     class Meta:
@@ -463,7 +498,126 @@ class DeleteSupplier(graphene.Mutation):
         return DeleteSupplier(deleted=deleted, success=success, message=message, id=id)
 
 # ************************************************************************
+#*****************************************************************************************************************
 
+class CreatePurchaseContract(graphene.Mutation):
+    class Arguments:
+        purchase_contract_data = PurchaseContractInput(required=True)
+        document = Upload(required=False)
+
+    purchase_contract = graphene.Field(PurchaseContractType)
+
+    def mutate(root, info, document=None, purchase_contract_data=None):
+        creator = info.context.user
+        purchase_contract = PurchaseContract(**purchase_contract_data)
+        purchase_contract.creator = creator
+        purchase_contract.company = creator.the_current_company
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = purchase_contract.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                purchase_contract.document = document_file
+        purchase_contract.save()
+        folder = Folder.objects.create(
+            name=str(purchase_contract.id) + "_" + purchase_contract.name,
+            creator=creator,
+        )
+        purchase_contract.folder = folder
+        purchase_contract.save()
+        return CreatePurchaseContract(purchase_contract=purchase_contract)
+
+class UpdatePurchaseContract(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        purchase_contract_data = PurchaseContractInput(required=True)
+        document = Upload(required=False)
+
+    purchase_contract = graphene.Field(PurchaseContractType)
+
+    def mutate(root, info, id, document=None, purchase_contract_data=None):
+        creator = info.context.user
+        PurchaseContract.objects.filter(pk=id).update(**purchase_contract_data)
+        purchase_contract = PurchaseContract.objects.get(pk=id)
+        if not purchase_contract.folder or purchase_contract.folder is None:
+            folder = Folder.objects.create(
+                name=str(purchase_contract.id) + "_" + purchase_contract.name,
+                creator=creator,
+            )
+            PurchaseContract.objects.filter(pk=id).update(folder=folder)
+        if not document and purchase_contract.document:
+            document_file = purchase_contract.document
+            document_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if document and isinstance(document, UploadedFile):
+                document_file = purchase_contract.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                purchase_contract.document = document_file
+        purchase_contract.save()
+        return UpdatePurchaseContract(purchase_contract=purchase_contract)
+
+class UpdatePurchaseContractState(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    purchase_contract = graphene.Field(PurchaseContractType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, purchase_contract_fields=None):
+        creator = info.context.user
+        done = True
+        success = True
+        purchase_contract = None
+        message = ''
+        try:
+            purchase_contract = PurchaseContract.objects.get(pk=id)
+            PurchaseContract.objects.filter(pk=id).update(is_active=not purchase_contract.is_active)
+            purchase_contract.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            purchase_contract=None
+            message = "Une erreur s'est produite."
+        return UpdatePurchaseContractState(done=done, success=success, message=message,purchase_contract=purchase_contract)
+
+class DeletePurchaseContract(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    purchase_contract = graphene.Field(PurchaseContractType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            purchase_contract = PurchaseContract.objects.get(pk=id)
+            purchase_contract.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeletePurchaseContract(deleted=deleted, success=success, message=message, id=id)
+
+#************************************************************************
+
+#*******************************************************************************************************************************
 
 class CreateExpense(graphene.Mutation):
     class Arguments:
@@ -900,6 +1054,11 @@ class PurchasesMutation(graphene.ObjectType):
     update_supplier = UpdateSupplier.Field()
     update_supplier_state = UpdateSupplierState.Field()
     delete_supplier = DeleteSupplier.Field()
+
+    create_purchase_contract = CreatePurchaseContract.Field()
+    update_purchase_contract = UpdatePurchaseContract.Field()
+    update_purchase_contract_state = UpdatePurchaseContractState.Field()
+    delete_purchase_contract = DeletePurchaseContract.Field()
 
     create_expense = CreateExpense.Field()
     update_expense = UpdateExpense.Field()
