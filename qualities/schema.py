@@ -10,7 +10,7 @@ from graphql import GraphQLError
 from django.db.models import Q
 from django.db import transaction
 
-from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson
+from qualities.models import UndesirableEvent, UndesirableEventEstablishment, UndesirableEventEmployee, UndesirableEventBeneficiary, UndesirableEventNotifiedPerson, BoxIdea
 from qualities.broadcaster import broadcastUndesirableEventAdded, broadcastUndesirableEventUpdated, broadcastUndesirableEventDeleted
 from works.broadcaster import broadcastTicketAdded
 
@@ -103,9 +103,34 @@ class UndesirableEventInput(graphene.InputObjectType):
     beneficiaries = graphene.List(graphene.Int, required=False)
     notified_persons = graphene.List(graphene.Int, required=False)
 
+class BoxIdeaType(DjangoObjectType):
+    class Meta:
+        model = BoxIdea
+        fields = "__all__"
+
+class BoxIdeaNodeType(graphene.ObjectType):
+    nodes = graphene.List(BoxIdeaType)
+    total_count = graphene.Int()
+
+class BoxIdeaFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+
+class BoxIdeaInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    title = graphene.String(required=True)
+    link = graphene.String(required=True)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+
 class QualitiesQuery(graphene.ObjectType):
     undesirable_events = graphene.Field(UndesirableEventNodeType, undesirable_event_filter= UndesirableEventFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     undesirable_event = graphene.Field(UndesirableEventType, id = graphene.ID())
+    box_ideas = graphene.Field(BoxIdeaNodeType, box_idea_filter= BoxIdeaFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    box_idea = graphene.Field(BoxIdeaType, id = graphene.ID())
     def resolve_undesirable_events(root, info, undesirable_event_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -157,6 +182,38 @@ class QualitiesQuery(graphene.ObjectType):
         except UndesirableEvent.DoesNotExist:
             undesirable_event = None
         return undesirable_event
+
+    def resolve_box_ideas(root, info, box_idea_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        box_ideas = BoxIdea.objects.filter(company=company)
+        if box_idea_filter:
+            keyword = box_idea_filter.get('keyword', '')
+            starting_date_time = box_idea_filter.get('starting_date_time')
+            ending_date_time = box_idea_filter.get('ending_date_time')
+            if keyword:
+                box_ideas = box_ideas.filter(Q(name__icontains=keyword) | Q(designation__icontains=keyword) | Q(bar_code__icontains=keyword))
+            if starting_date_time:
+                box_ideas = box_ideas.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                box_ideas = box_ideas.filter(created_at__lte=ending_date_time)
+        box_ideas = box_ideas.order_by('-created_at')
+        total_count = box_ideas.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            box_ideas = box_ideas[offset:offset + limit]
+        return BoxIdeaNodeType(nodes=box_ideas, total_count=total_count)
+
+    def resolve_box_idea(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            box_idea = BoxIdea.objects.get(pk=id)
+        except BoxIdea.DoesNotExist:
+            box_idea = None
+        return box_idea
 
 #************************************************************************
 
@@ -553,6 +610,92 @@ class DeleteUndesirableEvent(graphene.Mutation):
             success = False
             message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteUndesirableEvent(deleted=deleted, success=success, message=message, id=id)
+#****************************************************************************************
+#************************************************************************
+
+class CreateBoxIdea(graphene.Mutation):
+    class Arguments:
+        box_idea_data = BoxIdeaInput(required=True)
+
+    box_idea = graphene.Field(BoxIdeaType)
+
+    def mutate(root, info, box_idea_data=None):
+        creator = info.context.user
+        box_idea = BoxIdea(**box_idea_data)
+        box_idea.creator = creator
+        box_idea.company = creator.the_current_company
+        if not box_idea.employee:
+            box_idea.employee = creator.get_employee_in_company()
+        box_idea.save()
+        return CreateBoxIdea(box_idea=box_idea)
+
+class UpdateBoxIdea(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        box_idea_data = BoxIdeaInput(required=True)
+
+    box_idea = graphene.Field(BoxIdeaType)
+
+    def mutate(root, info, id, box_idea_data=None):
+        creator = info.context.user
+        BoxIdea.objects.filter(pk=id).update(**box_idea_data)
+        box_idea = BoxIdea.objects.get(pk=id)
+        if not box_idea.employee:
+            box_idea.employee = creator.get_employee_in_company()
+            box_idea.save()
+        return UpdateBoxIdea(box_idea=box_idea)
+        
+class UpdateBoxIdeaState(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    box_idea = graphene.Field(BoxIdeaType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, box_idea_fields=None):
+        creator = info.context.user
+        done = True
+        success = True
+        box_idea = None
+        message = ''
+        try:
+            box_idea = BoxIdea.objects.get(pk=id)
+            BoxIdea.objects.filter(pk=id).update(is_active=not box_idea.is_active)
+            box_idea.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            box_idea=None
+            message = "Une erreur s'est produite."
+        return UpdateBoxIdeaState(done=done, success=success, message=message,box_idea=box_idea)
+
+
+class DeleteBoxIdea(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    box_idea = graphene.Field(BoxIdeaType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            box_idea = BoxIdea.objects.get(pk=id)
+            box_idea.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteBoxIdea(deleted=deleted, success=success, message=message, id=id)
+
         
 #*********************************************************************************************************************#
 
@@ -563,6 +706,10 @@ class QualitiesMutation(graphene.ObjectType):
     update_undesirable_event_state = UpdateUndesirableEventState.Field()
     create_undesirable_event_ticket = CreateUndesirableEventTicket.Field()
     delete_undesirable_event = DeleteUndesirableEvent.Field()
+
+    create_box_idea = CreateBoxIdea.Field()
+    update_box_idea = UpdateBoxIdea.Field()
+    delete_box_idea = DeleteBoxIdea.Field()
 
 
 
@@ -669,6 +816,7 @@ class OnUndesirableEventDeleted(channels_graphql_ws.Subscription):
             return OnUndesirableEventDeleted.SKIP
         return OnUndesirableEventDeleted(undesirable_event=payload)
 
+#*************************************************************************#
 class QualitiesSubscription(graphene.ObjectType):
     on_undesirable_event_added = OnUndesirableEventAdded.Field()
     on_undesirable_event_updated = OnUndesirableEventUpdated.Field()
