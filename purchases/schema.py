@@ -7,13 +7,13 @@ from graphene_file_upload.scalars import Upload
 from django.db.models import Q
 from datetime import datetime, timedelta
 
-from purchases.models import Supplier, PurchaseContract, Expense, ExpenseItem, PurchaseOrder, PurchaseOrderItem
+from purchases.models import Supplier, PurchaseContract, Expense, ExpenseItem, PurchaseOrder, PurchaseOrderItem, ExpenseReport
 from companies.models import Establishment
 from medias.models import Folder, File
 from accounts.models import User
 from medias.schema import MediaInput
 
-from notifications.notificator import notify_expense
+from notifications.notificator import notify_expense, notify_expense_report
 
 
 class SupplierType(DjangoObjectType):
@@ -203,6 +203,39 @@ class PurchaseOrderInput(graphene.InputObjectType):
     employee_id = graphene.Int(name="employee", required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
 
+class ExpenseReportType(DjangoObjectType):
+    class Meta:
+        model = ExpenseReport
+        fields = "__all__"
+
+class ExpenseReportNodeType(graphene.ObjectType):
+    nodes = graphene.List(ExpenseReportType)
+    total_count = graphene.Int()
+
+
+class ExpenseReportFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    statuses = graphene.List(graphene.String, required=False)
+    list_type = graphene.String(required=False)
+    order_by = graphene.String(required=False)
+
+class ExpenseReportInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    label = graphene.String(required=False)
+    total_amount = graphene.Decimal(required=False)
+    expense_date_time = graphene.DateTime(required=False)
+    payment_method = graphene.String(required=False)
+    description = graphene.String(required=False)
+    comment = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    status = graphene.String(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
+
 class PurchasesQuery(graphene.ObjectType):
     suppliers = graphene.Field(SupplierNodeType, supplier_filter= SupplierFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     supplier = graphene.Field(SupplierType, id = graphene.ID())
@@ -222,6 +255,14 @@ class PurchasesQuery(graphene.ObjectType):
         page=graphene.Int(required=False),
     )
     purchase_order = graphene.Field(PurchaseOrderType, id=graphene.ID())
+    expense_reports = graphene.Field(
+        ExpenseReportNodeType,
+        expense_report_filter=ExpenseReportFilterInput(required=False),
+        offset=graphene.Int(required=False),
+        limit=graphene.Int(required=False),
+        page=graphene.Int(required=False),
+    )
+    expense_report = graphene.Field(ExpenseReportType, id=graphene.ID())
     def resolve_suppliers(root, info, supplier_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -363,6 +404,68 @@ class PurchasesQuery(graphene.ObjectType):
         except PurchaseOrder.DoesNotExist:
             purchase_order = None
         return purchase_order
+
+    def resolve_expense_reports(
+        root, info, expense_report_filter=None, offset=None, limit=None, page=None
+    ):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        expense_reports = ExpenseReport.objects.filter(company=company)
+        if not user.can_manage_finance():
+            if user.is_manager():
+                expense_reports = expense_reports.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                expense_reports = expense_reports.filter(creator=user)
+        the_order_by = '-created_at'
+        if expense_report_filter:
+            keyword = expense_report_filter.get("keyword", "")
+            starting_date_time = expense_report_filter.get("starting_date_time")
+            ending_date_time = expense_report_filter.get("ending_date_time")
+            establishments = expense_report_filter.get('establishments')
+            statuses = expense_report_filter.get('statuses')
+            list_type = expense_report_filter.get('list_type') # ALL_EXPENSE_REQUESTS / MY_EXPENSES / MY_EXPENSE_REQUESTS / ALL
+            order_by = expense_report_filter.get('order_by')
+            if establishments:
+                expense_reports = expense_reports.filter(establishment__id__in=establishments)
+            if list_type:
+                if list_type == 'MY_EXPENSES':
+                    expense_reports = expense_reports.filter(creator=user)
+                elif list_type == 'MY_EXPENSE_REQUESTS':
+                    expense_reports = expense_reports.filter(creator=user)
+                elif list_type == 'ALL':
+                    pass
+            if keyword:
+                expense_reports = expense_reports.filter(
+                    Q(name__icontains=keyword)
+                )
+            if starting_date_time:
+                expense_reports = expense_reports.filter(starting_date__gte=starting_date_time)
+            if ending_date_time:
+                expense_reports = expense_reports.filter(starting_date__lte=ending_date_time)
+            if statuses:
+                expense_reports = expense_reports.filter(status__in=statuses)
+            if order_by:
+                the_order_by = order_by
+        expense_reports = expense_reports.order_by(the_order_by).distinct()
+        total_count = expense_reports.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            expense_reports = expense_reports[offset : offset + limit]
+        return ExpenseReportNodeType(nodes=expense_reports, total_count=total_count)
+
+    def resolve_expense_report(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            expense_report = ExpenseReport.objects.get(pk=id)
+        except ExpenseReport.DoesNotExist:
+            expense_report = None
+        return expense_report
+
+#*******************************************************************************************************************************
+#*******************************************************************************************************************************
 
 class CreateSupplier(graphene.Mutation):
     class Arguments:
@@ -1047,6 +1150,194 @@ class DeletePurchaseOrder(graphene.Mutation):
             deleted=deleted, success=success, message=message, id=id
         )
 
+
+# *************************************************************************************************#
+# *************************************************************************************************#
+
+class CreateExpenseReport(graphene.Mutation):
+    class Arguments:
+        expense_report_data = ExpenseReportInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    expense_report = graphene.Field(ExpenseReportType)
+
+    def mutate(root, info, files=None, expense_report_data=None):
+        creator = info.context.user
+        expense_report = ExpenseReport(**expense_report_data)
+        expense_report.creator = creator
+        expense_report.company = creator.the_current_company
+        expense_report.save()
+        folder = Folder.objects.create(name=str(expense_report.id)+'_'+expense_report.label,creator=creator)
+        expense_report.folder = folder
+        if not files:
+            files = []
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = expense_report.folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            expense_report.files.add(file_file)
+        expense_report.save()
+        if not expense_report.employee:
+            expense_report.employee = creator.get_employee_in_company()
+            expense_report.save()
+        if expense_report.status == 'PENDING':
+            finance_managers = User.get_finance_managers_in_user_company(user=creator)
+            for finance_manager in finance_managers:
+                notify_expense_report(sender=creator, recipient=finance_manager, expense_report=expense_report, action='ADDED')
+        return CreateExpenseReport(expense_report=expense_report)
+
+
+class UpdateExpenseReport(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        expense_report_data = ExpenseReportInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    expense_report = graphene.Field(ExpenseReportType)
+
+    def mutate(root, info, id, files=None, expense_report_data=None):
+        creator = info.context.user
+        ExpenseReport.objects.filter(pk=id).update(**expense_report_data)
+        expense_report = ExpenseReport.objects.get(pk=id)
+        if not expense_report.folder or expense_report.folder is None:
+            folder = Folder.objects.create(name=str(expense_report.id)+'_'+expense_report.label,creator=creator)
+            ExpenseReport.objects.filter(pk=id).update(folder=folder)
+            expense_report.refresh_from_db()
+        if not expense_report.employee:
+            expense_report.employee = creator.get_employee_in_company()
+            expense_report.save()
+        if not files:
+            files = []
+        else:
+            file_ids = [item.id for item in files if item.id is not None]
+            File.objects.filter(file_expense_reports=expense_report).exclude(id__in=file_ids).delete()
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = expense_report.folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            expense_report.files.add(file_file)
+        expense_report.save()
+        is_draft = True if expense_report.status == 'DRAFT' else False
+        if is_draft:
+            ExpenseReport.objects.filter(pk=id).update(status='PENDING')
+            expense_report.refresh_from_db()
+        notify_expense_report(sender=creator, recipient=expense_report.creator, expense_report=expense_report, action='UPDATED')
+        return UpdateExpenseReport(expense_report=expense_report)
+
+
+class UpdateExpenseReportState(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    expense_report = graphene.Field(ExpenseReportType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, expense_report_fields=None):
+        creator = info.context.user
+        done = True
+        success = True
+        expense_report = None
+        message = ""
+        try:
+            expense_report = ExpenseReport.objects.get(pk=id)
+            ExpenseReport.objects.filter(pk=id).update(
+                is_active=not expense_report.is_active
+            )
+            expense_report.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            expense_report = None
+            message = "Une erreur s'est produite."
+        return UpdateExpenseReportState(
+            done=done, success=success, message=message, expense_report=expense_report
+        )
+
+class UpdateExpenseReportFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        expense_report_data = ExpenseReportInput(required=True)
+
+    expense_report = graphene.Field(ExpenseReportType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, expense_report_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        expense_report = None
+        message = ''
+        try:
+            expense_report = ExpenseReport.objects.get(pk=id)
+            ExpenseReport.objects.filter(pk=id).update(**expense_report_data)
+            expense_report.refresh_from_db()
+            if 'status' in expense_report_data:
+                if creator.can_manage_finance() or creator.is_manager():
+                    employee_user = expense_report.employee.user if expense_report.employee else expense_report.creator
+                    if employee_user:
+                        notify_expense_report(sender=creator, recipient=employee_user, expense_report=expense_report)
+                else:
+                    finance_managers = User.get_finance_managers_in_user_company(user=creator)
+                    for finance_manager in finance_managers:
+                        notify_expense_report(sender=creator, recipient=finance_manager, expense_report=expense_report)
+                expense_report.refresh_from_db()
+        except Exception as e:
+            print(e)
+            done = False
+            success = False
+            expense_report=None
+            message = "Une erreur s'est produite."
+        return UpdateExpenseReportFields(done=done, success=success, message=message, expense_report=expense_report)
+
+
+class DeleteExpenseReport(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    expense_report = graphene.Field(ExpenseReportType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            expense_report = ExpenseReport.objects.get(pk=id)
+            expense_report.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteExpenseReport(
+            deleted=deleted, success=success, message=message, id=id
+        )
+# *************************************************************************#
 # *************************************************************************#
 
 class PurchasesMutation(graphene.ObjectType):
@@ -1073,3 +1364,9 @@ class PurchasesMutation(graphene.ObjectType):
     update_purchase_order_state = UpdatePurchaseOrderState.Field()
     update_purchase_order_fields = UpdatePurchaseOrderFields.Field()
     delete_purchase_order = DeletePurchaseOrder.Field()
+
+    create_expense_report = CreateExpenseReport.Field()
+    update_expense_report = UpdateExpenseReport.Field()
+    update_expense_report_state = UpdateExpenseReportState.Field()
+    update_expense_report_fields = UpdateExpenseReportFields.Field()
+    delete_expense_report = DeleteExpenseReport.Field()

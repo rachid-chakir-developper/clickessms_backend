@@ -226,6 +226,59 @@ def notify_expense(sender, recipient, expense, action=None):
 	# Appeler la fonction de notification
 	notify(notification_data)
 
+def notify_expense_report(sender, recipient, expense_report, action=None):
+    """
+    Fonction pour notifier les utilisateurs des actions ou mises à jour relatives à une dépense.
+    
+    :param sender: L'utilisateur qui envoie la notification
+    :param recipient: L'utilisateur qui reçoit la notification
+    :param expense_report: L'instance de la dépense concernée
+    :param action: L'action effectuée (par exemple, "CREATED" ou "UPDATED")
+    """
+    if sender == recipient:
+        return 0  # Pas de notification si l'expéditeur et le destinataire sont les mêmes
+
+    if action:
+        notification_type = "EXPENSE_REPORT_ADDED"
+        title = "Nouvelle note de frais créée"
+        message = f"Une nouvelle note de frais a été créée et soumise pour approbation."
+
+        if action == 'UPDATED':
+            notification_type = "EXPENSE_REPORT_UPDATED"
+            title = "Note de frais mise à jour"
+            message = f"Votre note de frais a été mise à jour avec succès."
+    else:
+        if expense_report.status == 'PENDING':
+            notification_type = "EXPENSE_REPORT_PENDING"
+            title = "Note de frais en attente"
+            message = f"Votre note de frais est en attente d'approbation par le responsable."
+        elif expense_report.status == 'APPROVED':
+            notification_type = "EXPENSE_REPORT_APPROVED"
+            title = "Note de frais approuvée"
+            message = f"Votre note de frais a été approuvée. Vous recevrez un remboursement sous peu."
+        elif expense_report.status == 'REJECTED':
+            notification_type = "EXPENSE_REPORT_REJECTED"
+            title = "Note de frais rejetée"
+            message = f"Votre note de frais a été rejetée. Veuillez vérifier et soumettre une nouvelle version."
+        elif expense_report.status == 'REIMBURSED':
+            notification_type = "EXPENSE_REPORT_REIMBURSED"
+            title = "Note de frais remboursée"
+            message = f"Votre note de frais a été remboursée. Vérifiez votre compte pour confirmation."
+        else:
+            return 0  # Aucune notification si le statut est inconnu ou non pertinent
+
+    # Construire les données de notification
+    notification_data = {
+        "sender": sender,
+        "recipient": recipient,
+        "notification_type": notification_type,
+        "title": title,
+        "message": message,
+        "expense_report": expense_report,
+    }
+
+    # Appeler la fonction de notification
+    notify(notification_data)
 
 def broadcastNotificationsSeen(not_seen_count=0):
 	try:

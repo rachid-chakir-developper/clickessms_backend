@@ -35,6 +35,13 @@ NOTIF_TYPES_ALL = {
     "EXPENSE_REJECTED": "EXPENSE_REJECTED",
     "EXPENSE_PAID": "EXPENSE_PAID",
     "EXPENSE_UNPAID": "EXPENSE_UNPAID",
+
+    "EXPENSE_REPORT_ADDED": "EXPENSE_REPORT_ADDED",
+    "EXPENSE_REPORT_UPDATED": "EXPENSE_REPORT_UPDATED",
+    "EXPENSE_REPORT_PENDING": "EXPENSE_REPORT_PENDING",
+    "EXPENSE_REPORT_APPROVED": "EXPENSE_REPORT_APPROVED",
+    "EXPENSE_REPORT_REJECTED": "EXPENSE_REPORT_REJECTED",
+    "EXPENSE_REPORT_REIMBURSED": "EXPENSE_REPORT_REIMBURSED"
 }
 class Notification(models.Model):
 	NOTIF_TYPES = [
@@ -70,6 +77,12 @@ class Notification(models.Model):
         ("EXPENSE_REJECTED", "Demande de dépense rejetée"),
         ("EXPENSE_PAID", "Dépense payée."),
         ("EXPENSE_UNPAID", "Dépense non payée."),
+        ("EXPENSE_REPORT_ADDED", "Nouvelle demande de remboursement de note de frais ajoutée"),
+        ("EXPENSE_REPORT_UPDATED", "Demande de remboursement de note de frais mise à jour"),
+        ("EXPENSE_REPORT_PENDING", "Demande de remboursement de note de frais en attente d'approbation"),
+        ("EXPENSE_REPORT_APPROVED", "Demande de remboursement de note de frais approuvée"),
+        ("EXPENSE_REPORT_REJECTED", "Demande de remboursement de note de frais rejetée"),
+        ("EXPENSE_REPORT_REIMBURSED", "note de frais remboursée."),
     ]
 	sender = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='notification_sender', null=True)
 	recipient = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='notification_recipient', null=True)
@@ -84,6 +97,7 @@ class Notification(models.Model):
 	meeting_decision = models.ForeignKey('administratives.MeetingDecision', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	employee_absence = models.ForeignKey('planning.EmployeeAbsence', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	expense = models.ForeignKey('purchases.Expense', on_delete=models.SET_NULL, null=True, related_name='notifications')
+	expense_report = models.ForeignKey('purchases.ExpenseReport', on_delete=models.SET_NULL, null=True, related_name='notifications')
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_notifications', null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

@@ -354,3 +354,70 @@ def update_order_total_amount(sender, instance, **kwargs):
 		purchase_order = instance.purchase_order
 		purchase_order.total_ttc = purchase_order.calculate_total_amount()
 		purchase_order.save()
+
+class ExpenseReport(models.Model):
+    STATUS_CHOICES = [
+        ("DRAFT", "Brouillon"),
+        ("NEW", "Nouveau"),
+        ('PENDING', 'En Attente'),
+        ('APPROVED', 'Approuvé'),
+        ('REJECTED', 'Rejeté'),
+        ('REIMBURSED', 'Remboursé'),
+    ]
+    number = models.CharField(max_length=255, editable=False, null=True)
+    label = models.CharField(max_length=255, null=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
+    expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
+    payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CREDIT_CARD")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    description = models.TextField(default="", null=True, blank=True)
+    comment = models.TextField(default="", null=True, blank=True)
+    observation = models.TextField(default="", null=True, blank=True)
+    files = models.ManyToManyField('medias.File', related_name='file_expense_reports')
+    folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_expense_reports', null=True)
+    establishment = models.ForeignKey(
+        "companies.Establishment",
+        on_delete=models.SET_NULL,
+        related_name="establishment_expense_reports",
+        null=True,
+    )
+    company = models.ForeignKey(
+        "companies.Company",
+        on_delete=models.SET_NULL,
+        related_name="company_expense_reports",
+        null=True,
+    )
+    creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+    def __str__(self):
+        return f"{self.label} - {self.amount}"
+
+    def save(self, *args, **kwargs):
+        # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+        if not self.number:
+            self.number = self.generate_unique_number()
+        super(ExpenseReport, self).save(*args, **kwargs)
+    
+    def generate_unique_number(self, prefix='NF'):
+        # Ajouter l'année courante au préfixe
+        current_year = datetime.now().year
+        prefix_with_year = f'{prefix}{current_year}-'
+
+        # Trouver le dernier devis avec ce préfixe et l'année courante
+        last_expense_report = ExpenseReport.objects.filter(number__startswith=prefix_with_year).order_by('number').last()
+        
+        if last_expense_report and last_expense_report.number:
+            # Extraire la partie numérique après l'année
+            last_number = int(last_expense_report.number.replace(prefix_with_year, ''))
+            new_number = last_number + 1
+        else:
+            new_number = 1
+
+        # Formater le nouveau numéro avec l'année courante
+        formatted_number = f'{prefix_with_year}{new_number:04d}'
+        
+        return formatted_number
