@@ -3,6 +3,7 @@ from graphene_django import DjangoObjectType
 from graphql_jwt.decorators import login_required
 
 import datetime
+from calendar import monthrange
 from django.conf import settings
 from decimal import Decimal
 from statistics import mean
@@ -191,7 +192,7 @@ def get_item_count(monthly_statistics, establishment_id, month, key):
     establishment_data = monthly_statistics.get(establishment_id, {})
     month_data = establishment_data.get(month, {})
     value = month_data.get(key, 0)
-    return round(value, 2)
+    return round(value if value else 0, 2)
 class DashboardActivityType(graphene.ObjectType):
     activity_tracking = graphene.Field(ActivityTrackingType)
     activity_tracking_establishments = graphene.List(ActivityTrackingEstablishmentType)
@@ -257,12 +258,20 @@ class DashboardActivityType(graphene.ObjectType):
 
         establishments = Establishment.objects.filter(company=company)
         beneficiary_entry_monthly_statistics = BeneficiaryEntry.monthly_statistics(year=year, establishments=establishments, company=company)
+        print(beneficiary_entry_monthly_statistics)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
         activity_tracking_establishments = []
         for i, establishment in enumerate(establishments):
             # Initialiser les activity_tracking_month par mois
             activity_tracking_month = []
             for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
+                days_in_month = monthrange(int(year), i+1)[1]
+                capacity=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'capacity')
+                objective_days_count=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'total_theoretical_number_unit_work')
+                days_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_days_present')
+                price = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'total_price')
+                objective_valuation = Decimal(capacity*price)
+                valuation = Decimal(days_count*price)
                 item = ActivityTrackingMonthType(
                 month=month,
                 year=year,
@@ -270,14 +279,14 @@ class DashboardActivityType(graphene.ObjectType):
                 exits_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_releases'),
                 planned_exits_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_due'),
                 presents_month_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'present_at_end_of_month'),
-                objective_days_count=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'total_theoretical_number_unit_work'),
-                days_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_days_present'),
-                gap_days_count=5.5,
+                objective_days_count=objective_days_count,
+                days_count=days_count,
+                gap_days_count=objective_days_count-days_count,
                 objective_occupancy_rate=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'average_occupancy_rate'),
-                occupancy_rate=2.5,
-                valuation=Decimal(8.5),
-                objective_valuation=Decimal(10),
-                gap_valuation=Decimal(-1.5),
+                occupancy_rate=(days_count/(days_in_month*capacity))*100 if capacity else 0,
+                valuation=valuation,
+                objective_valuation=objective_valuation,
+                gap_valuation=objective_valuation-valuation,
                 )  # 'day' utilisé pour le nom du mois
                 activity_tracking_month.append(item)
 

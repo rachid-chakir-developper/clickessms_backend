@@ -5,7 +5,7 @@ from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db.models import Count, Q, F, ExpressionWrapper, IntegerField, Sum
-from django.db.models.functions import ExtractMonth, TruncDay
+from django.db.models.functions import ExtractMonth, TruncDay, Greatest
 from collections import defaultdict
 
 from planning.models import EmployeeAbsenceItem
@@ -433,7 +433,7 @@ class BeneficiaryEntry(models.Model):
         # Calculer le nombre de jours pour chaque enregistrement
         queryset = queryset.annotate(
             days_present=ExpressionWrapper(
-                F('release_date') - F('entry_date'),
+                Greatest(F('release_date') - F('entry_date'), 0),
                 output_field=IntegerField()
             )
         )
@@ -447,9 +447,26 @@ class BeneficiaryEntry(models.Model):
                 total_entries=Count('id', filter=Q(entry_date__year=year)),
                 total_releases=Count('id', filter=Q(release_date__year=year)),
                 total_due=Count('id', filter=Q(due_date__year=year)),
-                total_days_present=Count(
-                    'days_present',
-                    filter=Q(entry_date__year=year) & Q(release_date__isnull=False)
+                present_at_end_of_month=Count(
+                    'id',
+                    filter=Q(release_date__year=year) & 
+                           (Q(release_date__month__gt=F('month')) | Q(release_date__isnull=False)) |
+                           Q(release_date__year__gt=year)
+                ),
+                total_days_present=Sum('days_present'),
+                # Capacité totale pour chaque mois et établissement
+                capacity=Sum(
+                    'establishments__activity_authorizations__capacity', 
+                    filter=Q(establishments__activity_authorizations__is_active=True) &
+                           Q(establishments__activity_authorizations__starting_date_time__year=year) &
+                           Q(establishments__activity_authorizations__starting_date_time__month=F('month'))
+                ),
+                # Capacité temporaire pour chaque mois et établissement
+                temporary_capacity=Sum(
+                    'establishments__activity_authorizations__temporary_capacity', 
+                    filter=Q(establishments__activity_authorizations__is_active=True) &
+                           Q(establishments__activity_authorizations__starting_date_time__year=year) &
+                           Q(establishments__activity_authorizations__starting_date_time__month=F('month'))
                 )
             )
             .order_by('establishments__id', 'month')
@@ -461,7 +478,10 @@ class BeneficiaryEntry(models.Model):
                 "total_entries": 0,
                 "total_releases": 0,
                 "total_due": 0,
-                "total_days_present": 0
+                "present_at_end_of_month": 0,
+                "total_days_present": 0,
+                "capacity": 0,
+                "temporary_capacity": 0
             }
             for month in range(1, 13)
         })
@@ -473,7 +493,10 @@ class BeneficiaryEntry(models.Model):
                 "total_entries": item['total_entries'],
                 "total_releases": item['total_releases'],
                 "total_due": item['total_due'],
+                "present_at_end_of_month": item['present_at_end_of_month'],
                 "total_days_present": item['total_days_present'],
+                "capacity": item['capacity'],
+                "temporary_capacity": item['temporary_capacity'],
             }
 
         # Si aucun établissement n'est fourni, retourner les totaux globaux
@@ -483,7 +506,10 @@ class BeneficiaryEntry(models.Model):
                     "total_entries": 0,
                     "total_releases": 0,
                     "total_due": 0,
-                    "total_days_present": 0
+                    "present_at_end_of_month": 0,
+                    "total_days_present": 0,
+                    "capacity": 0,
+                    "temporary_capacity": 0
                 }
                 for month in range(1, 13)
             }
@@ -492,6 +518,7 @@ class BeneficiaryEntry(models.Model):
                     totals[month]["total_entries"] += values["total_entries"]
                     totals[month]["total_releases"] += values["total_releases"]
                     totals[month]["total_due"] += values["total_due"]
+                    totals[month]["present_at_end_of_month"] += values["present_at_end_of_month"]
                     totals[month]["total_days_present"] += values["total_days_present"]
             return {"global_totals": totals}
 
