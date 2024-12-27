@@ -264,6 +264,16 @@ class User(AbstractUser):
             quality_managers = cls.objects.filter(roles__name='QUALITY_MANAGER', company=company).distinct()
         return quality_managers
     @classmethod
+    def get_activity_managers_in_user_company(cls, user=None, company=None):
+        company = company or user.current_company or user.company
+        activity_managers = cls.objects.filter(
+            managed_companies__roles__name='ACTIVITY_MANAGER',
+            managed_companies__company=company
+        ).distinct()
+        if not activity_managers.exists():
+            activity_managers = cls.objects.filter(roles__name='ACTIVITY_MANAGER', company=company).distinct()
+        return activity_managers
+    @classmethod
     def get_facility_managers_in_user_company(cls, user=None, company=None):
         company = company or user.current_company or user.company
         facility_managers = cls.objects.filter(

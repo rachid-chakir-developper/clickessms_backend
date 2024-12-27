@@ -6,13 +6,17 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEntry, BeneficiaryGroup, BeneficiaryGroupItem
+from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
 from data_management.models import EmployeeMission
 from companies.models import Establishment
+from accounts.models import User
+from medias.schema import MediaInput
 
 from data_management.schema import CustomFieldValueInput
 from data_management.utils import CustomFieldEntityBase
+
+from notifications.notificator import notify_beneficiary_admission
 
 class EmployeeContractEstablishmentType(DjangoObjectType):
     class Meta:
@@ -339,6 +343,59 @@ class BeneficiaryInput(graphene.InputObjectType):
     beneficiary_status_entries = graphene.List(BeneficiaryStatusEntryInput, required=False)
     beneficiary_entries = graphene.List(BeneficiaryEntryInput, required=False)
 
+class BeneficiaryAdmissionType(DjangoObjectType):
+    class Meta:
+        model = BeneficiaryAdmission
+        fields = "__all__"
+
+class BeneficiaryAdmissionNodeType(graphene.ObjectType):
+    nodes = graphene.List(BeneficiaryAdmissionType)
+    total_count = graphene.Int()
+
+class BeneficiaryAdmissionFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    statuses = graphene.List(graphene.String, required=False)
+    list_type = graphene.String(required=False)
+    order_by = graphene.String(required=False)
+
+class BeneficiaryAdmissionFieldInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    observation = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    status = graphene.String(required=False)
+
+class BeneficiaryAdmissionInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    first_name = graphene.String(required=True)
+    preferred_name = graphene.String(required=False)
+    last_name = graphene.String(required=False)
+    email = graphene.String(required=False)
+    birth_date = graphene.DateTime(required=False)
+    latitude = graphene.String(required=False)
+    longitude = graphene.String(required=False)
+    city = graphene.String(required=False)
+    country = graphene.String(required=False)
+    zip_code = graphene.String(required=False)
+    address = graphene.String(required=False)
+    additional_address = graphene.String(required=False)
+    mobile = graphene.String(required=False)
+    fix = graphene.String(required=False)
+    fax = graphene.String(required=False)
+    web_site = graphene.String(required=False)
+    other_contacts = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    gender_id = graphene.Int(name="gender", required=False)
+    status = graphene.String(required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+    financier_id = graphene.Int(name="financier", required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+
 class BeneficiaryGroupInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -357,6 +414,14 @@ class HumanRessourcesQuery(graphene.ObjectType):
     employee_group = graphene.Field(EmployeeGroupType, id = graphene.ID())
     beneficiaries = graphene.Field(BeneficiaryNodeType, beneficiary_filter= BeneficiaryFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     beneficiary = graphene.Field(BeneficiaryType, id = graphene.ID())
+    beneficiary_admissions = graphene.Field(
+        BeneficiaryAdmissionNodeType,
+        beneficiary_admission_filter=BeneficiaryAdmissionFilterInput(required=False),
+        offset=graphene.Int(required=False),
+        limit=graphene.Int(required=False),
+        page=graphene.Int(required=False),
+    )
+    beneficiary_admission = graphene.Field(BeneficiaryAdmissionType, id=graphene.ID())
     beneficiary_groups = graphene.Field(BeneficiaryGroupNodeType, beneficiary_group_filter= BeneficiaryGroupFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     beneficiary_group = graphene.Field(BeneficiaryGroupType, id = graphene.ID())
     def resolve_employees(root, info, employee_filter=None, id_company=None, offset=None, limit=None, page=None):
@@ -510,6 +575,64 @@ class HumanRessourcesQuery(graphene.ObjectType):
         except Beneficiary.DoesNotExist:
             beneficiary = None
         return beneficiary
+    def resolve_beneficiary_admissions(
+        root, info, beneficiary_admission_filter=None, offset=None, limit=None, page=None
+    ):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        beneficiary_admissions = BeneficiaryAdmission.objects.filter(company=company)
+        if not user.can_manage_activity():
+            if user.is_manager():
+                beneficiary_admissions = beneficiary_admissions.filter(Q(establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                beneficiary_admissions = beneficiary_admissions.filter(creator=user)
+        the_order_by = '-created_at'
+        if beneficiary_admission_filter:
+            keyword = beneficiary_admission_filter.get("keyword", "")
+            starting_date_time = beneficiary_admission_filter.get("starting_date_time")
+            ending_date_time = beneficiary_admission_filter.get("ending_date_time")
+            establishments = beneficiary_admission_filter.get('establishments')
+            statuses = beneficiary_admission_filter.get('statuses')
+            list_type = beneficiary_admission_filter.get('list_type') # ALL_BENEFICIARY_ADMISSION_REQUESTS / MY_BENEFICIARY_ADMISSIONS / MY_BENEFICIARY_ADMISSION_REQUESTS / ALL
+            order_by = beneficiary_admission_filter.get('order_by')
+            if establishments:
+                beneficiary_admissions = beneficiary_admissions.filter(establishment__id__in=establishments)
+            if list_type:
+                if list_type == 'MY_BENEFICIARY_ADMISSIONS':
+                    beneficiary_admissions = beneficiary_admissions.filter(creator=user)
+                elif list_type == 'MY_BENEFICIARY_ADMISSION_REQUESTS':
+                    beneficiary_admissions = beneficiary_admissions.filter(creator=user)
+                elif list_type == 'ALL':
+                    pass
+            if keyword:
+                beneficiary_admissions = beneficiary_admissions.filter(
+                    Q(name__icontains=keyword)
+                )
+            if starting_date_time:
+                beneficiary_admissions = beneficiary_admissions.filter(starting_date__gte=starting_date_time)
+            if ending_date_time:
+                beneficiary_admissions = beneficiary_admissions.filter(starting_date__lte=ending_date_time)
+            if statuses:
+                beneficiary_admissions = beneficiary_admissions.filter(status__in=statuses)
+            if order_by:
+                the_order_by = order_by
+        beneficiary_admissions = beneficiary_admissions.order_by(the_order_by).distinct()
+        total_count = beneficiary_admissions.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            beneficiary_admissions = beneficiary_admissions[offset : offset + limit]
+        return BeneficiaryAdmissionNodeType(nodes=beneficiary_admissions, total_count=total_count)
+
+    def resolve_beneficiary_admission(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
+        except BeneficiaryAdmission.DoesNotExist:
+            beneficiary_admission = None
+        return beneficiary_admission
 
     def resolve_beneficiary_groups(root, info, beneficiary_group_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
@@ -1213,6 +1336,200 @@ class DeleteBeneficiary(graphene.Mutation):
 
 #************************************************************************
 
+# *************************************************************************************************#
+# *************************************************************************************************#
+
+class CreateBeneficiaryAdmission(graphene.Mutation):
+    class Arguments:
+        beneficiary_admission_data = BeneficiaryAdmissionInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    beneficiary_admission = graphene.Field(BeneficiaryAdmissionType)
+
+    def mutate(root, info, files=None, beneficiary_admission_data=None):
+        creator = info.context.user
+        establishment_ids = beneficiary_admission_data.pop("establishments", None)
+        beneficiary_admission = BeneficiaryAdmission(**beneficiary_admission_data)
+        beneficiary_admission.creator = creator
+        beneficiary_admission.company = creator.the_current_company
+        beneficiary_admission.save()
+        if establishment_ids and establishment_ids is not None:
+            beneficiary_admission.establishments.set(establishment_ids)
+        folder = Folder.objects.create(name=str(beneficiary_admission.id)+'_'+beneficiary_admission.first_name+'-'+beneficiary_admission.last_name,creator=creator)
+        beneficiary_admission.folder = folder
+        if not files:
+            files = []
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = beneficiary_admission.folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            beneficiary_admission.files.add(file_file)
+        beneficiary_admission.save()
+        if not beneficiary_admission.employee:
+            beneficiary_admission.employee = creator.get_employee_in_company()
+            beneficiary_admission.save()
+        if beneficiary_admission.status == 'PENDING':
+            activity_managers = User.get_activity_managers_in_user_company(user=creator)
+            for activity_manager in activity_managers:
+                notify_beneficiary_admission(sender=creator, recipient=activity_manager, beneficiary_admission=beneficiary_admission, action='ADDED')
+        return CreateBeneficiaryAdmission(beneficiary_admission=beneficiary_admission)
+
+
+class UpdateBeneficiaryAdmission(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        beneficiary_admission_data = BeneficiaryAdmissionInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    beneficiary_admission = graphene.Field(BeneficiaryAdmissionType)
+
+    def mutate(root, info, id, files=None, beneficiary_admission_data=None):
+        creator = info.context.user
+        establishment_ids = beneficiary_admission_data.pop("establishments", None)
+        BeneficiaryAdmission.objects.filter(pk=id).update(**beneficiary_admission_data)
+        beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
+        if establishment_ids and establishment_ids is not None:
+            beneficiary_admission.establishments.set(establishment_ids)
+        if not beneficiary_admission.folder or beneficiary_admission.folder is None:
+            folder = Folder.objects.create(name=str(beneficiary_admission.id)+'_'+beneficiary_admission.first_name+'-'+beneficiary_admission.last_name,creator=creator)
+            BeneficiaryAdmission.objects.filter(pk=id).update(folder=folder)
+            beneficiary_admission.refresh_from_db()
+        if not beneficiary_admission.employee:
+            beneficiary_admission.employee = creator.get_employee_in_company()
+            beneficiary_admission.save()
+        if not files:
+            files = []
+        else:
+            file_ids = [item.id for item in files if item.id is not None]
+            File.objects.filter(file_beneficiary_admissions=beneficiary_admission).exclude(id__in=file_ids).delete()
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = beneficiary_admission.folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            beneficiary_admission.files.add(file_file)
+        beneficiary_admission.save()
+        is_draft = True if beneficiary_admission.status == 'DRAFT' else False
+        if is_draft:
+            BeneficiaryAdmission.objects.filter(pk=id).update(status='PENDING')
+            beneficiary_admission.refresh_from_db()
+        notify_beneficiary_admission(sender=creator, recipient=beneficiary_admission.creator, beneficiary_admission=beneficiary_admission, action='UPDATED')
+        return UpdateBeneficiaryAdmission(beneficiary_admission=beneficiary_admission)
+
+
+class UpdateBeneficiaryAdmissionState(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    beneficiary_admission = graphene.Field(BeneficiaryAdmissionType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, beneficiary_admission_fields=None):
+        creator = info.context.user
+        done = True
+        success = True
+        beneficiary_admission = None
+        message = ""
+        try:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
+            BeneficiaryAdmission.objects.filter(pk=id).update(
+                is_active=not beneficiary_admission.is_active
+            )
+            beneficiary_admission.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            beneficiary_admission = None
+            message = "Une erreur s'est produite."
+        return UpdateBeneficiaryAdmissionState(
+            done=done, success=success, message=message, beneficiary_admission=beneficiary_admission
+        )
+
+class UpdateBeneficiaryAdmissionFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        beneficiary_admission_data = BeneficiaryAdmissionFieldInput(required=True)
+
+    beneficiary_admission = graphene.Field(BeneficiaryAdmissionType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, beneficiary_admission_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        beneficiary_admission = None
+        message = ''
+        try:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
+            BeneficiaryAdmission.objects.filter(pk=id).update(**beneficiary_admission_data)
+            beneficiary_admission.refresh_from_db()
+            if 'status' in beneficiary_admission_data:
+                if creator.can_manage_activity() or creator.is_manager():
+                    employee_user = beneficiary_admission.employee.user if beneficiary_admission.employee else beneficiary_admission.creator
+                    if employee_user:
+                        notify_beneficiary_admission(sender=creator, recipient=employee_user, beneficiary_admission=beneficiary_admission)
+                else:
+                    activity_managers = User.get_activity_managers_in_user_company(user=creator)
+                    for activity_manager in activity_managers:
+                        notify_beneficiary_admission(sender=creator, recipient=activity_manager, beneficiary_admission=beneficiary_admission)
+                beneficiary_admission.refresh_from_db()
+        except Exception as e:
+            print(e)
+            done = False
+            success = False
+            beneficiary_admission=None
+            message = "Une erreur s'est produite."
+        return UpdateBeneficiaryAdmissionFields(done=done, success=success, message=message, beneficiary_admission=beneficiary_admission)
+
+
+class DeleteBeneficiaryAdmission(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    beneficiary_admission = graphene.Field(BeneficiaryAdmissionType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
+            beneficiary_admission.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteBeneficiaryAdmission(
+            deleted=deleted, success=success, message=message, id=id
+        )
+# *************************************************************************#
+# *************************************************************************#
 class CreateBeneficiaryGroup(graphene.Mutation):
     class Arguments:
         beneficiary_group_data = BeneficiaryGroupInput(required=True)
@@ -1368,6 +1685,12 @@ class HumanRessourcesMutation(graphene.ObjectType):
     update_beneficiary = UpdateBeneficiary.Field()
     update_beneficiary_state = UpdateBeneficiaryState.Field()
     delete_beneficiary = DeleteBeneficiary.Field()
+
+    create_beneficiary_admission = CreateBeneficiaryAdmission.Field()
+    update_beneficiary_admission = UpdateBeneficiaryAdmission.Field()
+    update_beneficiary_admission_state = UpdateBeneficiaryAdmissionState.Field()
+    update_beneficiary_admission_fields = UpdateBeneficiaryAdmissionFields.Field()
+    delete_beneficiary_admission = DeleteBeneficiaryAdmission.Field()
 
     create_beneficiary_group = CreateBeneficiaryGroup.Field()
     update_beneficiary_group = UpdateBeneficiaryGroup.Field()

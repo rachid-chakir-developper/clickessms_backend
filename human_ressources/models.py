@@ -4,9 +4,10 @@ import random
 from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.db.models import Count, Q, F, ExpressionWrapper, IntegerField, Sum
-from django.db.models.functions import ExtractMonth, TruncDay, Greatest
+from django.db.models import Count, Q, F, ExpressionWrapper, IntegerField, Sum, Case, When, Value, DateTimeField
+from django.db.models.functions import ExtractMonth, TruncDay, Greatest, TruncDate
 from collections import defaultdict
+from calendar import monthrange
 
 from planning.models import EmployeeAbsenceItem
 
@@ -422,18 +423,35 @@ class BeneficiaryEntry(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     @classmethod
-    def monthly_statistics(self, year, establishments=None, company=None):
+    def monthly_statistics(cls, year, establishments=None, company=None):
         # Filtrer les données de base
-        queryset = self.objects.filter(beneficiary__company=company)
+        year=int(year)
+        queryset = cls.objects.filter(beneficiary__company=company)
 
         if establishments:
             # Filtrer uniquement pour les établissements spécifiés
             queryset = queryset.filter(establishments__in=establishments)
 
-        # Calculer le nombre de jours pour chaque enregistrement
+        # Annoter les dates d'entrée et de sortie avec des valeurs par défaut si nécessaire
         queryset = queryset.annotate(
-            days_present=ExpressionWrapper(
-                Greatest(F('release_date') - F('entry_date'), 0),
+            effective_entry_date=Case(
+                When(entry_date__year__lt=year, then=Value(datetime(year, 1, 1))),  # 1er janvier de l'année donnée
+                default=F('entry_date'),
+                output_field=models.DateTimeField()
+            ),
+            effective_release_date=Case(
+                When(release_date__isnull=True, then=Value(datetime(year, 12, 31, 23, 59, 59))),  # Dernière seconde de l'année
+                default=F('release_date'),
+                output_field=models.DateTimeField()
+            )
+        )
+        # Calculer le nombre de jours en utilisant la fonction `TruncDate` pour obtenir les jours exacts
+        queryset = queryset.annotate(
+            days_present_in_month=ExpressionWrapper(
+                Greatest(
+                    TruncDate(F('effective_release_date')) - TruncDate(F('effective_entry_date')),
+                    Value(0)
+                ),
                 output_field=IntegerField()
             )
         )
@@ -441,7 +459,7 @@ class BeneficiaryEntry(models.Model):
         # Annoter et grouper les données
         data = (
             queryset
-            .values('establishments__id')  # Utilisation de l'ID
+            .values('establishments__id')  # Utilisation de l'ID de l'établissement
             .annotate(
                 month=ExtractMonth('entry_date'),
                 total_entries=Count('id', filter=Q(entry_date__year=year)),
@@ -449,11 +467,11 @@ class BeneficiaryEntry(models.Model):
                 total_due=Count('id', filter=Q(due_date__year=year)),
                 present_at_end_of_month=Count(
                     'id',
-                    filter=Q(release_date__year=year) & 
+                    filter=Q(release_date__year=year) &
                            (Q(release_date__month__gt=F('month')) | Q(release_date__isnull=False)) |
                            Q(release_date__year__gt=year)
                 ),
-                total_days_present=Sum('days_present'),
+                total_days_present=Sum('days_present_in_month'),
                 # Capacité totale pour chaque mois et établissement
                 capacity=Sum(
                     'establishments__activity_authorizations__capacity', 
@@ -525,7 +543,58 @@ class BeneficiaryEntry(models.Model):
         return dict(stats)
 
     def __str__(self):
+        return str(self.id)
+
+# Create your models here.
+class BeneficiaryAdmission(models.Model):
+    STATUS_CHOICES = [
+        ("DRAFT", "Brouillon"),
+        ("NEW", "Nouveau"),
+        ('PENDING', 'En Attente'),
+        ('APPROVED', 'Approuvé'),
+        ('REJECTED', 'Rejeté'),
+        ('CANCELED', 'Annulé'),
+    ]
+    number = models.CharField(max_length=255, editable=False, null=True)
+    gender = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    preferred_name = models.CharField(max_length=255, null=True)
+    first_name = models.CharField(max_length=255, null=True)
+    last_name = models.CharField(max_length=255, null=True)
+    email = models.EmailField(blank=False, max_length=255, verbose_name="email")
+    photo = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='photo_beneficiary_admissions', null=True)
+    birth_date = models.DateTimeField(null=True)
+    latitude = models.CharField(max_length=255, null=True)
+    longitude = models.CharField(max_length=255, null=True)
+    city = models.CharField(max_length=255, null=True)
+    country = models.CharField(max_length=255, null=True)
+    zip_code = models.CharField(max_length=255, null=True)
+    address = models.TextField(default='', null=True)
+    additional_address = models.TextField(default='', null=True)
+    mobile = models.CharField(max_length=255, null=True)
+    fix = models.CharField(max_length=255, null=True)
+    fax = models.CharField(max_length=255, null=True)
+    email = models.EmailField(max_length=254, null=True)
+    web_site = models.URLField(max_length=255, null=True)
+    other_contacts = models.CharField(max_length=255, null=True)
+    description = models.TextField(default='', null=True)
+    observation = models.TextField(default='', null=True)
+    beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True, related_name='beneficiary_admissions')
+    files = models.ManyToManyField('medias.File', related_name='file_beneficiary_admissions')
+    financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="DRAFT")
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='beneficiary_admissions', null=True)
+    establishments = models.ManyToManyField('companies.Establishment', related_name='beneficiary_admissions')
+    is_active = models.BooleanField(default=True, null=True)
+    folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+    company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='beneficiary_admissions', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='beneficiary_admissions', null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
         return self.id
+
 
     # Create your models here.
 class BeneficiaryGroup(models.Model):

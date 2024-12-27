@@ -258,7 +258,6 @@ class DashboardActivityType(graphene.ObjectType):
 
         establishments = Establishment.objects.filter(company=company)
         beneficiary_entry_monthly_statistics = BeneficiaryEntry.monthly_statistics(year=year, establishments=establishments, company=company)
-        print(beneficiary_entry_monthly_statistics)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
         activity_tracking_establishments = []
         for i, establishment in enumerate(establishments):
@@ -268,10 +267,10 @@ class DashboardActivityType(graphene.ObjectType):
                 days_in_month = monthrange(int(year), i+1)[1]
                 capacity=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'capacity')
                 objective_days_count=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'total_theoretical_number_unit_work')
-                days_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_days_present')
+                days_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_days_present')/86400000000
                 price = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'total_price')
-                objective_valuation = Decimal(capacity*price)
-                valuation = Decimal(days_count*price)
+                objective_valuation = Decimal(capacity)*Decimal(price)
+                valuation = Decimal(days_count)*Decimal(price)
                 item = ActivityTrackingMonthType(
                 month=month,
                 year=year,
@@ -283,7 +282,7 @@ class DashboardActivityType(graphene.ObjectType):
                 days_count=days_count,
                 gap_days_count=objective_days_count-days_count,
                 objective_occupancy_rate=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'average_occupancy_rate'),
-                occupancy_rate=(days_count/(days_in_month*capacity))*100 if capacity else 0,
+                occupancy_rate=round(((days_count/(days_in_month*capacity))*100 if capacity else 0), 2),
                 valuation=valuation,
                 objective_valuation=objective_valuation,
                 gap_valuation=objective_valuation-valuation,

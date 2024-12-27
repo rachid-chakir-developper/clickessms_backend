@@ -280,6 +280,64 @@ def notify_expense_report(sender, recipient, expense_report, action=None):
     # Appeler la fonction de notification
     notify(notification_data)
 
+def notify_beneficiary_admission(sender, recipient, beneficiary_admission, action=None):
+    """
+    Notifie les utilisateurs des actions ou mises à jour relatives à une demande d'admission.
+
+    :param sender: L'utilisateur envoyant la notification
+    :param recipient: L'utilisateur recevant la notification
+    :param beneficiary_admission: L'instance de BeneficiaryAdmission concernée
+    :param action: L'action effectuée (par exemple, "CREATED" ou "UPDATED")
+    """
+    if sender == recipient:
+        return 0  # Pas de notification si l'expéditeur et le destinataire sont les mêmes
+
+    if action:
+        notification_type = "BENEFICIARY_ADMISSION_ADDED"
+        title = "Nouvelle demande d'admission créée"
+        message = "Une nouvelle demande d'admission a été créée et soumise pour examen."
+
+        if action == "UPDATED":
+            notification_type = "BENEFICIARY_ADMISSION_UPDATED"
+            title = "Demande d'admission mise à jour"
+            message = "La demande d'admission a été mise à jour avec succès."
+    else:
+        if beneficiary_admission.status == "NEW":
+            notification_type = "BENEFICIARY_ADMISSION_NEW"
+            title = "Nouvelle demande d'admission"
+            message = "Une nouvelle demande d'admission a été soumise pour examen."
+        elif beneficiary_admission.status == "PENDING":
+            notification_type = "BENEFICIARY_ADMISSION_PENDING"
+            title = "Demande d'admission en attente"
+            message = "La demande d'admission est en attente d'évaluation."
+        elif beneficiary_admission.status == "APPROVED":
+            notification_type = "BENEFICIARY_ADMISSION_APPROVED"
+            title = "Demande d'admission approuvée"
+            message = "La demande d'admission a été approuvée. L'admission est prévue comme indiqué."
+        elif beneficiary_admission.status == "REJECTED":
+            notification_type = "BENEFICIARY_ADMISSION_REJECTED"
+            title = "Demande d'admission rejetée"
+            message = "La demande d'admission a été rejetée. Veuillez consulter les commentaires et soumettre une nouvelle demande si nécessaire."
+        elif beneficiary_admission.status == "CANCELED":
+            notification_type = "BENEFICIARY_ADMISSION_CANCELED"
+            title = "Demande d'admission annulée"
+            message = "La demande d'admission a été annulée par le demandeur ou l'administrateur."
+        else:
+            return 0  # Aucune notification si le statut est inconnu ou non pertinent
+
+    # Construire les données de notification
+    notification_data = {
+        "sender": sender,
+        "recipient": recipient,
+        "notification_type": notification_type,
+        "title": title,
+        "message": message,
+        "beneficiary_admission": beneficiary_admission,
+    }
+
+    # Appeler la fonction de notification
+    notify(notification_data)
+
 def broadcastNotificationsSeen(not_seen_count=0):
 	try:
 		notifications.schema.OnNotificationsSeen.broadcast(
