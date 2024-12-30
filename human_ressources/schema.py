@@ -680,7 +680,7 @@ class CreateEmployee(graphene.Mutation):
         creator = info.context.user
         employee = Employee(**employee_data)
         employee.creator = creator
-        employee.company = creator.current_company if creator.current_company is not None else creator.company
+        employee.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if photo and isinstance(photo, UploadedFile):
@@ -976,7 +976,7 @@ class CreateEmployeeGroup(graphene.Mutation):
         employee_ids = employee_group_data.pop("employees")
         employee_group = EmployeeGroup(**employee_group_data)
         employee_group.creator = creator
-        employee_group.company = creator.current_company if creator.current_company is not None else creator.company
+        employee_group.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -1115,7 +1115,7 @@ class CreateBeneficiary(graphene.Mutation):
         beneficiary_entries = beneficiary_data.pop("beneficiary_entries", None)
         beneficiary = Beneficiary(**beneficiary_data)
         beneficiary.creator = creator
-        beneficiary.company = creator.current_company if creator.current_company is not None else creator.company
+        beneficiary.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if photo and isinstance(photo, UploadedFile):
@@ -1531,6 +1531,67 @@ class DeleteBeneficiaryAdmission(graphene.Mutation):
             deleted=deleted, success=success, message=message, id=id
         )
 # *************************************************************************#
+class GenerateBeneficiary(graphene.Mutation):
+    class Arguments:
+        id_beneficiary_admission = graphene.ID(required=True)
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    beneficiary = graphene.Field(BeneficiaryType)
+
+    def mutate(self, info, id_beneficiary_admission):
+        creator = info.context.user
+        # Vérifier si l'admission du bénéficiaire existe
+        try:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(id=id_beneficiary_admission)
+        except BeneficiaryAdmission.DoesNotExist:
+            return GenerateBeneficiary(success=False, message="Admission du bénéficiaire introuvable.")
+
+        # Vérifier si un bénéficiaire existe déjà avec le même ID (optionnel selon votre logique)
+        if beneficiary_admission.beneficiary:
+            return GenerateBeneficiary(success=True, beneficiary=beneficiary_admission.beneficiary, message="Un bénéficiaire avec ce numéro existe déjà.")
+
+        # Créer un nouvel objet Beneficiary
+        beneficiary = Beneficiary(
+            gender=beneficiary_admission.gender,
+            preferred_name=beneficiary_admission.preferred_name,
+            first_name=beneficiary_admission.first_name,
+            last_name=beneficiary_admission.last_name,
+            email=beneficiary_admission.email,
+            birth_date=beneficiary_admission.birth_date,
+            latitude=beneficiary_admission.latitude,
+            longitude=beneficiary_admission.longitude,
+            city=beneficiary_admission.city,
+            country=beneficiary_admission.country,
+            zip_code=beneficiary_admission.zip_code,
+            address=beneficiary_admission.address,
+            additional_address=beneficiary_admission.additional_address,
+            mobile=beneficiary_admission.mobile,
+            fix=beneficiary_admission.fix,
+            fax=beneficiary_admission.fax,
+            web_site=beneficiary_admission.web_site,
+            other_contacts=beneficiary_admission.other_contacts,
+            description=beneficiary_admission.description,
+            observation=beneficiary_admission.observation,
+            company=beneficiary_admission.company,
+            creator=creator,
+        )
+
+        beneficiary.save()
+        folder = Folder.objects.create(name=str(beneficiary.id)+'_'+beneficiary.first_name+'-'+beneficiary.last_name, creator=creator)
+        beneficiary.folder = folder
+        beneficiary.save()
+        beneficiary_admission.folder.folder = folder
+        beneficiary_admission.folder.save()
+        beneficiary_admission.beneficiary = beneficiary
+        beneficiary_admission.save()
+
+        return GenerateBeneficiary(
+            success=True,
+            message="Bénéficiaire créé avec succès.",
+            beneficiary=beneficiary,
+        )
+
 # *************************************************************************#
 class CreateBeneficiaryGroup(graphene.Mutation):
     class Arguments:
@@ -1544,7 +1605,7 @@ class CreateBeneficiaryGroup(graphene.Mutation):
         beneficiary_ids = beneficiary_group_data.pop("beneficiaries")
         beneficiary_group = BeneficiaryGroup(**beneficiary_group_data)
         beneficiary_group.creator = creator
-        beneficiary_group.company = creator.current_company if creator.current_company is not None else creator.company
+        beneficiary_group.company = creator.the_current_company
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if image and isinstance(image, UploadedFile):
@@ -1693,6 +1754,8 @@ class HumanRessourcesMutation(graphene.ObjectType):
     update_beneficiary_admission_state = UpdateBeneficiaryAdmissionState.Field()
     update_beneficiary_admission_fields = UpdateBeneficiaryAdmissionFields.Field()
     delete_beneficiary_admission = DeleteBeneficiaryAdmission.Field()
+
+    generate_beneficiary = GenerateBeneficiary.Field()
 
     create_beneficiary_group = CreateBeneficiaryGroup.Field()
     update_beneficiary_group = UpdateBeneficiaryGroup.Field()
