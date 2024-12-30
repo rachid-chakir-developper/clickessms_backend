@@ -365,6 +365,7 @@ class BeneficiaryAdmissionFieldInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     status = graphene.String(required=False)
+    status_reason = graphene.String(required=False)
 
 class BeneficiaryAdmissionInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -391,6 +392,7 @@ class BeneficiaryAdmissionInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     gender_id = graphene.Int(name="gender", required=False)
     status = graphene.String(required=False)
+    status_reason = graphene.String(required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
     financier_id = graphene.Int(name="financier", required=False)
     employee_id = graphene.Int(name="employee", required=False)

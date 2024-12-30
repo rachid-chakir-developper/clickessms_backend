@@ -582,6 +582,7 @@ class BeneficiaryAdmission(models.Model):
     files = models.ManyToManyField('medias.File', related_name='file_beneficiary_admissions')
     financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="DRAFT")
+    status_reason = models.TextField(default='', null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='beneficiary_admissions', null=True)
     establishments = models.ManyToManyField('companies.Establishment', related_name='beneficiary_admissions')
     is_active = models.BooleanField(default=True, null=True)

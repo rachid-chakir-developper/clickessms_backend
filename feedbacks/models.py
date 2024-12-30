@@ -9,6 +9,7 @@ class Comment(models.Model):
 	task = models.ForeignKey('works.Task', on_delete=models.SET_NULL, related_name='comments', null=True)
 	task_action = models.ForeignKey('works.TaskAction', on_delete=models.SET_NULL, related_name='comments', null=True)
 	expense = models.ForeignKey('purchases.Expense', on_delete=models.SET_NULL, related_name='comments', null=True)
+	beneficiary_admission = models.ForeignKey('human_ressources.BeneficiaryAdmission', on_delete=models.SET_NULL, null=True, related_name='comments')
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)

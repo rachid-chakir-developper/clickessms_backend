@@ -8,6 +8,7 @@ from graphene_file_upload.scalars import Upload
 from feedbacks.models import Comment, Signature, StatusChange, Feedback
 from works.models import Task, TaskAction, TaskStep, Ticket
 from purchases.models import Expense
+from human_ressources.models import BeneficiaryAdmission
 from medias.models import File
 from feedbacks.broadcaster import broadcastCommentAdded, broadcastCommentDeleted
 
@@ -75,6 +76,7 @@ class CommentInput(graphene.InputObjectType):
     task_id = graphene.Int(name="task", required=False)
     task_action_id = graphene.Int(name="taskAction", required=False)
     expense_id = graphene.Int(name="expense", required=False)
+    beneficiary_admission_id = graphene.Int(name="beneficiaryAdmission", required=False)
 
 class SignatureInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -92,6 +94,7 @@ class CommentsQuery(graphene.ObjectType):
     task_comments = graphene.Field(CommentNodeType, task_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     task_action_comments = graphene.Field(CommentNodeType, task_action_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     expense_comments = graphene.Field(CommentNodeType, expense_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    beneficiary_admission_comments = graphene.Field(CommentNodeType, beneficiary_admission_id = graphene.ID(), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     comment = graphene.Field(CommentType, id = graphene.ID())
     feedbacks = graphene.Field(
         FeedbackNodeType,
@@ -186,6 +189,22 @@ class CommentsQuery(graphene.ObjectType):
             expense_comments = expense.comments.all()
         return CommentNodeType(nodes=expense_comments, total_count=total_count)
 
+    def resolve_beneficiary_admission_comments(root, info, beneficiary_admission_id, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        total_count = 0
+        try:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=beneficiary_admission_id)
+        except BeneficiaryAdmission.DoesNotExist:
+            raise ValueError("La dépense spécifiée n'existe pas.")
+        total_count = beneficiary_admission.comments.all().count()
+        if page:
+            offset = limit*(page-1)
+        if offset is not None and limit is not None:
+            beneficiary_admission_comments = beneficiary_admission.comments.all()[offset:offset+limit]
+        else:
+            beneficiary_admission_comments = beneficiary_admission.comments.all()
+        return CommentNodeType(nodes=beneficiary_admission_comments, total_count=total_count)
+
     def resolve_comment(root, info, id):
         # We can easily optimize query count in the resolve method
         try:
@@ -241,10 +260,11 @@ class CreateComment(graphene.Mutation):
         task_id = graphene.ID(required=False)
         task_action_id = graphene.ID(required=False)
         expense_id = graphene.ID(required=False)
+        beneficiary_admission_id = graphene.ID(required=False)
 
     comment = graphene.Field(CommentType)
 
-    def mutate(root, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None, image=None, comment_data=None):
+    def mutate(root, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None, beneficiary_admission_id=None, image=None, comment_data=None):
         creator = info.context.user
         comment = Comment(**comment_data)
         comment.creator = creator
@@ -268,7 +288,9 @@ class CreateComment(graphene.Mutation):
         if task_action_id and task_action_id is not None:
             TaskAction.objects.get(pk=task_action_id).comments.add(comment)
         if expense_id and expense_id is not None:
-            Expense.objects.get(pk=expense_id).comments.add(comment)
+            Expense.objects.get(pk=beneficiary_admission_id).comments.add(comment)
+        if beneficiary_admission_id and beneficiary_admission_id is not None:
+            BeneficiaryAdmission.objects.get(pk=beneficiary_admission_id).comments.add(comment)
         comment.refresh_from_db()
         broadcastCommentAdded(comment)
         return CreateComment(comment=comment)
@@ -479,16 +501,17 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
         ticket_id = graphene.ID(required=False)
         task_action_id = graphene.ID(required=False)
         expense_id = graphene.ID(required=False)
+        beneficiary_admission_id = graphene.ID(required=False)
 
     @staticmethod
-    def subscribe(root, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None):
+    def subscribe(root, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None, beneficiary_admission_id=None):
         """Called when user subscribes."""
         
         # Return the list of subscription group names.
         return ["ON_COMMENT_ADDED"]
 
     @staticmethod
-    def publish(payload, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None):
+    def publish(payload, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None, beneficiary_admission_id=None):
         """Called to notify the client."""
         #print('send -*******************')
         #print(payload)
@@ -516,6 +539,10 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
         if expense_id and expense_id is not None:
             if 'comment' in payload and payload['comment'].expense:
                 if str(expense_id) != str(payload['comment'].expense.id):
+                    return OnCommentAdded.SKIP
+        if beneficiary_admission_id and beneficiary_admission_id is not None:
+            if 'comment' in payload and payload['comment'].beneficiary_admission:
+                if str(beneficiary_admission_id) != str(payload['comment'].beneficiary_admission.id):
                     return OnCommentAdded.SKIP
         return OnCommentAdded(comment=payload['comment'])
 
@@ -537,16 +564,17 @@ class OnCommentDeleted(channels_graphql_ws.Subscription):
         ticket_id = graphene.ID(required=False)
         task_action_id = graphene.ID(required=False)
         expense_id = graphene.ID(required=False)
+        beneficiary_admission_id = graphene.ID(required=False)
 
     @staticmethod
-    def subscribe(root, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None):
+    def subscribe(root, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None, beneficiary_admission_id=None):
         """Called when user subscribes."""
 
         # Return the list of subscription group names.
         return ["ON_COMMENT_DELETED"]
 
     @staticmethod
-    def publish(payload, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None):
+    def publish(payload, info, task_id=None, task_action_id=None, task_step_id=None, ticket_id=None, expense_id=None, beneficiary_admission_id=None):
         """Called to notify the client."""
         #print('send -*******************')
         #print(payload)
@@ -574,6 +602,10 @@ class OnCommentDeleted(channels_graphql_ws.Subscription):
         if expense_id and expense_id is not None:
             if 'comment' in payload and payload['comment'].expense:
                 if str(expense_id) != str(payload['comment'].expense.id):
+                    return OnCommentDeleted.SKIP
+        if beneficiary_admission_id and beneficiary_admission_id is not None:
+            if 'comment' in payload and payload['comment'].beneficiary_admission:
+                if str(beneficiary_admission_id) != str(payload['comment'].beneficiary_admission.id):
                     return OnCommentDeleted.SKIP
         return OnCommentDeleted(comment=payload['comment'])
 
