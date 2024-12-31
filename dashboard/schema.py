@@ -129,6 +129,7 @@ class ActivitySynthesisType(graphene.ObjectType):
     title = graphene.String()
     year = graphene.String()
     months = graphene.List(graphene.String)
+    month_totals = graphene.List(graphene.Int)
     activity_synthesis_establishments = graphene.List(ActivitySynthesisEstablishmentType)
 
 class DashboardType(graphene.ObjectType):
@@ -379,6 +380,7 @@ class DashboardActivityType(graphene.ObjectType):
         establishments = Establishment.objects.filter(company=company)
         beneficiary_admission_monthly_statistics = BeneficiaryAdmission.monthly_statistics(year=year, establishments=establishments, company=company)
         activity_synthesis_establishments = []
+        month_totals = [0 for _ in range(12)]
         for i, establishment in enumerate(establishments):
             # Initialiser les activity_tracking_month par mois
             activity_synthesis_month = []
@@ -392,6 +394,8 @@ class DashboardActivityType(graphene.ObjectType):
                     count_canceled=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled'),
                 )  # 'day' utilisé pour le nom du mois
                 activity_synthesis_month.append(item)
+                month_total = month_totals[i]
+                month_totals[i] = month_total+item.count_received+item.count_approved+item.count_rejected+item.count_canceled
 
             # Calcul des agrégats pour ActivityTrackingAccumulationType
             total_received = sum(item.count_received for item in activity_synthesis_month)
@@ -415,7 +419,12 @@ class DashboardActivityType(graphene.ObjectType):
                     activity_total_synthesis_month=activity_total_synthesis_month
                     )
                 )
-        return ActivitySynthesisType(year=year, months=settings.MONTHS, activity_synthesis_establishments=activity_synthesis_establishments)
+        return ActivitySynthesisType(
+                year=year,
+                months=settings.MONTHS,
+                activity_synthesis_establishments=activity_synthesis_establishments,
+                month_totals=month_totals
+            )
 
 class DashboardQuery(graphene.ObjectType):
     dashboard = graphene.Field(DashboardType)
