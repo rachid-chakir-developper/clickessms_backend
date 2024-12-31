@@ -593,8 +593,79 @@ class BeneficiaryAdmission(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
+    @classmethod
+    def monthly_statistics(cls, year, establishments=None, company=None):
+        year = int(year)
+        queryset = cls.objects.filter(
+            beneficiary__company=company,
+            is_deleted=False,
+            created_at__year=year
+        )
+
+        if establishments:
+            queryset = queryset.filter(establishments__in=establishments)
+
+        data = (
+            queryset
+            .annotate(
+                month=ExtractMonth('created_at'),
+                establishment_id=F('establishments__id'),
+            )
+            .values('establishment_id', 'month')
+            .annotate(
+                count_received=Count('id'),
+                count_approved=Count('id', filter=Q(status="APPROVED")),
+                count_rejected=Count('id', filter=Q(status="REJECTED")),
+                count_canceled=Count('id', filter=Q(status="CANCELED")),
+            )
+            .order_by('establishment_id', 'month')
+        )
+
+        # Initialiser les statistiques avec des valeurs par défaut
+        stats = defaultdict(lambda: {
+            month: {
+                "count_received": 0,
+                "count_approved": 0,
+                "count_rejected": 0,
+                "count_canceled": 0,
+            } for month in range(1, 13)
+        })
+
+        # Parcourir les données et remplir les statistiques
+        for item in data:
+            establishment_id = item['establishment_id']
+            month = item['month']
+            stats[establishment_id][month] = {
+                "count_received": item["count_received"],
+                "count_approved": item["count_approved"],
+                "count_rejected": item["count_rejected"],
+                "count_canceled": item["count_canceled"],
+            }
+
+        # Si aucun établissement n'est fourni, calculer les totaux globaux par mois
+        if establishments is None:
+            global_stats = {
+                month: {
+                    "count_received": 0,
+                    "count_approved": 0,
+                    "count_rejected": 0,
+                    "count_canceled": 0,
+                } for month in range(1, 13)
+            }
+            for establishment_data in stats.values():
+                for month, values in establishment_data.items():
+                    global_stats[month]["count_received"] += values["count_received"]
+                    global_stats[month]["count_approved"] += values["count_approved"]
+                    global_stats[month]["count_rejected"] += values["count_rejected"]
+                    global_stats[month]["count_canceled"] += values["count_canceled"]
+
+            return {"global_totals": global_stats}
+
+        # Retourner les statistiques structurées par établissement
+        return dict(stats)
+
     def __str__(self):
-        return self.id
+        return str(self.id)
 
 
     # Create your models here.

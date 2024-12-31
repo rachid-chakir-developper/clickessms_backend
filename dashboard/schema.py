@@ -19,7 +19,7 @@ from qualities.schema import UndesirableEventType
 from works.models import Task, STATUS_All, TaskAction
 from qualities.models import UndesirableEvent
 from companies.models import Establishment
-from human_ressources.models import BeneficiaryEntry
+from human_ressources.models import BeneficiaryEntry, BeneficiaryAdmission
 from finance.models import DecisionDocumentItem
 
 class BudgetTaskType(graphene.ObjectType):
@@ -95,9 +95,41 @@ class ActivityTrackingEstablishmentType(graphene.ObjectType):
     activity_tracking_month = graphene.List(ActivityTrackingMonthType)
     activity_tracking_accumulation = graphene.Field(ActivityTrackingAccumulationType)
 
+class ActivitySynthesisMonthType(graphene.ObjectType):
+    label = graphene.String()
+    month = graphene.String()
+    year = graphene.String()
+    count_received = graphene.Int()
+    count_approved = graphene.Int()
+    count_rejected = graphene.Int()
+    count_canceled = graphene.Int()
+
+class ActivityTotalSynthesisMonthType(graphene.ObjectType):
+    label = graphene.String()
+    month = graphene.String()
+    year = graphene.String()
+    total_received = graphene.Int()
+    total_approved = graphene.Int()
+    total_rejected = graphene.Int()
+    total_canceled = graphene.Int()
+
+class ActivitySynthesisEstablishmentType(graphene.ObjectType):
+    title = graphene.String()
+    establishment = graphene.Field(EstablishmentType)
+    year = graphene.String()
+    months = graphene.List(graphene.String)
+    activity_synthesis_month = graphene.List(ActivitySynthesisMonthType)
+    activity_total_synthesis_month = graphene.Field(ActivityTotalSynthesisMonthType)
+
 class ActivityTrackingType(graphene.ObjectType):
     activity_tracking_month = graphene.List(ActivityTrackingMonthType)
     activity_tracking_accumulation = graphene.Field(ActivityTrackingAccumulationType)
+
+class ActivitySynthesisType(graphene.ObjectType):
+    title = graphene.String()
+    year = graphene.String()
+    months = graphene.List(graphene.String)
+    activity_synthesis_establishments = graphene.List(ActivitySynthesisEstablishmentType)
 
 class DashboardType(graphene.ObjectType):
     budget_month = graphene.Field(BudgetMonthType)
@@ -196,6 +228,8 @@ def get_item_count(monthly_statistics, establishment_id, month, key):
 class DashboardActivityType(graphene.ObjectType):
     activity_tracking = graphene.Field(ActivityTrackingType)
     activity_tracking_establishments = graphene.List(ActivityTrackingEstablishmentType)
+    activity_synthesis = graphene.Field(ActivitySynthesisType)
+
     def resolve_activity_tracking(instance, info, **kwargs):
         user = info.context.user
         company = user.the_current_company
@@ -259,6 +293,7 @@ class DashboardActivityType(graphene.ObjectType):
         establishments = Establishment.objects.filter(company=company)
         beneficiary_entry_monthly_statistics = BeneficiaryEntry.monthly_statistics(year=year, establishments=establishments, company=company)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
+
         activity_tracking_establishments = []
         for i, establishment in enumerate(establishments):
             # Initialiser les activity_tracking_month par mois
@@ -330,6 +365,57 @@ class DashboardActivityType(graphene.ObjectType):
                     )
                 )
         return activity_tracking_establishments
+
+    def resolve_activity_synthesis(instance, info, **kwargs):
+        user = info.context.user
+        company = user.the_current_company
+
+        # Obtenir l'année en cours pour filtrer par année
+        date = datetime.date.today()
+        year=str(date.year)
+        start_year = date.replace(month=1, day=1)  # Début de l'année
+        end_year = date.replace(month=12, day=31)  # Fin de l'année
+
+        establishments = Establishment.objects.filter(company=company)
+        beneficiary_admission_monthly_statistics = BeneficiaryAdmission.monthly_statistics(year=year, establishments=establishments, company=company)
+        activity_synthesis_establishments = []
+        for i, establishment in enumerate(establishments):
+            # Initialiser les activity_tracking_month par mois
+            activity_synthesis_month = []
+            for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
+                item = ActivitySynthesisMonthType(
+                    month=month,
+                    year=year,
+                    count_received=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_received'),
+                    count_approved=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_approved'),
+                    count_rejected=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_rejected'),
+                    count_canceled=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled'),
+                )  # 'day' utilisé pour le nom du mois
+                activity_synthesis_month.append(item)
+
+            # Calcul des agrégats pour ActivityTrackingAccumulationType
+            total_received = sum(item.count_received for item in activity_synthesis_month)
+            total_approved = sum(item.count_approved for item in activity_synthesis_month)
+            total_rejected = sum(item.count_rejected for item in activity_synthesis_month)
+            total_canceled = sum(item.count_canceled for item in activity_synthesis_month)
+
+            activity_total_synthesis_month = ActivityTotalSynthesisMonthType(
+                year=year,
+                total_received=round(total_received, 2),
+                total_approved=round(total_approved, 2),
+                total_rejected=round(total_rejected, 2),
+                total_canceled=round(total_canceled, 2),
+            )
+            activity_synthesis_establishments.append(
+                ActivitySynthesisEstablishmentType(
+                    months=settings.MONTHS,
+                    year=str(date.year),
+                    establishment=establishment,
+                    activity_synthesis_month=activity_synthesis_month,
+                    activity_total_synthesis_month=activity_total_synthesis_month
+                    )
+                )
+        return ActivitySynthesisType(year=year, months=settings.MONTHS, activity_synthesis_establishments=activity_synthesis_establishments)
 
 class DashboardQuery(graphene.ObjectType):
     dashboard = graphene.Field(DashboardType)
