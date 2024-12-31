@@ -132,6 +132,18 @@ class ActivitySynthesisType(graphene.ObjectType):
     month_totals = graphene.List(graphene.Int)
     activity_synthesis_establishments = graphene.List(ActivitySynthesisEstablishmentType)
 
+class ActivityMonthEstablishmentType(graphene.ObjectType):
+    title = graphene.String()
+    establishment = graphene.Field(EstablishmentType)
+    year = graphene.String()
+    month = graphene.String()
+
+class ActivityMonthType(graphene.ObjectType):
+    title = graphene.String()
+    year = graphene.String()
+    month = graphene.String()
+    activity_month_establishments = graphene.List(ActivityMonthEstablishmentType)
+
 class DashboardType(graphene.ObjectType):
     budget_month = graphene.Field(BudgetMonthType)
     spendings_month = graphene.Field(SpendingsMonthType)
@@ -230,6 +242,7 @@ class DashboardActivityType(graphene.ObjectType):
     activity_tracking = graphene.Field(ActivityTrackingType)
     activity_tracking_establishments = graphene.List(ActivityTrackingEstablishmentType)
     activity_synthesis = graphene.Field(ActivitySynthesisType)
+    activity_month = graphene.Field(ActivityMonthType)
 
     def resolve_activity_tracking(instance, info, **kwargs):
         user = info.context.user
@@ -424,6 +437,31 @@ class DashboardActivityType(graphene.ObjectType):
                 months=settings.MONTHS,
                 activity_synthesis_establishments=activity_synthesis_establishments,
                 month_totals=month_totals
+            )
+
+    def resolve_activity_month(instance, info, **kwargs):
+        user = info.context.user
+        company = user.the_current_company
+
+        # Obtenir l'année en cours pour filtrer par année
+        date = datetime.date.today()
+        year=str(date.year)
+        month=date.month
+        start_year = date.replace(month=1, day=1)  # Début de l'année
+        end_year = date.replace(month=12, day=31)  # Fin de l'année
+
+        establishments = Establishment.objects.filter(company=company)
+
+        present_beneficiaries = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=establishments, company=company)
+        print(present_beneficiaries)
+
+        activity_month_establishments = []
+        for i, establishment in enumerate(establishments):
+            pass
+        return ActivityMonthType(
+                year=year,
+                month=settings.MONTHS[int(month)-1],
+                activity_month_establishments=activity_month_establishments,
             )
 
 class DashboardQuery(graphene.ObjectType):

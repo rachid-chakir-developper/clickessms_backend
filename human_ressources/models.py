@@ -541,6 +541,43 @@ class BeneficiaryEntry(models.Model):
             return {"global_totals": totals}
 
         return dict(stats)
+        
+    @classmethod
+    def present_beneficiaries(cls, year, month, establishments=None, company=None):
+        """
+        Retourne une liste des `BeneficiaryEntry` pour chaque établissement
+        qui sont toujours accompagnés dans un mois donné.
+        """
+        year = int(year)
+        month = int(month)
+
+        # Début et fin du mois spécifié
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+
+        # Filtrer les données de base par entreprise
+        queryset = cls.objects.filter(beneficiary__company=company)
+
+        if establishments:
+            # Filtrer uniquement pour les établissements spécifiés
+            queryset = queryset.filter(establishments__in=establishments)
+
+        # Filtrer les bénéficiaires toujours présents dans le mois spécifié
+        queryset = queryset.filter(
+            Q(entry_date__lt=end_date),  # Entré avant ou pendant le mois
+            Q(release_date__isnull=True) | Q(release_date__gte=start_date)  # Pas encore sorti ou sortie après le début du mois
+        )
+
+        # Regrouper par établissement
+        result = {}
+        for establishment in queryset.values_list('establishments', flat=True).distinct():
+            establishment_queryset = queryset.filter(establishments=establishment)
+            result[establishment] = list(establishment_queryset)
+
+        return result
 
     def __str__(self):
         return str(self.id)
