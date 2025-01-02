@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.timezone import make_aware
 from datetime import datetime, date, timedelta
 import random
 from django.utils import timezone
@@ -541,6 +542,82 @@ class BeneficiaryEntry(models.Model):
             return {"global_totals": totals}
 
         return dict(stats)
+        
+    @classmethod
+    def monthly_presence_statistics(cls, year, establishments=None, company=None):
+        year = int(year)
+
+        # Convertir les datetime naïfs en datetime conscients des fuseaux horaires
+        start_of_year = datetime(year, 1, 1)
+        end_of_year = datetime(year, 12, 31)
+
+        # Si les dates sont naïves, les rendre conscientes
+        start_of_year = make_aware(start_of_year) if start_of_year.tzinfo is None else start_of_year
+        end_of_year = make_aware(end_of_year) if end_of_year.tzinfo is None else end_of_year
+
+        # Étape 1 : Filtrer les enregistrements de base
+        queryset = cls.objects.filter(entry_date__year__lte=year).annotate(
+            effective_entry_date=Case(
+                When(entry_date__lt=start_of_year, then=Value(start_of_year)),
+                default=F('entry_date'),
+                output_field=DateTimeField()
+            ),
+            effective_release_date=Case(
+                When(release_date__isnull=True, then=Value(end_of_year)),
+                When(release_date__gt=end_of_year, then=Value(end_of_year)),
+                default=F('release_date'),
+                output_field=DateTimeField()
+            )
+        )
+
+        # Filtrer par société si fourni
+        if company:
+            queryset = queryset.filter(beneficiary__company=company)
+
+        # Filtrer par établissements si fourni
+        if establishments:
+            queryset = queryset.filter(establishments__in=establishments)
+
+        # Étape 2 : Calculer les statistiques mensuelles
+        monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
+
+        for entry in queryset:
+            for establishment in entry.establishments.all():
+                start_date = entry.effective_entry_date
+                end_date = entry.effective_release_date
+
+                # Rendre start_date et end_date conscients si nécessaire
+                start_date = make_aware(start_date) if start_date.tzinfo is None else start_date
+                end_date = make_aware(end_date) if end_date.tzinfo is None else end_date
+
+                while start_date <= end_date:
+                    month_start = datetime(start_date.year, start_date.month, 1)
+                    month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
+
+                    # Rendre month_start et month_end conscients si nécessaire
+                    month_start = make_aware(month_start) if month_start.tzinfo is None else month_start
+                    month_end = make_aware(month_end) if month_end.tzinfo is None else month_end
+
+                    days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
+
+                    # Ajouter au total des jours pour le mois
+                    monthly_data[establishment.id][start_date.month]["total_days_present"] += max(0, days_in_month)
+
+                    # Ajouter au compteur des bénéficiaires présents jusqu'à la fin du mois
+                    if entry.release_date is None or entry.release_date > month_end:
+                        monthly_data[establishment.id][start_date.month]["present_at_end_of_month"] += 1
+
+                    start_date = month_end + timedelta(seconds=1)
+
+        # Étape 3 : S'assurer que tous les établissements incluent les 12 mois
+        establishments_ids = establishments or queryset.values_list('establishments__id', flat=True).distinct()
+        for establishment_id in establishments_ids:
+            if establishment_id not in monthly_data:
+                monthly_data[establishment_id] = {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)}
+
+        # Retourner les données structurées
+        return dict(monthly_data)
+
         
     @classmethod
     def present_beneficiaries(cls, year, month, establishments=None, company=None):
