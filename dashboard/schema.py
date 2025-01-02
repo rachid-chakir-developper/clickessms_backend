@@ -332,7 +332,6 @@ class DashboardActivityType(graphene.ObjectType):
                 establishments=establishments.filter(id__in=establishment_ids)
 
         beneficiary_entry_monthly_statistics = BeneficiaryEntry.monthly_statistics(year=year, establishments=establishments, company=company)
-        beneficiary_entry_monthly_presence_statistics = BeneficiaryEntry.monthly_presence_statistics(year=year, establishments=establishments, company=company)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
 
         activity_tracking_establishments = []
@@ -343,7 +342,7 @@ class DashboardActivityType(graphene.ObjectType):
                 days_in_month = monthrange(int(year), i+1)[1]
                 capacity=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'capacity')
                 objective_days_count=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'total_theoretical_number_unit_work')
-                days_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_days_present')
+                days_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_days_present')/86400000000
                 price = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'total_price')
                 objective_valuation = Decimal(capacity)*Decimal(price)
                 valuation = Decimal(days_count)*Decimal(price)
@@ -353,7 +352,7 @@ class DashboardActivityType(graphene.ObjectType):
                 entries_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_entries'),
                 exits_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_releases'),
                 planned_exits_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_due'),
-                presents_month_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'present_at_end_of_month'),
+                presents_month_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'present_at_end_of_month'),
                 objective_days_count=objective_days_count,
                 days_count=days_count,
                 gap_days_count=objective_days_count-days_count,
