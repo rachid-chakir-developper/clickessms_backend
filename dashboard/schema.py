@@ -25,6 +25,13 @@ from human_ressources.models import BeneficiaryEntry, BeneficiaryAdmission
 from finance.models import DecisionDocumentItem
 from human_ressources.schema import BeneficiaryEntryType
 
+
+class DashboardActivityFilterInput(graphene.InputObjectType):
+        keyword = graphene.String(required=False)
+        year = graphene.String(required=False)
+        month = graphene.String(required=False)
+        establishments = graphene.List(graphene.Int, required=False)
+
 class BudgetTaskType(graphene.ObjectType):
     name = graphene.String()
     estimated_budget = graphene.Float()
@@ -255,8 +262,8 @@ class DashboardActivityType(graphene.ObjectType):
 
     def resolve_activity_tracking(instance, info, **kwargs):
         user = info.context.user
+        dashboard_activity_filter = getattr(info.context, 'dashboard_activity_filter', None)
         company = user.the_current_company
-
         # Obtenir l'année en cours pour filtrer par année
         date = datetime.date.today()
         year=str(date.year)
@@ -268,7 +275,7 @@ class DashboardActivityType(graphene.ObjectType):
         for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
             item = ActivityTrackingMonthType(
             month=month,
-            year=str(date.year),
+            year=year,
             objective_days_count=10,
             days_count=4.5,
             gap_days_count=5.5,
@@ -305,6 +312,7 @@ class DashboardActivityType(graphene.ObjectType):
         return ActivityTrackingType(activity_tracking_month=activity_tracking_month, activity_tracking_accumulation=activity_tracking_accumulation)
     def resolve_activity_tracking_establishments(instance, info, **kwargs):
         user = info.context.user
+        dashboard_activity_filter = getattr(info.context, 'dashboard_activity_filter', None)
         company = user.the_current_company
 
         # Obtenir l'année en cours pour filtrer par année
@@ -314,6 +322,15 @@ class DashboardActivityType(graphene.ObjectType):
         end_year = date.replace(month=12, day=31)  # Fin de l'année
 
         establishments = Establishment.objects.filter(company=company)
+
+        if dashboard_activity_filter:
+            the_year = dashboard_activity_filter.get('year', None)
+            establishment_ids = dashboard_activity_filter.get('establishments', None)
+            if the_year:
+                year=the_year
+            if establishment_ids:
+                establishments=establishments.filter(id__in=establishment_ids)
+
         beneficiary_entry_monthly_statistics = BeneficiaryEntry.monthly_statistics(year=year, establishments=establishments, company=company)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
 
@@ -381,7 +398,7 @@ class DashboardActivityType(graphene.ObjectType):
             activity_tracking_establishments.append(
                 ActivityTrackingEstablishmentType(
                     months=settings.MONTHS,
-                    year=str(date.year),
+                    year=year,
                     establishment=establishment,
                     activity_tracking_month=activity_tracking_month,
                     activity_tracking_accumulation=activity_tracking_accumulation
@@ -391,6 +408,7 @@ class DashboardActivityType(graphene.ObjectType):
 
     def resolve_activity_synthesis(instance, info, **kwargs):
         user = info.context.user
+        dashboard_activity_filter = getattr(info.context, 'dashboard_activity_filter', None)
         company = user.the_current_company
 
         # Obtenir l'année en cours pour filtrer par année
@@ -400,6 +418,13 @@ class DashboardActivityType(graphene.ObjectType):
         end_year = date.replace(month=12, day=31)  # Fin de l'année
 
         establishments = Establishment.objects.filter(company=company)
+        if dashboard_activity_filter:
+            the_year = dashboard_activity_filter.get('year', None)
+            establishment_ids = dashboard_activity_filter.get('establishments', None)
+            if the_year:
+                year=the_year
+            if establishment_ids:
+                establishments=establishments.filter(id__in=establishment_ids)
         beneficiary_admission_monthly_statistics = BeneficiaryAdmission.monthly_statistics(year=year, establishments=establishments, company=company)
         activity_synthesis_establishments = []
         month_totals = [0 for _ in range(12)]
@@ -435,7 +460,7 @@ class DashboardActivityType(graphene.ObjectType):
             activity_synthesis_establishments.append(
                 ActivitySynthesisEstablishmentType(
                     months=settings.MONTHS,
-                    year=str(date.year),
+                    year=year,
                     establishment=establishment,
                     activity_synthesis_month=activity_synthesis_month,
                     activity_total_synthesis_month=activity_total_synthesis_month
@@ -450,6 +475,7 @@ class DashboardActivityType(graphene.ObjectType):
 
     def resolve_activity_month(instance, info, **kwargs):
         user = info.context.user
+        dashboard_activity_filter = getattr(info.context, 'dashboard_activity_filter', None)
         company = user.the_current_company
 
         # Obtenir l'année en cours pour filtrer par année
@@ -460,6 +486,13 @@ class DashboardActivityType(graphene.ObjectType):
         end_year = date.replace(month=12, day=31)  # Fin de l'année
 
         establishments = Establishment.objects.filter(company=company)
+        if dashboard_activity_filter:
+            the_year = dashboard_activity_filter.get('year', None)
+            establishment_ids = dashboard_activity_filter.get('establishments', None)
+            if the_year:
+                year=the_year
+            if establishment_ids:
+                establishments=establishments.filter(id__in=establishment_ids)
 
         present_beneficiaries = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=establishments, company=company)
 
@@ -471,7 +504,7 @@ class DashboardActivityType(graphene.ObjectType):
             activity_month_establishments.append(
                 ActivityMonthEstablishmentType(
                     month=settings.MONTHS[int(month)-1],
-                    year=str(date.year),
+                    year=year,
                     establishment=establishment,
                     capacity=capacity,
                     count_outside_places_department=0,
@@ -490,13 +523,15 @@ class DashboardActivityType(graphene.ObjectType):
             )
 
 class DashboardQuery(graphene.ObjectType):
-    dashboard = graphene.Field(DashboardType)
-    dashboard_activity = graphene.Field(DashboardActivityType)
-    def resolve_dashboard(root, info):
+    dashboard = graphene.Field(DashboardType, dashboard_activity_filter= DashboardActivityFilterInput(required=False))
+    dashboard_activity = graphene.Field(DashboardActivityType, dashboard_activity_filter= DashboardActivityFilterInput(required=False))
+    def resolve_dashboard(root, info, dashboard_activity_filter=None):
         # We can easily optimize query count in the resolve method
+        info.context.dashboard_activity_filter = dashboard_activity_filter
         dashboard = 0
         return dashboard
-    def resolve_dashboard_activity(root, info):
+    def resolve_dashboard_activity(root, info, dashboard_activity_filter=None):
         # We can easily optimize query count in the resolve method
+        info.context.dashboard_activity_filter = dashboard_activity_filter
         dashboard_activity = 0
         return dashboard_activity
