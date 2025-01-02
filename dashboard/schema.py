@@ -481,7 +481,9 @@ class DashboardActivityType(graphene.ObjectType):
                     beneficiary_entries=beneficiary_entries
                     )
                 )
+        last_day = monthrange(int(year), int(month))[1]
         return ActivityMonthType(
+                title=f"EFFECTIFS DE L'ASSOCIATION {company.name.upper()} AU {str(last_day)} {int(month):02d} {year}",
                 year=year,
                 month=settings.MONTHS[int(month)-1],
                 activity_month_establishments=activity_month_establishments,
