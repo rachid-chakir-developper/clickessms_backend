@@ -185,6 +185,32 @@ class Establishment(models.Model):
 
         return number
 
+    def get_monthly_capacity(self, year, month):
+        """
+        Retourne la dernière capacité saisie pour un mois donné.
+
+        :param year: Année pour laquelle la capacité est calculée.
+        :param month: Mois pour lequel la capacité est calculée (1-12).
+        :return: Dernière capacité saisie (float) ou None si aucune.
+        """
+        year=int(year)
+        month=int(month)
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+
+        # Filtrer les ActivityAuthorization pour cet établissement dans le mois donné
+        last_activity = self.activity_authorizations.filter(
+            is_active=True,
+            starting_date_time__lt=end_date,
+            ending_date_time__gte=start_date,
+        ).order_by('-starting_date_time').first()
+
+        # Retourner la capacité de la dernière autorisation
+        return last_activity.capacity if last_activity else 0
+
     def __str__(self):
         return self.name
 

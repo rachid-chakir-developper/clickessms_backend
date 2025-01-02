@@ -16,11 +16,14 @@ from human_ressources.schema import EmployeeType
 from companies.schema import EstablishmentType
 from qualities.schema import UndesirableEventType
 
+from dashboard.utils import get_age_range
+
 from works.models import Task, STATUS_All, TaskAction
 from qualities.models import UndesirableEvent
 from companies.models import Establishment
 from human_ressources.models import BeneficiaryEntry, BeneficiaryAdmission
 from finance.models import DecisionDocumentItem
+from human_ressources.schema import BeneficiaryEntryType
 
 class BudgetTaskType(graphene.ObjectType):
     name = graphene.String()
@@ -137,6 +140,12 @@ class ActivityMonthEstablishmentType(graphene.ObjectType):
     establishment = graphene.Field(EstablishmentType)
     year = graphene.String()
     month = graphene.String()
+    capacity = graphene.Int()
+    count_outside_places_department = graphene.Int()
+    count_occupied_places = graphene.Int()
+    count_available_places = graphene.Int()
+    ages_text = graphene.String()
+    beneficiary_entries = graphene.List(BeneficiaryEntryType)
 
 class ActivityMonthType(graphene.ObjectType):
     title = graphene.String()
@@ -453,11 +462,25 @@ class DashboardActivityType(graphene.ObjectType):
         establishments = Establishment.objects.filter(company=company)
 
         present_beneficiaries = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=establishments, company=company)
-        print(present_beneficiaries)
 
         activity_month_establishments = []
         for i, establishment in enumerate(establishments):
-            pass
+            beneficiary_entries=present_beneficiaries.get(establishment.id, [])
+            capacity = establishment.get_monthly_capacity(year, month)
+            count_occupied_places= len(beneficiary_entries)
+            activity_month_establishments.append(
+                ActivityMonthEstablishmentType(
+                    month=settings.MONTHS[int(month)-1],
+                    year=str(date.year),
+                    establishment=establishment,
+                    capacity=capacity,
+                    count_outside_places_department=0,
+                    count_occupied_places=count_occupied_places,
+                    count_available_places=capacity-count_occupied_places,
+                    ages_text=get_age_range(beneficiary_entries),
+                    beneficiary_entries=beneficiary_entries
+                    )
+                )
         return ActivityMonthType(
                 year=year,
                 month=settings.MONTHS[int(month)-1],
