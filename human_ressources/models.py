@@ -587,16 +587,12 @@ class BeneficiaryEntry(models.Model):
                 end_date = entry.effective_release_date
                 print('heeerrrr5555')
                 # Rendre start_date et end_date conscients si nécessaire
-                start_date = make_aware(start_date) if start_date.tzinfo is None else start_date
-                end_date = make_aware(end_date) if end_date.tzinfo is None else end_date
                 print('herrr6666')
                 while start_date <= end_date:
                     month_start = datetime(start_date.year, start_date.month, 1)
                     month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
                     print('heeerrr7777')
                     # Rendre month_start et month_end conscients si nécessaire
-                    month_start = make_aware(month_start) if month_start.tzinfo is None else month_start
-                    month_end = make_aware(month_end) if month_end.tzinfo is None else month_end
                     print('heeerrrr8888')
                     days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
 
