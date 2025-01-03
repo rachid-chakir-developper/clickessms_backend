@@ -3,6 +3,7 @@ from django.utils.timezone import make_aware
 from datetime import datetime, date, timedelta
 import random
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db.models import Count, Q, F, ExpressionWrapper, IntegerField, Sum, Case, When, Value, DateTimeField
@@ -542,18 +543,25 @@ class BeneficiaryEntry(models.Model):
             return {"global_totals": totals}
 
         return dict(stats)
-        
     @classmethod
     def monthly_presence_statistics(cls, year, establishments=None, company=None):
         year = int(year)
 
-        # Convertir les datetime naïfs en datetime conscients des fuseaux horaires
-        start_of_year = datetime(year, 1, 1)
-        end_of_year = datetime(year, 12, 31)
+        def ensure_datetime(value):
+            """Convertit une chaîne en datetime si nécessaire."""
+            if isinstance(value, str):
+                # Tente de convertir la chaîne en datetime
+                value = parse_datetime(value)
+                if value is None:
+                    raise ValueError(f"Invalid datetime string: {value}")
+            if value and value.tzinfo is None:
+                # Rendre le datetime conscient s'il est naïf
+                value = make_aware(value)
+            return value
 
-        # Si les dates sont naïves, les rendre conscientes
-        start_of_year = make_aware(start_of_year) if start_of_year.tzinfo is None else start_of_year
-        end_of_year = make_aware(end_of_year) if end_of_year.tzinfo is None else end_of_year
+        # Définir les limites de l'année
+        start_of_year = ensure_datetime(datetime(year, 1, 1))
+        end_of_year = ensure_datetime(datetime(year, 12, 31))
 
         # Étape 1 : Filtrer les enregistrements de base
         queryset = cls.objects.filter(entry_date__year__lte=year).annotate(
@@ -583,20 +591,12 @@ class BeneficiaryEntry(models.Model):
 
         for entry in queryset:
             for establishment in entry.establishments.all():
-                start_date = entry.effective_entry_date
-                end_date = entry.effective_release_date
-
-                # Rendre start_date et end_date conscients si nécessaire
-                start_date = make_aware(start_date) if start_date.tzinfo is None else start_date
-                end_date = make_aware(end_date) if end_date.tzinfo is None else end_date
+                start_date = ensure_datetime(entry.effective_entry_date)
+                end_date = ensure_datetime(entry.effective_release_date)
 
                 while start_date <= end_date:
-                    month_start = datetime(start_date.year, start_date.month, 1)
-                    month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
-
-                    # Rendre month_start et month_end conscients si nécessaire
-                    month_start = make_aware(month_start) if month_start.tzinfo is None else month_start
-                    month_end = make_aware(month_end) if month_end.tzinfo is None else month_end
+                    month_start = ensure_datetime(datetime(start_date.year, start_date.month, 1))
+                    month_end = ensure_datetime((month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1))
 
                     days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
 
@@ -604,7 +604,7 @@ class BeneficiaryEntry(models.Model):
                     monthly_data[establishment.id][start_date.month]["total_days_present"] += max(0, days_in_month)
 
                     # Ajouter au compteur des bénéficiaires présents jusqu'à la fin du mois
-                    if entry.release_date is None or entry.release_date > month_end:
+                    if entry.release_date is None or ensure_datetime(entry.release_date) > month_end:
                         monthly_data[establishment.id][start_date.month]["present_at_end_of_month"] += 1
 
                     start_date = month_end + timedelta(seconds=1)
