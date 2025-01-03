@@ -551,8 +551,8 @@ class BeneficiaryEntry(models.Model):
         start_of_year = datetime(year, 1, 1)
         end_of_year = datetime(year, 12, 31)
 
-        print(f"start_of_year : {start_date} => {type(start_date)}")
-        print(f"end_of_year : {end_date} => {type(end_date)}")
+        print(f"type start_of_year : {start_of_year} => {type(start_of_year)}")
+        print(f"type end_of_year : {end_of_year} => {type(end_of_year)}")
 
         # Si les dates sont naïves, les rendre conscientes
         start_of_year = make_aware(start_of_year) if start_of_year.tzinfo is None else start_of_year
