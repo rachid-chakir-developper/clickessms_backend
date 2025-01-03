@@ -546,6 +546,12 @@ class BeneficiaryEntry(models.Model):
     @classmethod
     def monthly_presence_statistics(cls, year, establishments=None, company=None):
         year = int(year)
+        queryset = cls.objects.filter(beneficiary__company=company)
+
+        if establishments:
+            # Filtrer uniquement pour les établissements spécifiés
+            queryset = queryset.filter(establishments__in=establishments)
+
 
         # Convertir les datetime naïfs en datetime conscients des fuseaux horaires
         start_of_year = datetime(year, 1, 1, 00, 00, 00)
@@ -564,10 +570,10 @@ class BeneficiaryEntry(models.Model):
                 output_field=models.DateTimeField()
             )
         )
-        
+
         # Si les dates sont naïves, les rendre conscientes
         # Étape 1 : Filtrer les enregistrements de base
-        # queryset = cls.objects.filter(entry_date__year__lte=year).annotate(
+        # queryset = queryset.annotate(entry_date__year__lte=year).annotate(
         #     effective_entry_date=Case(
         #         When(entry_date__lt=start_of_year, then=Value(start_of_year)),
         #         default=F('entry_date'),
@@ -581,13 +587,7 @@ class BeneficiaryEntry(models.Model):
         #     )
         # )
         # Filtrer par société si fourni
-        if company:
-            queryset = queryset.filter(beneficiary__company=company)
-
-        # Filtrer par établissements si fourni
-        if establishments:
-            queryset = queryset.filter(establishments__in=establishments)
-
+        
         # Étape 2 : Calculer les statistiques mensuelles
         monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
         for entry in queryset:
