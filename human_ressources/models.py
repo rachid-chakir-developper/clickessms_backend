@@ -551,21 +551,35 @@ class BeneficiaryEntry(models.Model):
         start_of_year = datetime(year, 1, 1, 00, 00, 00)
         end_of_year = datetime(year, 12, 31, 23, 59, 59)
 
-        # Si les dates sont naïves, les rendre conscientes
-        # Étape 1 : Filtrer les enregistrements de base
-        queryset = cls.objects.filter(entry_date__year__lte=year).annotate(
+        # Annoter les dates d'entrée et de sortie avec des valeurs par défaut si nécessaire
+        queryset = queryset.annotate(
             effective_entry_date=Case(
-                When(entry_date__lt=start_of_year, then=Value(start_of_year)),
+                When(entry_date__year__lt=year, then=Value(datetime(year, 1, 1, 00, 00, 00))),  # 1er janvier de l'année donnée
                 default=F('entry_date'),
-                output_field=DateTimeField()
+                output_field=models.DateTimeField()
             ),
             effective_release_date=Case(
-                When(release_date__isnull=True, then=Value(end_of_year)),
-                When(release_date__gt=end_of_year, then=Value(end_of_year)),
+                When(release_date__isnull=True, then=Value(datetime(year, 12, 31, 23, 59, 59))),  # Dernière seconde de l'année
                 default=F('release_date'),
-                output_field=DateTimeField()
+                output_field=models.DateTimeField()
             )
         )
+        
+        # Si les dates sont naïves, les rendre conscientes
+        # Étape 1 : Filtrer les enregistrements de base
+        # queryset = cls.objects.filter(entry_date__year__lte=year).annotate(
+        #     effective_entry_date=Case(
+        #         When(entry_date__lt=start_of_year, then=Value(start_of_year)),
+        #         default=F('entry_date'),
+        #         output_field=DateTimeField()
+        #     ),
+        #     effective_release_date=Case(
+        #         When(release_date__isnull=True, then=Value(end_of_year)),
+        #         When(release_date__gt=end_of_year, then=Value(end_of_year)),
+        #         default=F('release_date'),
+        #         output_field=DateTimeField()
+        #     )
+        # )
         # Filtrer par société si fourni
         if company:
             queryset = queryset.filter(beneficiary__company=company)
