@@ -1,5 +1,5 @@
 from django.db import models
-from django.utils.timezone import make_aware
+from django.utils.timezone import make_aware, is_naive
 from datetime import datetime, date, timedelta
 import random
 from django.utils import timezone
@@ -546,20 +546,19 @@ class BeneficiaryEntry(models.Model):
     @classmethod
     def monthly_presence_statistics(cls, year, establishments=None, company=None):
         year = int(year)
-        queryset = cls.objects.filter(beneficiary__company=company)
-
-        if establishments:
-            # Filtrer uniquement pour les établissements spécifiés
-            queryset = queryset.filter(establishments__in=establishments)
-
 
         # Convertir les datetime naïfs en datetime conscients des fuseaux horaires
         start_of_year = datetime(year, 1, 1, 00, 00, 00)
         end_of_year = datetime(year, 12, 31, 23, 59, 59)
 
+        if is_naive(start_of_year):
+            start_of_year = make_aware(start_of_year)
+        if is_naive(end_of_year):
+            end_of_year = make_aware(end_of_year)
+
         # Si les dates sont naïves, les rendre conscientes
         # Étape 1 : Filtrer les enregistrements de base
-        queryset = queryset.annotate(entry_date__year__lte=year).annotate(
+        queryset = cls.objects.filter(entry_date__year__lte=year).annotate(
             effective_entry_date=Case(
                 When(entry_date__lt=start_of_year, then=Value(start_of_year)),
                 default=F('entry_date'),
@@ -572,6 +571,13 @@ class BeneficiaryEntry(models.Model):
                 output_field=DateTimeField()
             )
         )
+        # Filtrer par société si fourni
+        if company:
+            queryset = queryset.filter(beneficiary__company=company)
+
+        # Filtrer par établissements si fourni
+        if establishments:
+            queryset = queryset.filter(establishments__in=establishments)
 
         # Étape 2 : Calculer les statistiques mensuelles
         monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
@@ -579,13 +585,15 @@ class BeneficiaryEntry(models.Model):
             for establishment in entry.establishments.all():
                 start_date = entry.effective_entry_date
                 end_date = entry.effective_release_date
+                start_date = make_aware(start_date) if is_naive(start_date) else start_date
+                end_date = make_aware(end_date) if is_naive(end_date) else end_date
                 # Rendre start_date et end_date conscients si nécessaire
                 while start_date <= end_date:
                     month_start = datetime(start_date.year, start_date.month, 1, 00, 00, 00)
                     month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
                     # Rendre month_start et month_end conscients si nécessaire
-                    month_start = make_aware(month_start) if month_start.tzinfo is None else month_start
-                    month_end = make_aware(month_end) if month_end.tzinfo is None else month_end
+                    month_start = make_aware(month_start) if is_naive(month_start) else month_start
+                    month_end = make_aware(month_end) if is_naive(month_end) else month_end
                     days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
 
                     # Ajouter au total des jours pour le mois
