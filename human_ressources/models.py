@@ -551,10 +551,8 @@ class BeneficiaryEntry(models.Model):
         start_of_year = datetime(year, 1, 1)
         end_of_year = datetime(year, 12, 31)
 
-        print(f"type start_of_year : {start_of_year} => {type(start_of_year)}")
-        print(f"type end_of_year : {end_of_year} => {type(end_of_year)}")
-
         # Si les dates sont naïves, les rendre conscientes
+        print('heeerrrr11')
         start_of_year = make_aware(start_of_year) if start_of_year.tzinfo is None else start_of_year
         end_of_year = make_aware(end_of_year) if end_of_year.tzinfo is None else end_of_year
 
@@ -573,6 +571,7 @@ class BeneficiaryEntry(models.Model):
             )
         )
 
+        print('heeerrrr222221')
         # Filtrer par société si fourni
         if company:
             queryset = queryset.filter(beneficiary__company=company)
@@ -583,26 +582,25 @@ class BeneficiaryEntry(models.Model):
 
         # Étape 2 : Calculer les statistiques mensuelles
         monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
-
+        print('heeerrrr3333333333333331')
         for entry in queryset:
             for establishment in entry.establishments.all():
+                print('heeerrrr44444')
                 start_date = entry.effective_entry_date
                 end_date = entry.effective_release_date
-
-                print(f"type start_date : {start_date} => {type(start_date)}")
-                print(f"type end_date : {end_date} => {type(end_date)}")
+                print('heeerrrr5555')
                 # Rendre start_date et end_date conscients si nécessaire
                 start_date = make_aware(start_date) if start_date.tzinfo is None else start_date
                 end_date = make_aware(end_date) if end_date.tzinfo is None else end_date
-
+                print('herrr6666')
                 while start_date <= end_date:
                     month_start = datetime(start_date.year, start_date.month, 1)
                     month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
-
+                    print('heeerrr7777')
                     # Rendre month_start et month_end conscients si nécessaire
                     month_start = make_aware(month_start) if month_start.tzinfo is None else month_start
                     month_end = make_aware(month_end) if month_end.tzinfo is None else month_end
-
+                    print('heeerrrr8888')
                     days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
 
                     # Ajouter au total des jours pour le mois
