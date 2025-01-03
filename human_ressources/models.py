@@ -580,7 +580,7 @@ class BeneficiaryEntry(models.Model):
             queryset = queryset.filter(establishments__in=establishments)
 
         # Étape 2 : Calculer les statistiques mensuelles
-        # monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
+        monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
         # for entry in queryset:
         #     for establishment in entry.establishments.all():
         #         start_date = entry.effective_entry_date
