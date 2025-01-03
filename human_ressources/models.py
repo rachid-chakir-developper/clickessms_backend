@@ -546,37 +546,25 @@ class BeneficiaryEntry(models.Model):
     @classmethod
     def monthly_presence_statistics(cls, year, establishments=None, company=None):
         year = int(year)
+        queryset = cls.objects.filter(beneficiary__company=company)
 
-        # Convertir les datetime naïfs en datetime conscients des fuseaux horaires
-        start_of_year = datetime(year, 1, 1, 00, 00, 00)
-        end_of_year = datetime(year, 12, 31, 23, 59, 59)
+        if establishments:
+            # Filtrer uniquement pour les établissements spécifiés
+            queryset = queryset.filter(establishments__in=establishments)
 
-        print(f"{start_of_year} **** {end_of_year}")
-        start_of_year = make_aware(start_of_year)
-        end_of_year = make_aware(end_of_year)
-
-        print(f"{start_of_year} **** {end_of_year}")
-        # Si les dates sont naïves, les rendre conscientes
-        # Étape 1 : Filtrer les enregistrements de base
-        queryset = cls.objects.filter(entry_date__year__lte=year).annotate(
+        # Annoter les dates d'entrée et de sortie avec des valeurs par défaut si nécessaire
+        queryset = queryset.annotate(
             effective_entry_date=Case(
-                When(entry_date__lt=start_of_year, then=Value(start_of_year)),
+                When(entry_date__year__lt=year, then=Value(datetime(year, 1, 1, 00, 00, 00))),  # 1er janvier de l'année donnée
                 default=F('entry_date'),
-                output_field=DateTimeField()
+                output_field=models.DateTimeField()
             ),
             effective_release_date=Case(
-                When(release_date__isnull=True, then=Value(end_of_year)),
+                When(release_date__isnull=True, then=Value(datetime(year, 12, 31, 23, 59, 59))),  # Dernière seconde de l'année
                 default=F('release_date'),
-                output_field=DateTimeField()
+                output_field=models.DateTimeField()
             )
         )
-        # Filtrer par société si fourni
-        if company:
-            queryset = queryset.filter(beneficiary__company=company)
-
-        # Filtrer par établissements si fourni
-        if establishments:
-            queryset = queryset.filter(establishments__in=establishments)
 
         # Étape 2 : Calculer les statistiques mensuelles
         monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
