@@ -553,9 +553,6 @@ class BeneficiaryEntry(models.Model):
 
         # Si les dates sont naïves, les rendre conscientes
         print('heeerrrr11')
-        start_of_year = make_aware(start_of_year) if start_of_year.tzinfo is None else start_of_year
-        end_of_year = make_aware(end_of_year) if end_of_year.tzinfo is None else end_of_year
-
         # Étape 1 : Filtrer les enregistrements de base
         queryset = cls.objects.filter(entry_date__year__lte=year).annotate(
             effective_entry_date=Case(
