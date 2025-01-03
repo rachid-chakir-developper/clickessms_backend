@@ -580,29 +580,28 @@ class BeneficiaryEntry(models.Model):
             queryset = queryset.filter(establishments__in=establishments)
 
         # Étape 2 : Calculer les statistiques mensuelles
-        monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
-        for entry in queryset:
-            for establishment in entry.establishments.all():
-                pass
-                # start_date = entry.effective_entry_date
-                # end_date = entry.effective_release_date
-                # # Rendre start_date et end_date conscients si nécessaire
-                # while start_date <= end_date:
-                #     month_start = datetime(start_date.year, start_date.month, 1, 00, 00, 00)
-                #     month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
-                #     # Rendre month_start et month_end conscients si nécessaire
-                #     month_start = make_aware(month_start)
-                #     month_end = make_aware(month_end)
-                #     days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
+        # monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
+        # for entry in queryset:
+        #     for establishment in entry.establishments.all():
+        #         start_date = entry.effective_entry_date
+        #         end_date = entry.effective_release_date
+        #         # Rendre start_date et end_date conscients si nécessaire
+        #         while start_date <= end_date:
+        #             month_start = datetime(start_date.year, start_date.month, 1, 00, 00, 00)
+        #             month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
+        #             # Rendre month_start et month_end conscients si nécessaire
+        #             month_start = make_aware(month_start)
+        #             month_end = make_aware(month_end)
+        #             days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
 
-                #     # Ajouter au total des jours pour le mois
-                #     monthly_data[establishment.id][start_date.month]["total_days_present"] += max(0, days_in_month)
+        #             # Ajouter au total des jours pour le mois
+        #             monthly_data[establishment.id][start_date.month]["total_days_present"] += max(0, days_in_month)
 
-                #     # Ajouter au compteur des bénéficiaires présents jusqu'à la fin du mois
-                #     if entry.release_date is None or entry.release_date > month_end:
-                #         monthly_data[establishment.id][start_date.month]["present_at_end_of_month"] += 1
+        #             # Ajouter au compteur des bénéficiaires présents jusqu'à la fin du mois
+        #             if entry.release_date is None or entry.release_date > month_end:
+        #                 monthly_data[establishment.id][start_date.month]["present_at_end_of_month"] += 1
 
-                #     start_date = month_end + timedelta(seconds=1)
+        #             start_date = month_end + timedelta(seconds=1)
 
         # Étape 3 : S'assurer que tous les établissements incluent les 12 mois
         establishments_ids = establishments or queryset.values_list('establishments__id', flat=True).distinct()
