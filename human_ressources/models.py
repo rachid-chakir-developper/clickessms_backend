@@ -557,37 +557,22 @@ class BeneficiaryEntry(models.Model):
         start_of_year = datetime(year, 1, 1, 00, 00, 00)
         end_of_year = datetime(year, 12, 31, 23, 59, 59)
 
-        # Annoter les dates d'entrée et de sortie avec des valeurs par défaut si nécessaire
-        queryset = queryset.annotate(
+        # Si les dates sont naïves, les rendre conscientes
+        # Étape 1 : Filtrer les enregistrements de base
+        queryset = queryset.annotate(entry_date__year__lte=year).annotate(
             effective_entry_date=Case(
-                When(entry_date__year__lt=year, then=Value(datetime(year, 1, 1, 00, 00, 00))),  # 1er janvier de l'année donnée
+                When(entry_date__lt=start_of_year, then=Value(start_of_year)),
                 default=F('entry_date'),
-                output_field=models.DateTimeField()
+                output_field=DateTimeField()
             ),
             effective_release_date=Case(
-                When(release_date__isnull=True, then=Value(datetime(year, 12, 31, 23, 59, 59))),  # Dernière seconde de l'année
+                When(release_date__isnull=True, then=Value(end_of_year)),
+                When(release_date__gt=end_of_year, then=Value(end_of_year)),
                 default=F('release_date'),
-                output_field=models.DateTimeField()
+                output_field=DateTimeField()
             )
         )
 
-        # Si les dates sont naïves, les rendre conscientes
-        # Étape 1 : Filtrer les enregistrements de base
-        # queryset = queryset.annotate(entry_date__year__lte=year).annotate(
-        #     effective_entry_date=Case(
-        #         When(entry_date__lt=start_of_year, then=Value(start_of_year)),
-        #         default=F('entry_date'),
-        #         output_field=DateTimeField()
-        #     ),
-        #     effective_release_date=Case(
-        #         When(release_date__isnull=True, then=Value(end_of_year)),
-        #         When(release_date__gt=end_of_year, then=Value(end_of_year)),
-        #         default=F('release_date'),
-        #         output_field=DateTimeField()
-        #     )
-        # )
-        # Filtrer par société si fourni
-        
         # Étape 2 : Calculer les statistiques mensuelles
         monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
         for entry in queryset:
