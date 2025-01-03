@@ -347,6 +347,7 @@ class CreateData(graphene.Mutation):
         name = graphene.String()
         description = graphene.String(required=False)
         code = graphene.String(required=False)
+        is_considered = graphene.Boolean(required=False)
         parent_id = graphene.ID(required=False)
         typeData = graphene.String()
 
@@ -366,6 +367,7 @@ class UpdateData(graphene.Mutation):
         name = graphene.String()
         description = graphene.String(required=False)
         code = graphene.String(required=False)
+        is_considered = graphene.Boolean(required=False)
         typeData = graphene.String()
         id = graphene.ID()
 

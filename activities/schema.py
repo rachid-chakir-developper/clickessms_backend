@@ -78,6 +78,7 @@ class BeneficiaryAbsenceInput(graphene.InputObjectType):
     beneficiaries = graphene.List(graphene.Int, required=False)
     reasons = graphene.List(graphene.Int, required=False)
     other_reasons = graphene.String(required=False)
+    is_considered = graphene.Boolean(required=False)
 
 class PersonalizedProjectType(DjangoObjectType):
     class Meta:

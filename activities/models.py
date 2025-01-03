@@ -69,6 +69,7 @@ class BeneficiaryAbsence(models.Model):
 	ending_date_time = models.DateTimeField(null=True)
 	reasons = models.ManyToManyField('data_management.AbsenceReason', related_name='reason_beneficiary_absences')
 	other_reasons = models.CharField(max_length=255, null=True)
+	is_considered = models.BooleanField(default=False, null=True)
 	comment = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)

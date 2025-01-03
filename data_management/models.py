@@ -112,6 +112,7 @@ class DataModel(models.Model):
 	name = models.CharField(max_length=255)
 	description = models.TextField(default='', null=True)
 	parent = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='children', null=True, blank=True)
+	is_considered = models.BooleanField(default=False, null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, null=True)
 	creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
