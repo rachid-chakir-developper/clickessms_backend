@@ -551,11 +551,11 @@ class BeneficiaryEntry(models.Model):
         start_of_year = datetime(year, 1, 1, 00, 00, 00)
         end_of_year = datetime(year, 12, 31, 23, 59, 59)
 
-        if is_naive(start_of_year):
-            start_of_year = make_aware(start_of_year)
-        if is_naive(end_of_year):
-            end_of_year = make_aware(end_of_year)
+        print(f"{start_of_year} **** {end_of_year}")
+        start_of_year = make_aware(start_of_year)
+        end_of_year = make_aware(end_of_year)
 
+        print(f"{start_of_year} **** {end_of_year}")
         # Si les dates sont naïves, les rendre conscientes
         # Étape 1 : Filtrer les enregistrements de base
         queryset = cls.objects.filter(entry_date__year__lte=year).annotate(
@@ -585,15 +585,13 @@ class BeneficiaryEntry(models.Model):
             for establishment in entry.establishments.all():
                 start_date = entry.effective_entry_date
                 end_date = entry.effective_release_date
-                start_date = make_aware(start_date) if is_naive(start_date) else start_date
-                end_date = make_aware(end_date) if is_naive(end_date) else end_date
                 # Rendre start_date et end_date conscients si nécessaire
                 while start_date <= end_date:
                     month_start = datetime(start_date.year, start_date.month, 1, 00, 00, 00)
                     month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
                     # Rendre month_start et month_end conscients si nécessaire
-                    month_start = make_aware(month_start) if is_naive(month_start) else month_start
-                    month_end = make_aware(month_end) if is_naive(month_end) else month_end
+                    month_start = make_aware(month_start)
+                    month_end = make_aware(month_end)
                     days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
 
                     # Ajouter au total des jours pour le mois
