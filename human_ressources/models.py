@@ -551,11 +551,9 @@ class BeneficiaryEntry(models.Model):
         start_of_year = datetime(year, 1, 1, 00, 00, 00)
         end_of_year = datetime(year, 12, 31, 23, 59, 59)
 
-        print(f"{start_of_year} **** {end_of_year}")
         start_of_year = make_aware(start_of_year)
         end_of_year = make_aware(end_of_year)
-
-        print(f"{start_of_year} **** {end_of_year}")
+        
         # Si les dates sont naïves, les rendre conscientes
         # Étape 1 : Filtrer les enregistrements de base
         queryset = cls.objects.filter(Q(release_date__isnull=True) | Q(release_date__gt=end_of_year), entry_date__year__lte=year)

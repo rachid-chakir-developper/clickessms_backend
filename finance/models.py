@@ -1,9 +1,10 @@
 from django.db import models
-from datetime import datetime
+from datetime import datetime, date, timedelta
+from django.utils.timezone import make_aware, is_naive
 from decimal import Decimal
 import random
 from collections import defaultdict
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, Sum, Q, Min, Avg
 from django.db.models.functions import ExtractMonth
 
 # Create your models here.
@@ -94,67 +95,87 @@ class DecisionDocumentItem(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
-    
+
     @classmethod
     def monthly_statistics(cls, year, establishments=None, company=None):
-        # Base queryset
-        queryset = cls.objects.filter(decision_document__company=company)
+        """
+        Retourne les données maximales pour chaque mois et chaque établissement d'une année donnée.
+        """
+        year = int(year)
+        start_of_year = make_aware(datetime(year, 1, 1, 0, 0, 0))
+        end_of_year = make_aware(datetime(year, 12, 31, 23, 59, 59))
+
+        # Filtrer les éléments pour l'année donnée
+        queryset = cls.objects.filter(Q(ending_date_time__isnull=True) | Q(ending_date_time__gt=end_of_year), starting_date_time__year__lte=year)
+
+        # if company:
+        #     queryset = queryset.filter(decision_document__company=company)
 
         # Filtrer par établissements si fourni
         if establishments:
             queryset = queryset.filter(establishment__in=establishments)
 
-        # Annoter et grouper les données par mois et établissement
-        data = (
-            queryset
-            .values('establishment__id')  # Utiliser l'ID de l'établissement
-            .annotate(
-                month=ExtractMonth('starting_date_time'),
-                total_price=Sum('price', filter=Q(starting_date_time__year=year)),
-                total_endowment=Sum('endowment', filter=Q(starting_date_time__year=year)),
-                average_occupancy_rate=Sum('occupancy_rate', filter=Q(starting_date_time__year=year)),
-                total_theoretical_number_unit_work=Sum('theoretical_number_unit_work', filter=Q(starting_date_time__year=year)),
-            )
-            .order_by('establishment__id', 'month')
-        )
-
-        # Structurer les données avec des mois manquants initialisés à 0
-        stats = defaultdict(lambda: {month: {
-            "total_price": 0,
-            "total_endowment": 0,
-            "average_occupancy_rate": 0,
-            "total_theoretical_number_unit_work": 0
+        # Calcul des données mensuelles (max data par mois et par établissement)
+        monthly_data = defaultdict(lambda: {month: {
+            "price": Decimal(0),
+            "endowment": Decimal(0),
+            "occupancy_rate": 0,
+            "theoretical_number_unit_work": 0,
         } for month in range(1, 13)})
+        for item in queryset:
+            starting_date = item.starting_date_time if item.starting_date_time else None
+            ending_date = item.ending_date_time if item.ending_date_time else None
+            start_date = starting_date if starting_date >= start_of_year else start_of_year
 
-        for item in data:
-            establishment_id = item['establishment__id']
-            month = item['month']
-            stats[establishment_id][month] = {
-                "total_price": item['total_price'] or 0,
-                "total_endowment": item['total_endowment'] or 0,
-                "average_occupancy_rate": item['average_occupancy_rate'] or 0,
-                "total_theoretical_number_unit_work": item['total_theoretical_number_unit_work'] or 0,
-            }
+            # Ajuster end_date en fonction de release_date
+            if ending_date is None:
+                end_date = end_of_year
+            elif ending_date > end_of_year:
+                end_date = end_of_year
+            else:
+                end_date = ending_date
+            
+            # Assurez-vous que start_date et end_date sont conscients
+            start_date = make_aware(start_date) if is_naive(start_date) else start_date
+            end_date = make_aware(end_date) if is_naive(end_date) else end_date
 
-        # Si aucun établissement n'est fourni, retourner les totaux globaux
-        if establishments is None:
-            totals = {month: {
-                "total_price": 0,
-                "total_endowment": 0,
-                "average_occupancy_rate": 0,
-                "total_theoretical_number_unit_work": 0
-            } for month in range(1, 13)}
+            while start_date <= end_date:
+                # Calculer le mois à partir de start_date
+                month_key = start_date.month
+                establishment_id = item.establishment.id
+                price = item.price if item.price else Decimal(0)
+                endowment = item.endowment if item.endowment else Decimal(0)
+                occupancy_rate = item.occupancy_rate if item.occupancy_rate else 0
+                theoretical_number_unit_work = item.theoretical_number_unit_work if item.theoretical_number_unit_work else 0
+                # Mettre à jour les données si les valeurs de l'élément sont supérieures à l'existant
+                month_data = monthly_data[establishment_id][month_key]
+                if price and price > month_data["price"]:
+                    month_data["price"] = price
+                if endowment and endowment > month_data["endowment"]:
+                    month_data["endowment"] = endowment
+                if occupancy_rate and occupancy_rate > month_data["occupancy_rate"]:
+                    month_data["occupancy_rate"] = occupancy_rate
+                if theoretical_number_unit_work and theoretical_number_unit_work > month_data["theoretical_number_unit_work"]:
+                    month_data["theoretical_number_unit_work"] = theoretical_number_unit_work
 
-            for establishment_data in stats.values():
-                for month, values in establishment_data.items():
-                    totals[month]["total_price"] += values["total_price"]
-                    totals[month]["total_endowment"] += values["total_endowment"]
-                    totals[month]["average_occupancy_rate"] += values["average_occupancy_rate"]
-                    totals[month]["total_theoretical_number_unit_work"] += values["total_theoretical_number_unit_work"]
+                # Passer au mois suivant
+                start_date = start_date.replace(day=1) + timedelta(days=32)
+                start_date = start_date.replace(day=1)
 
-            return {"global_totals": totals}
+        # Étape 3 : S'assurer que tous les établissements incluent les 12 mois
+        # On ajoute des entrées pour les mois manquants pour chaque établissement
+        establishments_ids = establishments or queryset.values_list('establishment__id', flat=True).distinct()
+        for establishment_id in establishments_ids:
+            if establishment_id not in monthly_data:
+                    monthly_data[establishment_id] = {month: {
+                        "price": Decimal(0),
+                        "endowment": Decimal(0),
+                        "occupancy_rate": 0,
+                        "theoretical_number_unit_work": 0,
+                    } for month in range(1, 13)}
 
-        return dict(stats)
+        # Conversion des données en dictionnaire standard pour le retour
+        return {est_id: dict(months) for est_id, months in monthly_data.items()}
 
     def __str__(self):
         return str(self.id)
