@@ -334,7 +334,7 @@ class DashboardActivityType(graphene.ObjectType):
         beneficiary_entry_monthly_statistics = BeneficiaryEntry.monthly_statistics(year=year, establishments=establishments, company=company)
         beneficiary_entry_monthly_presence_statistics = BeneficiaryEntry.monthly_presence_statistics(year=year, establishments=establishments, company=company)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
-        
+
         activity_tracking_establishments = []
         for i, establishment in enumerate(establishments):
             # Initialiser les activity_tracking_month par mois
@@ -489,9 +489,12 @@ class DashboardActivityType(graphene.ObjectType):
         establishments = Establishment.objects.filter(company=company)
         if dashboard_activity_filter:
             the_year = dashboard_activity_filter.get('year', None)
+            the_month = dashboard_activity_filter.get('month', None)
             establishment_ids = dashboard_activity_filter.get('establishments', None)
             if the_year:
                 year=the_year
+            if the_month:
+                month=the_month
             if establishment_ids:
                 establishments=establishments.filter(id__in=establishment_ids)
 
