@@ -23,7 +23,7 @@ from qualities.models import UndesirableEvent
 from companies.models import Establishment
 from human_ressources.models import BeneficiaryEntry, BeneficiaryAdmission
 from finance.models import DecisionDocumentItem
-from human_ressources.schema import BeneficiaryEntryType
+from human_ressources.schema import BeneficiaryEntryType, BeneficiaryAdmissionType
 
 
 class DashboardActivityFilterInput(graphene.InputObjectType):
@@ -113,6 +113,8 @@ class ActivitySynthesisMonthType(graphene.ObjectType):
     count_approved = graphene.Int()
     count_rejected = graphene.Int()
     count_canceled = graphene.Int()
+    beneficiary_admissions = graphene.List(BeneficiaryAdmissionType)
+    beneficiary_entries = graphene.List(BeneficiaryEntryType)
 
 class ActivityTotalSynthesisMonthType(graphene.ObjectType):
     label = graphene.String()
@@ -254,6 +256,11 @@ def get_item_count(monthly_statistics, establishment_id, month, key):
     month_data = establishment_data.get(month, {})
     value = month_data.get(key, 0)
     return round(value if value else 0, 2)
+def get_item_object(monthly_statistics, establishment_id, month, key):
+    establishment_data = monthly_statistics.get(establishment_id, {})
+    month_data = establishment_data.get(month, {})
+    value = month_data.get(key, 0)
+    return value
 class DashboardActivityType(graphene.ObjectType):
     activity_tracking = graphene.Field(ActivityTrackingType)
     activity_tracking_establishments = graphene.List(ActivityTrackingEstablishmentType)
@@ -427,6 +434,8 @@ class DashboardActivityType(graphene.ObjectType):
             if establishment_ids:
                 establishments=establishments.filter(id__in=establishment_ids)
         beneficiary_admission_monthly_statistics = BeneficiaryAdmission.monthly_statistics(year=year, establishments=establishments, company=company)
+        beneficiary_admission_monthly_admissions = BeneficiaryAdmission.monthly_admissions(year=year, establishments=establishments, company=company)
+        beneficiary_entry_monthly_present_beneficiaries = BeneficiaryEntry.monthly_present_beneficiaries(year=year, establishments=establishments, company=company)
         activity_synthesis_establishments = []
         month_totals = [0 for _ in range(12)]
         for i, establishment in enumerate(establishments):
@@ -440,6 +449,8 @@ class DashboardActivityType(graphene.ObjectType):
                     count_approved=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_approved'),
                     count_rejected=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_rejected'),
                     count_canceled=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled'),
+                    beneficiary_admissions=get_item_object(beneficiary_admission_monthly_admissions, establishment.id, i+1, 'admissions'),
+                    beneficiary_entries=get_item_object(beneficiary_entry_monthly_present_beneficiaries, establishment.id, i+1, 'presences'),
                 )  # 'day' utilisé pour le nom du mois
                 activity_synthesis_month.append(item)
                 month_total = month_totals[i]

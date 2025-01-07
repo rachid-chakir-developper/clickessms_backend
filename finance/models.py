@@ -167,12 +167,12 @@ class DecisionDocumentItem(models.Model):
         establishments_ids = establishments or queryset.values_list('establishment__id', flat=True).distinct()
         for establishment_id in establishments_ids:
             if establishment_id not in monthly_data:
-                    monthly_data[establishment_id] = {month: {
-                        "price": Decimal(0),
-                        "endowment": Decimal(0),
-                        "occupancy_rate": 0,
-                        "theoretical_number_unit_work": 0,
-                    } for month in range(1, 13)}
+                monthly_data[establishment_id] = {month: {
+                    "price": Decimal(0),
+                    "endowment": Decimal(0),
+                    "occupancy_rate": 0,
+                    "theoretical_number_unit_work": 0,
+                } for month in range(1, 13)}
 
         # Conversion des données en dictionnaire standard pour le retour
         return {est_id: dict(months) for est_id, months in monthly_data.items()}

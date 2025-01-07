@@ -648,6 +648,67 @@ class BeneficiaryEntry(models.Model):
 
         return result
 
+    @classmethod
+    def monthly_present_beneficiaries(cls, year, establishments=None, company=None):
+        """
+        Retourne un dictionnaire contenant les présences par mois pour une année donnée.
+
+        :param year: Année pour laquelle récupérer les données
+        :param establishments: Liste d'établissements (optionnel)
+        :param company: Société (optionnel)
+        :return: Dictionnaire {mois: {"presences": []}}
+        """
+        year = int(year)
+
+        # Début et fin de l'année
+        start_of_year = make_aware(datetime(year, 1, 1, 0, 0, 0))
+        end_of_year = make_aware(datetime(year, 12, 31, 23, 59, 59))
+
+        # Filtrer les enregistrements de base
+        queryset = cls.objects.filter(
+            Q(release_date__isnull=True) | Q(release_date__gt=start_of_year),  # Toujours actifs ou sortis après le début de l'année
+            entry_date__lte=end_of_year  # Entrés avant ou pendant l'année
+        )
+
+        # Filtrer par société si fourni
+        if company:
+            queryset = queryset.filter(beneficiary__company=company)
+
+        # Filtrer par établissements si fourni
+        if establishments:
+            queryset = queryset.filter(establishments__in=establishments)
+
+        # Initialiser le dictionnaire pour les données mensuelles
+        monthly_data = defaultdict(lambda: {month: {
+            "presences": [],
+        } for month in range(1, 13)})
+
+        # Calculer les présences par mois
+        for month in range(1, 13):
+            start_of_month = make_aware(datetime(year, month, 1, 0, 0, 0))
+            if month == 12:
+                end_of_month = make_aware(datetime(year + 1, 1, 1, 0, 0, 0)) - timedelta(seconds=1)
+            else:
+                end_of_month = make_aware(datetime(year, month + 1, 1, 0, 0, 0)) - timedelta(seconds=1)
+
+            # Ajouter les présences pour le mois
+            presences = queryset.filter(
+                Q(release_date__isnull=True) | Q(release_date__gte=start_of_month),  # Pas encore sorti ou sortie après le début du mois
+                entry_date__lte=end_of_month,  # Entré avant ou pendant le mois
+            )
+
+            # Grouper les admissions par établissement
+            for presence in presences:
+                for establishment in presence.establishments.all():
+                    monthly_data[establishment.id][month]["presences"].append(presence)
+            # On ajoute des entrées pour les mois manquants pour chaque établissement
+        establishments_ids = establishments or queryset.values_list('establishments', flat=True).distinct()
+        for establishment in establishments_ids:
+            if establishment.id not in monthly_data:
+                monthly_data[establishment.id] = {month: {"presences": []} for month in range(1, 13)}
+
+        return {est_id: dict(months) for est_id, months in monthly_data.items()}
+
     def __str__(self):
         return str(self.id)
 
@@ -703,7 +764,7 @@ class BeneficiaryAdmission(models.Model):
     def monthly_statistics(cls, year, establishments=None, company=None):
         year = int(year)
         queryset = cls.objects.filter(
-            beneficiary__company=company,
+            company=company,
             is_deleted=False,
             created_at__year=year
         )
@@ -769,6 +830,70 @@ class BeneficiaryAdmission(models.Model):
 
         # Retourner les statistiques structurées par établissement
         return dict(stats)
+
+    @classmethod
+    def monthly_admissions(cls, year, establishments=None, company=None):
+        """
+        Retourne un dictionnaire contenant les admissions par mois et par établissement pour une année donnée.
+
+        :param year: Année pour laquelle récupérer les données
+        :param establishments: Liste d'établissements (optionnel)
+        :param company: Société (optionnel)
+        :return: Dictionnaire {mois: {établissement_id: {"admissions": []}}}
+        """
+        year = int(year)
+
+        # Début et fin de l'année
+        start_of_year = make_aware(datetime(year, 1, 1, 0, 0, 0))
+        end_of_year = make_aware(datetime(year, 12, 31, 23, 59, 59))
+
+        # Filtrer les enregistrements de base
+        queryset = cls.objects.filter(
+            is_deleted=False,  # Exclure les admissions supprimées
+            is_active=True,    # Inclure uniquement les admissions actives
+            created_at__gte=start_of_year,
+            created_at__lte=end_of_year
+        )
+
+        # Filtrer par société si fourni
+        if company:
+            queryset = queryset.filter(company=company)
+
+        # Filtrer par établissements si fourni
+        if establishments:
+            queryset = queryset.filter(establishments__in=establishments)
+
+        # Initialiser le dictionnaire pour les données mensuelles par établissement
+        monthly_data = defaultdict(lambda: {month: {
+            "admissions": [],
+        } for month in range(1, 13)})
+
+        # Calculer les admissions par mois et par établissement
+        for month in range(1, 13):
+            start_of_month = make_aware(datetime(year, month, 1, 0, 0, 0))
+            if month == 12:
+                end_of_month = make_aware(datetime(year + 1, 1, 1, 0, 0, 0)) - timedelta(seconds=1)
+            else:
+                end_of_month = make_aware(datetime(year, month + 1, 1, 0, 0, 0)) - timedelta(seconds=1)
+
+            # Ajouter les admissions pour le mois
+            admissions = queryset.filter(
+                created_at__gte=start_of_month,
+                created_at__lte=end_of_month
+            )
+
+            # Grouper les admissions par établissement
+            for admission in admissions:
+                for establishment in admission.establishments.all():
+                    monthly_data[establishment.id][month]["admissions"].append(admission)
+            # On ajoute des entrées pour les mois manquants pour chaque établissement
+        establishments_ids = establishments or queryset.values_list('establishments', flat=True).distinct()
+        for establishment in establishments_ids:
+            if establishment.id not in monthly_data:
+                monthly_data[establishment.id] = {month: {"admissions": []} for month in range(1, 13)}
+
+        return {est_id: dict(months) for est_id, months in monthly_data.items()}
+
 
     def __str__(self):
         return str(self.id)

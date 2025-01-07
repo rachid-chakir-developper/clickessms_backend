@@ -4,7 +4,7 @@ import random
 
 # Create your models here.
 
-
+    
 class CompanyMedia(models.Model):
     sce_shop_url = models.URLField(max_length=255, null=True)
     blog_url = models.URLField(max_length=255, null=True)

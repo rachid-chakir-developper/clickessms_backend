@@ -278,7 +278,7 @@ class UpdateFile(graphene.Mutation):
 
 	file = graphene.Field(FileType)
 
-	def mutate(root, info, id, file_upload, file_data=None):
+	def mutate(root, info, id, file_upload=None, file_data=None):
 		File.objects.filter(pk=id).update(**file_data)
 		file = File.objects.get(pk=id)
 		if info.context.FILES:
