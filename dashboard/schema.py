@@ -113,6 +113,8 @@ class ActivitySynthesisMonthType(graphene.ObjectType):
     count_approved = graphene.Int()
     count_rejected = graphene.Int()
     count_canceled = graphene.Int()
+    count_occupied_places = graphene.Int()
+    count_available_places = graphene.Int()
     beneficiary_admissions = graphene.List(BeneficiaryAdmissionType)
     beneficiary_entries = graphene.List(BeneficiaryEntryType)
 
@@ -442,6 +444,9 @@ class DashboardActivityType(graphene.ObjectType):
             # Initialiser les activity_tracking_month par mois
             activity_synthesis_month = []
             for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
+                capacity = establishment.get_monthly_capacity(year, i+1)
+                beneficiary_entries = get_item_object(beneficiary_entry_monthly_present_beneficiaries, establishment.id, i+1, 'presences')
+                count_occupied_places= len(beneficiary_entries)
                 item = ActivitySynthesisMonthType(
                     month=month,
                     year=year,
@@ -450,7 +455,9 @@ class DashboardActivityType(graphene.ObjectType):
                     count_rejected=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_rejected'),
                     count_canceled=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled'),
                     beneficiary_admissions=get_item_object(beneficiary_admission_monthly_admissions, establishment.id, i+1, 'admissions'),
-                    beneficiary_entries=get_item_object(beneficiary_entry_monthly_present_beneficiaries, establishment.id, i+1, 'presences'),
+                    beneficiary_entries=beneficiary_entries,
+                    count_occupied_places = count_occupied_places,
+                    count_available_places = capacity-count_occupied_places,
                 )  # 'day' utilisé pour le nom du mois
                 activity_synthesis_month.append(item)
                 month_total = month_totals[i]
