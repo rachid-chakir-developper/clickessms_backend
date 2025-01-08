@@ -1,5 +1,6 @@
 from data_management.models import CustomFieldValue
 from django.db import DatabaseError
+import re
 
 class CustomFieldEntityBase:
 	@classmethod
@@ -46,7 +47,10 @@ class CustomFieldEntityBase:
 				# Gérer d'autres exceptions générales
 				print(f"Une erreur s'est produite : {e}")
 				raise
-
+	@classmethod
+	def camel_to_snake(cls, name):
+		snake = re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+		return snake
 	@classmethod
 	def set_custom_fields(cls, form_model, instance, custom_field_values):
 		"""
@@ -62,7 +66,7 @@ class CustomFieldEntityBase:
 
 		try:
 			# Identifier dynamiquement le champ lié dans CustomFieldValue
-			relation_field = form_model.lower()
+			relation_field = cls.camel_to_snake(form_model)
 
 			# Vérifier si le champ relationnel existe sur CustomFieldValue
 			if not hasattr(CustomFieldValue, relation_field):

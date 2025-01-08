@@ -72,6 +72,7 @@ class EmployeeContractFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     employees = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class EmployeeType(DjangoObjectType):
     class Meta:
@@ -282,7 +283,6 @@ class EmployeeContractInput(graphene.InputObjectType):
     establishments = graphene.List(graphene.Int, required=False)
     contract_type = graphene.String(required=False)
     employee_id = graphene.Int(name="employee", required=False)
-    custom_field_values = graphene.List(CustomFieldValueInput, required=False)
     replaced_employees = graphene.List(EmployeeContractReplacedEmployeeInput, required=False)
 
 class BeneficiaryAdmissionDocumentInput(graphene.InputObjectType):
@@ -477,11 +477,13 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 employee_contracts = employee_contracts.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
             else:
                 employee_contracts = employee_contracts.filter(creator=user)
+        the_order_by = '-created_at'
         if employee_contract_filter:
             keyword = employee_contract_filter.get('keyword', '')
             starting_date_time = employee_contract_filter.get('starting_date_time')
             ending_date_time = employee_contract_filter.get('ending_date_time')
             employees = employee_contract_filter.get('employees')
+            order_by = employee_contract_filter.get('order_by')
             if employees:
                 employee_contracts = employee_contracts.filter(employee__id__in=employees)
             if keyword:
@@ -490,7 +492,9 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 employee_contracts = employee_contracts.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 employee_contracts = employee_contracts.filter(created_at__lte=ending_date_time)
-        employee_contracts = employee_contracts.order_by('-created_at').distinct()
+            if order_by:
+                the_order_by = order_by
+        employee_contracts = employee_contracts.order_by(the_order_by).distinct()
         total_count = employee_contracts.count()
         if page:
             offset = limit * (page - 1)
@@ -819,7 +823,6 @@ class CreateEmployeeContract(graphene.Mutation):
         mission_ids = employee_contract_data.pop("missions")
         establishment_ids = employee_contract_data.pop("establishments")
         replaced_employees = employee_contract_data.pop("replaced_employees")
-        custom_field_values = employee_contract_data.pop("custom_field_values")
         employee_contract = EmployeeContract(**employee_contract_data)
         employee_contract.creator = creator
         if info.context.FILES:
@@ -865,7 +868,6 @@ class CreateEmployeeContract(graphene.Mutation):
 
 
         employee_contract.save()
-        CustomFieldEntityBase.save_custom_fields(employee_contract, custom_field_values)
         return CreateEmployeeContract(employee_contract=employee_contract)
 
 class UpdateEmployeeContract(graphene.Mutation):
@@ -881,7 +883,6 @@ class UpdateEmployeeContract(graphene.Mutation):
         mission_ids = employee_contract_data.pop("missions")
         establishment_ids = employee_contract_data.pop("establishments")
         replaced_employees = employee_contract_data.pop("replaced_employees")
-        custom_field_values = employee_contract_data.pop("custom_field_values")
         EmployeeContract.objects.filter(pk=id).update(**employee_contract_data)
         employee_contract = EmployeeContract.objects.get(pk=id)
         if not employee_contract.folder or employee_contract.folder is None:
@@ -934,8 +935,6 @@ class UpdateEmployeeContract(graphene.Mutation):
                 replaced_employee = EmployeeContractReplacedEmployee(**item)
                 replaced_employee.employee_contract = employee_contract
                 replaced_employee.save()
-
-        CustomFieldEntityBase.save_custom_fields(employee_contract, custom_field_values)
         return UpdateEmployeeContract(employee_contract=employee_contract)
 
 class DeleteEmployeeContract(graphene.Mutation):
