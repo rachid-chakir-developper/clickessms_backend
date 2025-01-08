@@ -113,6 +113,7 @@ class ActivitySynthesisMonthType(graphene.ObjectType):
     count_approved = graphene.Int()
     count_rejected = graphene.Int()
     count_canceled = graphene.Int()
+    capacity = graphene.Int()
     count_occupied_places = graphene.Int()
     count_available_places = graphene.Int()
     beneficiary_admissions = graphene.List(BeneficiaryAdmissionType)
@@ -126,6 +127,7 @@ class ActivityTotalSynthesisMonthType(graphene.ObjectType):
     total_approved = graphene.Int()
     total_rejected = graphene.Int()
     total_canceled = graphene.Int()
+    total_available_places = graphene.Int()
 
 class ActivitySynthesisEstablishmentType(graphene.ObjectType):
     title = graphene.String()
@@ -456,6 +458,7 @@ class DashboardActivityType(graphene.ObjectType):
                     count_canceled=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled'),
                     beneficiary_admissions=get_item_object(beneficiary_admission_monthly_admissions, establishment.id, i+1, 'admissions'),
                     beneficiary_entries=beneficiary_entries,
+                    capacity=capacity,
                     count_occupied_places = count_occupied_places,
                     count_available_places = capacity-count_occupied_places,
                 )  # 'day' utilisé pour le nom du mois
@@ -468,6 +471,7 @@ class DashboardActivityType(graphene.ObjectType):
             total_approved = sum(item.count_approved for item in activity_synthesis_month)
             total_rejected = sum(item.count_rejected for item in activity_synthesis_month)
             total_canceled = sum(item.count_canceled for item in activity_synthesis_month)
+            total_available_places = sum(item.count_available_places for item in activity_synthesis_month)
 
             activity_total_synthesis_month = ActivityTotalSynthesisMonthType(
                 year=year,
@@ -475,6 +479,7 @@ class DashboardActivityType(graphene.ObjectType):
                 total_approved=round(total_approved, 2),
                 total_rejected=round(total_rejected, 2),
                 total_canceled=round(total_canceled, 2),
+                total_available_places=round(total_available_places, 2),
             )
             activity_synthesis_establishments.append(
                 ActivitySynthesisEstablishmentType(
