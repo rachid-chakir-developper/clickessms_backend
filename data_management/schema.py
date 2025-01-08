@@ -264,15 +264,15 @@ class DataQuery(graphene.ObjectType):
         accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True), replaced_accounting_nature__isnull=True, is_deleted=False)
         if id_parent:
             accounting_natures = accounting_natures.filter(parent_id=id_parent)
-        else:
-            accounting_natures = accounting_natures.filter(parent__isnull=True)
+        # else:
+        #     accounting_natures = accounting_natures.filter(parent__isnull=True)
         if accounting_nature_filter:
             keyword = accounting_nature_filter.get('keyword', '')
             list_type = accounting_nature_filter.get('list_type', None)
             if list_type and list_type=='ALL':
                 accounting_natures = AccountingNature.objects.filter(Q(company=company) | Q(creator__is_superuser=True), replaced_accounting_nature__isnull=True)
             if keyword:
-                accounting_natures = accounting_natures.filter(Q(code__icontains=keyword) | Q(name__icontains=keyword) | Q(description__icontains=keyword))
+                accounting_natures = accounting_natures.filter(Q(code=keyword) | Q(name__icontains=keyword) | Q(description__icontains=keyword))
         accounting_natures = accounting_natures.order_by('code').distinct()
         total_count = accounting_natures.count()
         if page:
