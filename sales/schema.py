@@ -5,9 +5,12 @@ from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
+from datetime import datetime, timedelta
 
-from sales.models import Client
+from sales.models import Client, Invoice, InvoiceItem
 from medias.models import Folder, File
+from partnerships.models import Financier
+from companies.models import Establishment
 
 class ClientType(DjangoObjectType):
     class Meta:
@@ -55,10 +58,114 @@ class ClientInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
-    
+
+
+
+class InvoiceItemType(DjangoObjectType):
+    class Meta:
+        model = InvoiceItem
+        fields = "__all__"
+
+class InvoiceType(DjangoObjectType):
+    class Meta:
+        model = Invoice
+        fields = "__all__"
+
+class InvoiceNodeType(graphene.ObjectType):
+    nodes = graphene.List(InvoiceType)
+    total_count = graphene.Int()
+
+class InvoiceFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    financiers = graphene.List(graphene.Int, required=False)
+    statuses = graphene.List(graphene.String, required=False)
+
+class InvoiceItemInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    label = graphene.String(required=False)
+    establishment_name = graphene.String(required=False)
+    gender = graphene.Int(name="gender", required=False)
+    preferred_name = graphene.String(required=False)
+    first_name = graphene.String(required=False)
+    last_name = graphene.String(required=False)
+    birth_date = graphene.DateTime(required=False)
+    entry_date = graphene.DateTime(required=False)
+    release_date = graphene.DateTime(required=False)
+    description = graphene.String(required=False)
+    unit_price = graphene.Decimal(required=False)
+    quantity = graphene.Float(required=False)
+    tva = graphene.Decimal(required=False)
+    discount = graphene.Decimal(required=False)
+    amount_ht = graphene.Decimal(required=False)
+    amount_ttc = graphene.Decimal(required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
+
+class InvoiceInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    invoice_type = graphene.String(required=False)
+    title = graphene.String(required=False)
+    description = graphene.String(required=False)
+    #********client*****************************************************
+    client_number = graphene.String(required=False)
+    client_tva_number = graphene.String(required=False)
+    client_address = graphene.String(required=False)
+    client_name = graphene.String(required=False)
+    client_city = graphene.String(required=False)
+    client_country = graphene.String(required=False)
+    client_zip_code = graphene.String(required=False)
+    client_mobile = graphene.String(required=False)
+    client_fix = graphene.String(required=False)
+    client_email = graphene.String(required=False)
+    #*************************************************************
+    #********establishment*****************************************************
+    establishment_number = graphene.String(required=False)
+    establishment_tva_number = graphene.String(required=False)
+    establishment_address = graphene.String(required=False)
+    establishment_name = graphene.String(required=False)
+    establishment_city = graphene.String(required=False)
+    establishment_country = graphene.String(required=False)
+    establishment_zip_code = graphene.String(required=False)
+    establishment_mobile = graphene.String(required=False)
+    establishment_fix = graphene.String(required=False)
+    establishment_email = graphene.String(required=False)
+    #*************************************************************
+    emission_date = graphene.DateTime(required=False)
+    due_date = graphene.DateTime(required=False)
+    validity_end_date = graphene.DateTime(required=False)
+    payment_date = graphene.DateTime(required=False)
+    comment = graphene.String(required=False)
+    total_ht = graphene.Decimal(required=False)
+    tva = graphene.Decimal(required=False)
+    discount = graphene.Decimal(required=False)
+    total_ttc = graphene.Decimal(required=False)
+    payment_method = graphene.String(required=False)
+    status = graphene.String(required=False)
+    financier_id = graphene.Int(name="financier", required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
+    invoice_items = graphene.List(InvoiceItemInput, required=False)
+
+class GenerateInvoiceInput(graphene.InputObjectType):
+    year = graphene.String(required=True)
+    month = graphene.String(required=True)
+    financier = graphene.Int(required=True)
+    establishments = graphene.List(graphene.Int, required=True)
+
 class SalesQuery(graphene.ObjectType):
     clients = graphene.Field(ClientNodeType, client_filter= ClientFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     client = graphene.Field(ClientType, id = graphene.ID())
+    invoices = graphene.Field(
+        InvoiceNodeType,
+        invoice_filter=InvoiceFilterInput(required=False),
+        offset=graphene.Int(required=False),
+        limit=graphene.Int(required=False),
+        page=graphene.Int(required=False),
+    )
+    invoice = graphene.Field(InvoiceType, id=graphene.ID())
+
     def resolve_clients(root, info, client_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -90,6 +197,55 @@ class SalesQuery(graphene.ObjectType):
         except Client.DoesNotExist:
             client = None
         return client
+
+    def resolve_invoices(
+        root, info, invoice_filter=None, offset=None, limit=None, page=None
+    ):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        invoices = Invoice.objects.filter(company=company)
+        if invoice_filter:
+            keyword = invoice_filter.get("keyword", "")
+            starting_date_time = invoice_filter.get("starting_date_time")
+            ending_date_time = invoice_filter.get("ending_date_time")
+            financiers = invoice_filter.get("financiers")
+            statuses = invoice_filter.get("statuses")
+            if keyword:
+                invoices = invoices.filter(
+                    Q(title__icontains=keyword)
+                    | Q(establishment__name__icontains=keyword)
+                )
+            if starting_date_time:
+                invoices = invoices.filter(
+                    emission_date__date__gte=starting_date_time.date()
+                )
+            if ending_date_time:
+                invoices = invoices.filter(
+                    emission_date__date__lte=ending_date_time.date()
+                )
+            if financiers:
+                invoices = invoices.filter(financier__id__in=financiers)
+            if statuses:
+                invoices = invoices.filter(status__in=statuses)
+        invoices = invoices.order_by("-created_at").distinct()
+        total_count = invoices.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            invoices = invoices[offset : offset + limit]
+        return InvoiceNodeType(
+            nodes=invoices, total_count=total_count
+        )
+
+    def resolve_invoice(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            invoice = Invoice.objects.get(pk=id)
+        except Invoice.DoesNotExist:
+            invoice = None
+        return invoice
 
 class CreateClient(graphene.Mutation):
     class Arguments:
@@ -227,8 +383,294 @@ class DeleteClient(graphene.Mutation):
 
 #*************************************************************************#
 
+# ************************************************************************
+
+
+class CreateInvoice(graphene.Mutation):
+    class Arguments:
+        invoice_data = InvoiceInput(required=True)
+
+    invoice = graphene.Field(InvoiceType)
+
+    def mutate(root, info, invoice_data=None):
+        creator = info.context.user
+        invoice_items = invoice_data.pop("invoice_items")
+        invoice_payment_dues = invoice_data.pop("invoice_payment_dues")
+        invoice = Invoice(**invoice_data)
+        invoice.creator = creator
+        invoice.company = creator.the_current_company
+        invoice.save()
+        for item in invoice_items:
+            invoice_item = InvoiceItem(**item)
+            invoice_item.invoice = invoice
+            invoice_item.creator = creator
+            invoice_item.save()
+        for invoice_payment_due in invoice_payment_dues:
+            invoice_payment_due = InvoicePaymentDue(**invoice_payment_due)
+            invoice_payment_due.invoice = invoice
+            invoice_payment_due.creator = creator
+            invoice_payment_due.save()
+        return CreateInvoice(invoice=invoice)
+
+
+class UpdateInvoice(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        invoice_data = InvoiceInput(required=True)
+    invoice = graphene.Field(InvoiceType)
+
+    def mutate(root, info, id, invoice_data=None):
+        creator = info.context.user
+        invoice_items = invoice_data.pop("invoice_items")
+        invoice_payment_dues = invoice_data.pop("invoice_payment_dues")
+        Invoice.objects.filter(pk=id).update(**invoice_data)
+        invoice = Invoice.objects.get(pk=id)
+        invoice_item_ids = [
+            item.id for item in invoice_items if item.id is not None
+        ]
+        InvoiceItem.objects.filter(
+            invoice=invoice
+        ).exclude(id__in=invoice_item_ids).delete()
+        for item in invoice_items:
+            if id in item or "id" in item:
+                InvoiceItem.objects.filter(pk=item.id).update(**item)
+            else:
+                invoice_item = InvoiceItem(**item)
+                invoice_item.invoice = invoice
+                invoice_item.creator = creator
+                invoice_item.save()
+        invoice_payment_due_ids = [
+            invoice_payment_due.id for invoice_payment_due in invoice_payment_dues if invoice_payment_due.id is not None
+        ]
+        InvoicePaymentDue.objects.filter(
+            invoice=invoice
+        ).exclude(id__in=invoice_payment_due_ids).delete()
+        for invoice_payment_due in invoice_payment_dues:
+            if id in invoice_payment_due or "id" in invoice_payment_due:
+                InvoicePaymentDue.objects.filter(pk=invoice_payment_due.id).update(**invoice_payment_due)
+            else:
+                invoice_payment_due = InvoicePaymentDue(**invoice_payment_due)
+                invoice_payment_due.invoice = invoice
+                invoice_payment_due.creator = creator
+                invoice_payment_due.save()
+        return UpdateInvoice(invoice=invoice)
+
+
+class UpdateInvoiceFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        invoice_data = InvoiceInput(required=True)
+
+    invoice = graphene.Field(InvoiceType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, invoice_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        invoice = None
+        message = ''
+        try:
+            invoice = Invoice.objects.get(pk=id)
+            for field, value in invoice_data.items():
+                setattr(invoice, field, value)
+            invoice.save()
+            invoice.refresh_from_db()
+            if 'status' in invoice_data:
+                pass
+        except Exception as e:
+            done = False
+            success = False
+            invoice=None
+            message = f"Une erreur s'est produite"
+        return UpdateInvoiceFields(done=done, success=success, message=message, invoice=invoice)
+
+
+class GenerateInvoice(graphene.Mutation):
+    class Arguments:
+        generate_invoice_data = GenerateInvoiceInput(required=True)
+
+    invoice = graphene.Field(InvoiceType)
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(self, info, generate_invoice_data=None):
+        creator = info.context.user
+        year, month, financier_id, establishment_ids = map(
+            lambda field: getattr(generate_invoice_data, field),
+            ["year", "month", "financier", "establishments"],
+        )
+        invoice = None
+        invoices = []
+        try:
+            try:
+                establishments = Establishment.objects.filter(id__in=establishment_ids)
+                if not establishments:
+                    return GenerateInvoice(invoice=invoice, success=False, message="Structures non trouvées.")
+                establishment=establishments.first()
+                financier = Financier.objects.get(pk=financier_id)
+            except Financier.DoesNotExist:
+                return GenerateInvoice(invoice=invoice, success=False, message="Financeur non trouvé.")
+            try:
+                action_message = "mise à jour"
+                invoice = Invoice.objects.get(establishment=establishment, financier=financier, year=year, month=month)
+            except Invoice.DoesNotExist:
+                action_message = "créée"
+                invoice = Invoice(creator=creator,
+                        company=creator.the_current_company,
+                        establishment=establishment, financier=financier,
+                        year=year,
+                        month=month
+                    )
+
+            # Populate or update invoice fields from quote
+            due_date = datetime.now() + timedelta(days=30)
+            if due_date.weekday() == 5:
+                due_date += timedelta(days=2)
+            elif due_date.weekday() == 6:
+                due_date += timedelta(days=1)
+            capacity = establishment.get_monthly_capacity(year, month)
+            unit_price = establishment.get_monthly_unit_price(year, month)
+            # Construction de establishment_infos avec des retours à la ligne
+            establishment_infos = "\n".join(filter(None, [
+                establishment.address,  # Adresse principale
+                establishment.additional_address,  # Complément d'adresse (si présent)
+                f"{establishment.zip_code} {establishment.city}",  # Code postal + ville
+                establishment.country,  # Pays
+                {establishment.fix} if establishment.fix else None,  # Téléphone fixe
+                {establishment.mobile} if establishment.mobile else None,  # Mobile
+                {establishment.email} if establishment.email else None,  # Email
+            ]))
+            client_infos = "\n".join(filter(None, [
+                financier.address,  # Adresse principale
+                establishment.additional_address,  # Complément d'adresse (si présent)
+                f"{financier.zip_code} {financier.city}",  # Code postal + ville
+                financier.country,  # Pays
+                {financier.fix} if financier.fix else None,  # Téléphone fixe
+                {financier.mobile} if financier.mobile else None,  # Mobile
+                {financier.email} if financier.email else None,  # Email
+            ]))
+            invoice_fields = {
+                'title': f"Facture du {int(month):02d}/{year}  pour {establishment.name}",
+                'description': f"Facture du {int(month):02d}/{year}  pour {establishment.name}",
+                'client_number': financier.number,
+                'client_name': financier.name,
+                'client_tva_number': '',
+                'client_infos': client_infos,
+                'client_address': financier.address,
+                'client_city': financier.city,
+                'client_country': financier.country,
+                'client_zip_code': financier.zip_code,
+                'client_mobile': financier.mobile,
+                'client_fix': financier.fix,
+                'client_email': financier.email,
+                'establishment_number': establishment.number,
+                'establishment_name': establishment.name,
+                'establishment_capacity': capacity,
+                'establishment_unit_price': unit_price,
+                'establishment_tva_number': '',
+                'establishment_infos': establishment_infos,
+                'establishment_address': establishment.address,
+                'establishment_city': establishment.city,
+                'establishment_country': establishment.country,
+                'establishment_zip_code': establishment.zip_code,
+                'establishment_mobile': establishment.mobile,
+                'establishment_fix': establishment.fix,
+                'establishment_email': establishment.email,
+
+                'emission_date': datetime.now(),
+                'due_date': due_date,
+            }
+
+            for field, value in invoice_fields.items():
+                setattr(invoice, field, value)
+
+            # Save the invoice to update changes
+            invoice.save()
+            managers = []
+            signatures = []
+            invoice.managers.set(managers)
+            invoice.signatures.set(signatures)
+
+            present_beneficiaries = establishment.get_present_beneficiaries(year, month)
+            # Créer les éléments de facture à partir des bénéficiaires présents
+            invoice_items = [
+                InvoiceItem(
+                    invoice=invoice,
+                    label=f"Bénéficiaire : {item['beneficiary_entry'].beneficiary.preferred_name}",
+                    establishment_name=establishment.name,
+                    preferred_name=item['beneficiary_entry'].beneficiary.preferred_name,
+                    first_name=item['beneficiary_entry'].beneficiary.first_name,
+                    last_name=item['beneficiary_entry'].beneficiary.last_name,
+                    birth_date=item['beneficiary_entry'].beneficiary.birth_date,
+                    entry_date=item['beneficiary_entry'].entry_date,
+                    release_date=item['beneficiary_entry'].release_date,
+                    description=f"{item['days_in_month']} jour(s) dans le mois {month}/{year}",
+                    measurement_unit=establishment.measurement_activity_unit,
+                    unit_price=unit_price,
+                    quantity=item['days_in_month'],  # Utiliser le nombre de jours comme quantité
+                    # amount_ht=None,  # Calcul automatique si nécessaire
+                    # amount_ttc=None,  # Calcul automatique si nécessaire
+                    beneficiary=item['beneficiary_entry'].beneficiary,
+                    establishment=establishment,
+                    creator=creator
+                )
+                for item in present_beneficiaries
+            ]
+            # Bulk create invoice items
+            InvoiceItem.objects.bulk_create(invoice_items)
+
+            # Update invoice totals after adding all items
+            invoice.update_totals()
+            invoices.append(invoice)
+            return GenerateInvoice(invoice=invoice, success=True, message=f"Facture {action_message} avec succée.")
+
+        except Exception as e:
+            return GenerateInvoice(invoice=None, success=False, message=f"Une erreur s'est produite : {str(e)}")
+
+
+class DeleteInvoice(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    invoice = graphene.Field(InvoiceType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            invoice = Invoice.objects.get(pk=id)
+            if invoice.status == 'DRAFT':
+                invoice.delete()
+                deleted = True
+                success = True
+            else:
+                message = "La facture ne pas être supprimée."
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteInvoice(
+            deleted=deleted, success=success, message=message, id=id
+        )
+
+#******************************************************************************************************************
+#************************************************************************
 class SalesMutation(graphene.ObjectType):
     create_client = CreateClient.Field()
     update_client = UpdateClient.Field()
     update_client_state = UpdateClientState.Field()
     delete_client = DeleteClient.Field()
+
+    generate_invoice = GenerateInvoice.Field()
+
+    create_invoice = CreateInvoice.Field()
+    update_invoice = UpdateInvoice.Field()
+    update_invoice_fields = UpdateInvoiceFields.Field()
+    delete_invoice = DeleteInvoice.Field()

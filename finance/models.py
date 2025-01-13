@@ -78,7 +78,7 @@ class DecisionDocumentItem(models.Model):
     establishment = models.ForeignKey(
         "companies.Establishment",
         on_delete=models.SET_NULL,
-        related_name="establishment_decision_document_items",
+        related_name="decision_document_items",
         null=True,
     )
     starting_date_time = models.DateTimeField(null=True)

@@ -1,6 +1,8 @@
 from django.db import models
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
+from decimal import Decimal, ROUND_DOWN
+from django.db.models import Q
 
 # Create your models here.
 
@@ -210,6 +212,67 @@ class Establishment(models.Model):
 
         # Retourner la capacité de la dernière autorisation
         return last_activity.capacity if last_activity else 0
+
+    def get_monthly_unit_price(self, year, month):
+        """
+        Retourne la dernière capacité saisie pour un mois donné.
+
+        :param year: Année pour laquelle la capacité est calculée.
+        :param month: Mois pour lequel la capacité est calculée (1-12).
+        :return: Dernière capacité saisie (float) ou None si aucune.
+        """
+        year=int(year)
+        month=int(month)
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+
+        # Filtrer les ActivityAuthorization pour cet établissement dans le mois donné
+        last_decision_document_item = self.decision_document_items.filter(
+            starting_date_time__lt=end_date,
+            ending_date_time__gte=start_date,
+        ).order_by('-starting_date_time').first()
+
+        # Retourner la capacité de la dernière autorisation
+        return last_decision_document_item.price if last_decision_document_item and last_decision_document_item.price else Decimal(0)
+
+    def get_present_beneficiaries(self, year, month):
+        """
+        Retourne une liste des `BeneficiaryEntry` toujours présents pour cet établissement
+        dans un mois donné, avec le nombre de jours passés dans le mois.
+        """
+        year = int(year)
+        month = int(month)
+
+        # Début et fin du mois spécifié
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+
+        # Utilisation de la relation inversée pour filtrer les bénéficiaires liés à cet établissement
+        queryset = self.establishments_beneficiary_entries.filter(
+            Q(entry_date__lt=end_date),  # Entré avant ou pendant le mois
+            Q(release_date__isnull=True) | Q(release_date__gte=start_date)  # Pas encore sorti ou sortie après le début du mois
+        )
+
+        beneficiaries = []
+        for entry in queryset:
+            # Calcul des jours passés dans le mois
+            actual_start_date = max(entry.entry_date, start_date)
+            actual_end_date = min(entry.release_date or end_date, end_date)
+            days_in_month = (actual_end_date - actual_start_date).days + 1
+
+            beneficiaries.append({
+                'beneficiary_entry': entry,
+                'days_in_month': days_in_month,
+            })
+
+        return beneficiaries
+
 
     def __str__(self):
         return self.name
