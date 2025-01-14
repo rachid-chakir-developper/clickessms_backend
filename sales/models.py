@@ -233,7 +233,7 @@ class Invoice(models.Model):
 			signature = Signature.objects.create(
 				author=employee,
 				author_name=f"{employee.first_name} {employee.preferred_name or ''} {employee.last_name}".strip(),
-				author_position=employee.current_contract.position if employee.current_contract else employe.position,
+				author_position=employee.current_contract.position if employee.current_contract else employee.position,
 				author_number=employee.number,
 				author_email=employee.email,
 				image=employee.signature,
