@@ -595,9 +595,13 @@ class GenerateInvoice(graphene.Mutation):
 
             # Save the invoice to update changes
             invoice.save()
-            managers = [manager.employee for manager in establishment.managers.all() if manager.employee]
-            invoice.managers.set(managers)
-            invoice.set_signatures(employees=managers, creator=creator)
+            managers = []
+            for manager in establishment.managers.all():
+                if manager.employee:
+                    managers.append(manager.employee)
+            if managers:
+                invoice.managers.set(managers)
+                invoice.set_signatures(employees=managers, creator=creator)
 
             present_beneficiaries = establishment.get_present_beneficiaries(year, month)
             # Créer les éléments de facture à partir des bénéficiaires présents
