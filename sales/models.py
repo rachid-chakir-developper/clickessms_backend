@@ -116,6 +116,9 @@ class Invoice(models.Model):
 	client_mobile = models.CharField(max_length=255, null=True)
 	client_fix = models.CharField(max_length=255, null=True)
 	client_email = models.EmailField(max_length=254, null=True)
+	client_iban = models.CharField(max_length=255, null=True)
+	client_bic = models.CharField(max_length=255, null=True)
+	client_bank_name = models.CharField(max_length=255, null=True)
 	#**************************************************************************
 	#********establishment*****************************************************
 	establishment_infos = models.CharField(max_length=255, null=True)
@@ -131,6 +134,9 @@ class Invoice(models.Model):
 	establishment_mobile = models.CharField(max_length=255, null=True)
 	establishment_fix = models.CharField(max_length=255, null=True)
 	establishment_email = models.EmailField(max_length=254, null=True)
+	establishment_iban = models.CharField(max_length=255, null=True)
+	establishment_bic = models.CharField(max_length=255, null=True)
+	establishment_bank_name = models.CharField(max_length=255, null=True)
 	#**************************************************************************
 	year = models.CharField(max_length=255, null=True)
 	month = models.CharField(max_length=255, null=True)
@@ -218,6 +224,7 @@ class InvoiceItem(models.Model):
 	]
 	invoice = models.ForeignKey(Invoice, on_delete=models.SET_NULL, null=True, related_name='invoice_items')
 	label = models.TextField(default='', null=True)
+	establishment_number = models.CharField(max_length=255, null=True)
 	establishment_name = models.CharField(max_length=255, null=True)
 	preferred_name = models.CharField(max_length=255, null=True)
 	first_name = models.CharField(max_length=255, null=True)

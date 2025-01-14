@@ -85,8 +85,8 @@ class InvoiceFilterInput(graphene.InputObjectType):
 class InvoiceItemInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     label = graphene.String(required=False)
+    establishment_number = graphene.String(required=False)
     establishment_name = graphene.String(required=False)
-    gender = graphene.Int(name="gender", required=False)
     preferred_name = graphene.String(required=False)
     first_name = graphene.String(required=False)
     last_name = graphene.String(required=False)
@@ -109,33 +109,44 @@ class InvoiceInput(graphene.InputObjectType):
     invoice_type = graphene.String(required=False)
     title = graphene.String(required=False)
     description = graphene.String(required=False)
+    year = graphene.String(required=False)
+    month = graphene.String(required=False)
     #********client*****************************************************
+    client_infos = graphene.String(required=False)
     client_number = graphene.String(required=False)
-    client_tva_number = graphene.String(required=False)
-    client_address = graphene.String(required=False)
     client_name = graphene.String(required=False)
+    client_tva_number = graphene.String(required=False)
+    establishment_capacity = graphene.Float(required=False)
+    establishment_unit_price = graphene.Decimal(required=False)
+    client_address = graphene.String(required=False)
     client_city = graphene.String(required=False)
     client_country = graphene.String(required=False)
     client_zip_code = graphene.String(required=False)
     client_mobile = graphene.String(required=False)
     client_fix = graphene.String(required=False)
     client_email = graphene.String(required=False)
+    client_iban = graphene.String(required=False)
+    client_bic = graphene.String(required=False)
+    client_bank_name = graphene.String(required=False)
     #*************************************************************
     #********establishment*****************************************************
+    establishment_infos = graphene.String(required=False)
     establishment_number = graphene.String(required=False)
+    establishment_name = graphene.String(required=False)
     establishment_tva_number = graphene.String(required=False)
     establishment_address = graphene.String(required=False)
-    establishment_name = graphene.String(required=False)
     establishment_city = graphene.String(required=False)
     establishment_country = graphene.String(required=False)
     establishment_zip_code = graphene.String(required=False)
     establishment_mobile = graphene.String(required=False)
     establishment_fix = graphene.String(required=False)
     establishment_email = graphene.String(required=False)
+    establishment_iban = graphene.String(required=False)
+    establishment_bic = graphene.String(required=False)
+    establishment_bank_name = graphene.String(required=False)
     #*************************************************************
     emission_date = graphene.DateTime(required=False)
     due_date = graphene.DateTime(required=False)
-    validity_end_date = graphene.DateTime(required=False)
     payment_date = graphene.DateTime(required=False)
     comment = graphene.String(required=False)
     total_ht = graphene.Decimal(required=False)
@@ -395,21 +406,18 @@ class CreateInvoice(graphene.Mutation):
     def mutate(root, info, invoice_data=None):
         creator = info.context.user
         invoice_items = invoice_data.pop("invoice_items")
-        invoice_payment_dues = invoice_data.pop("invoice_payment_dues")
         invoice = Invoice(**invoice_data)
         invoice.creator = creator
         invoice.company = creator.the_current_company
         invoice.save()
+        if not invoice.employee:
+            invoice.employee = creator.get_employee_in_company()
+            invoice.save()
         for item in invoice_items:
             invoice_item = InvoiceItem(**item)
             invoice_item.invoice = invoice
             invoice_item.creator = creator
             invoice_item.save()
-        for invoice_payment_due in invoice_payment_dues:
-            invoice_payment_due = InvoicePaymentDue(**invoice_payment_due)
-            invoice_payment_due.invoice = invoice
-            invoice_payment_due.creator = creator
-            invoice_payment_due.save()
         return CreateInvoice(invoice=invoice)
 
 
@@ -422,9 +430,11 @@ class UpdateInvoice(graphene.Mutation):
     def mutate(root, info, id, invoice_data=None):
         creator = info.context.user
         invoice_items = invoice_data.pop("invoice_items")
-        invoice_payment_dues = invoice_data.pop("invoice_payment_dues")
         Invoice.objects.filter(pk=id).update(**invoice_data)
         invoice = Invoice.objects.get(pk=id)
+        if not invoice.employee:
+            invoice.employee = creator.get_employee_in_company()
+            invoice.save()
         invoice_item_ids = [
             item.id for item in invoice_items if item.id is not None
         ]
@@ -439,20 +449,6 @@ class UpdateInvoice(graphene.Mutation):
                 invoice_item.invoice = invoice
                 invoice_item.creator = creator
                 invoice_item.save()
-        invoice_payment_due_ids = [
-            invoice_payment_due.id for invoice_payment_due in invoice_payment_dues if invoice_payment_due.id is not None
-        ]
-        InvoicePaymentDue.objects.filter(
-            invoice=invoice
-        ).exclude(id__in=invoice_payment_due_ids).delete()
-        for invoice_payment_due in invoice_payment_dues:
-            if id in invoice_payment_due or "id" in invoice_payment_due:
-                InvoicePaymentDue.objects.filter(pk=invoice_payment_due.id).update(**invoice_payment_due)
-            else:
-                invoice_payment_due = InvoicePaymentDue(**invoice_payment_due)
-                invoice_payment_due.invoice = invoice
-                invoice_payment_due.creator = creator
-                invoice_payment_due.save()
         return UpdateInvoice(invoice=invoice)
 
 
@@ -555,6 +551,7 @@ class GenerateInvoice(graphene.Mutation):
             invoice_fields = {
                 'title': f"Facture du {int(month):02d}/{year}  pour {establishment.name}",
                 'description': f"Facture du {int(month):02d}/{year}  pour {establishment.name}",
+
                 'client_number': financier.number,
                 'client_name': financier.name,
                 'client_tva_number': '',
@@ -566,6 +563,10 @@ class GenerateInvoice(graphene.Mutation):
                 'client_mobile': financier.mobile,
                 'client_fix': financier.fix,
                 'client_email': financier.email,
+                'client_iban': financier.iban,
+                'client_bic': financier.bic,
+                'client_bank_name': financier.bank_name,
+
                 'establishment_number': establishment.number,
                 'establishment_name': establishment.name,
                 'establishment_capacity': capacity,
@@ -579,9 +580,13 @@ class GenerateInvoice(graphene.Mutation):
                 'establishment_mobile': establishment.mobile,
                 'establishment_fix': establishment.fix,
                 'establishment_email': establishment.email,
+                'establishment_iban': establishment.iban,
+                'establishment_bic': establishment.bic,
+                'establishment_bank_name': establishment.bank_name,
 
                 'emission_date': datetime.now(),
                 'due_date': due_date,
+                'employee': creator.get_employee_in_company(),
             }
 
             for field, value in invoice_fields.items():
@@ -600,6 +605,7 @@ class GenerateInvoice(graphene.Mutation):
                 InvoiceItem(
                     invoice=invoice,
                     label=f"Bénéficiaire : {item['beneficiary_entry'].beneficiary.preferred_name}",
+                    establishment_number=establishment.number,
                     establishment_name=establishment.name,
                     preferred_name=item['beneficiary_entry'].beneficiary.preferred_name,
                     first_name=item['beneficiary_entry'].beneficiary.first_name,

@@ -1,5 +1,6 @@
 from django.db import models
 from datetime import datetime, timedelta
+from django.utils.timezone import make_aware, is_naive
 import random
 from decimal import Decimal, ROUND_DOWN
 from django.db.models import Q
@@ -247,24 +248,38 @@ class Establishment(models.Model):
         month = int(month)
 
         # Début et fin du mois spécifié
-        start_date = datetime(year, month, 1)
+        month_start = datetime(year, month, 1)
         if month == 12:
-            end_date = datetime(year + 1, 1, 1)
+            month_end = datetime(year + 1, 1, 1)
         else:
-            end_date = datetime(year, month + 1, 1)
+            month_end = datetime(year, month + 1, 1)
+
+        month_start = make_aware(month_start) if is_naive(month_start) else month_start
+        month_end = make_aware(month_end) if is_naive(month_end) else month_end
 
         # Utilisation de la relation inversée pour filtrer les bénéficiaires liés à cet établissement
         queryset = self.establishments_beneficiary_entries.filter(
-            Q(entry_date__lt=end_date),  # Entré avant ou pendant le mois
-            Q(release_date__isnull=True) | Q(release_date__gte=start_date)  # Pas encore sorti ou sortie après le début du mois
+            Q(entry_date__lt=month_end),  # Entré avant ou pendant le mois
+            Q(release_date__isnull=True) | Q(release_date__gte=month_start)  # Pas encore sorti ou sortie après le début du mois
         )
 
         beneficiaries = []
         for entry in queryset:
-            # Calcul des jours passés dans le mois
-            actual_start_date = max(entry.entry_date, start_date)
-            actual_end_date = min(entry.release_date or end_date, end_date)
-            days_in_month = (actual_end_date - actual_start_date).days + 1
+            # Ajuster start_date en fonction de entry_date
+            start_date = entry.entry_date if entry.entry_date >= month_start else month_start
+            
+            # Ajuster end_date en fonction de release_date
+            if entry.release_date is None:
+                end_date = month_end
+            elif entry.release_date > month_end:
+                end_date = month_end
+            else:
+                end_date = entry.release_date
+
+            start_date = make_aware(start_date) if is_naive(start_date) else start_date
+            end_date = make_aware(end_date) if is_naive(end_date) else end_date
+
+            days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days
 
             beneficiaries.append({
                 'beneficiary_entry': entry,
