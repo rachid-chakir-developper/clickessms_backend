@@ -26,6 +26,10 @@ class SignatureType(DjangoObjectType):
         fields = "__all__"
     image = graphene.String()
     satisfaction = graphene.String()
+    def resolve_base64_encoded(self, info, **kwargs):
+        if self.base64_encoded and not self.base64_encoded.startswith("data:image/"):
+            return f"data:image/png;base64,{self.base64_encoded}"
+        return self.base64_encoded
     def resolve_image( instance, info, **kwargs ):
         return instance.image and info.context.build_absolute_uri(instance.image.image.url)
     def resolve_satisfaction( instance, info, **kwargs ):

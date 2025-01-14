@@ -82,6 +82,7 @@ class EmployeeType(DjangoObjectType):
     last_name = graphene.String()
     photo = graphene.String()
     cover_image = graphene.String()
+    signature = graphene.String()
     current_contract = graphene.Field(EmployeeContractType)
     sce_roles = graphene.List(graphene.String)
     def resolve_first_name( instance, info, **kwargs ):
@@ -92,6 +93,8 @@ class EmployeeType(DjangoObjectType):
         return instance.photo and info.context.build_absolute_uri(instance.photo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
+    def resolve_signature( instance, info, **kwargs ):
+        return instance.signature and info.context.build_absolute_uri(instance.signature.image.url)
     def resolve_current_contract( instance, info, **kwargs ):
         return instance.current_contract
     def resolve_sce_roles( instance, info, **kwargs ):
@@ -677,10 +680,11 @@ class CreateEmployee(graphene.Mutation):
         employee_data = EmployeeInput(required=True)
         photo = Upload(required=False)
         cover_image = Upload(required=False)
+        signature = Upload(required=False)
 
     employee = graphene.Field(EmployeeType)
 
-    def mutate(root, info, photo=None, cover_image=None,  employee_data=None):
+    def mutate(root, info, photo=None, cover_image=None, signature=None,  employee_data=None):
         creator = info.context.user
         employee = Employee(**employee_data)
         employee.creator = creator
@@ -704,6 +708,14 @@ class CreateEmployee(graphene.Mutation):
                 cover_image_file.image = cover_image
                 cover_image_file.save()
                 employee.cover_image = cover_image_file
+            if signature and isinstance(signature, UploadedFile):
+                signature_file = employee.signature
+                if not signature_file:
+                    signature_file = File()
+                    signature_file.creator = creator
+                signature_file.image = signature
+                signature_file.save()
+                employee.signature = signature_file
         employee.save()
         folder = Folder.objects.create(name=str(employee.id)+'_'+employee.first_name+'-'+employee.last_name,creator=creator)
         employee.folder = folder
@@ -716,10 +728,11 @@ class UpdateEmployee(graphene.Mutation):
         employee_data = EmployeeInput(required=True)
         photo = Upload(required=False)
         cover_image = Upload(required=False)
+        signature = Upload(required=False)
 
     employee = graphene.Field(EmployeeType)
 
-    def mutate(root, info, id, photo=None, cover_image=None,  employee_data=None):
+    def mutate(root, info, id, photo=None, cover_image=None, signature=None,  employee_data=None):
         creator = info.context.user
         Employee.objects.filter(pk=id).update(**employee_data)
         employee = Employee.objects.get(pk=id)
@@ -732,6 +745,9 @@ class UpdateEmployee(graphene.Mutation):
         if not cover_image and employee.cover_image:
             cover_image_file = employee.cover_image
             cover_image_file.delete()
+        if not signature and employee.signature:
+            signature_file = employee.signature
+            signature_file.delete()
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if photo and isinstance(photo, UploadedFile):
@@ -751,6 +767,14 @@ class UpdateEmployee(graphene.Mutation):
                 cover_image_file.image = cover_image
                 cover_image_file.save()
                 employee.cover_image = cover_image_file
+            if signature and isinstance(signature, UploadedFile):
+                signature_file = employee.signature
+                if not signature_file:
+                    signature_file = File()
+                    signature_file.creator = creator
+                signature_file.image = signature
+                signature_file.save()
+                employee.signature = signature_file
             employee.save()
         employee = Employee.objects.get(pk=id)
         return UpdateEmployee(employee=employee)

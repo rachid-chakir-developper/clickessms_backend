@@ -213,6 +213,38 @@ class Invoice(models.Model):
 		
 		return formatted_number
 
+	def set_signatures(self, employees=[], creator=None):
+		"""
+		Définit les signatures des employés pour cette facture.
+		Pour chaque employé, sa signature est associée à la facture.
+
+		Args:
+			employees (QuerySet): Une liste ou un QuerySet d'objets `Employee`.
+		
+		Raises:
+			ValueError: Si un employé n'a pas de signature associée.
+		"""
+		from feedbacks.models import Signature  # Import du modèle Signature si nécessaire
+
+		# Effacer les signatures actuelles
+		self.signatures.all().delete()
+
+		for employee in employees:
+			signature = Signature.objects.create(
+				author=employee,
+				author_name=f"{employee.first_name} {employee.preferred_name or ''} {employee.last_name}".strip(),
+				author_position=employee.current_contract.position if employee.current_contract else employe.position,
+				author_number=employee.number,
+				author_email=employee.email,
+				image=employee.signature,
+				creator=creator if creator else self.creator  # Le créateur de la facture
+			)
+			# Associer la signature de l'employé à la facture
+			self.signatures.add(signature)
+
+		# Sauvegarder la facture après modification
+		self.save()
+
 	def __str__(self):
 		return self.number
 

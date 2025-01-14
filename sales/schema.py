@@ -511,7 +511,8 @@ class GenerateInvoice(graphene.Mutation):
                 return GenerateInvoice(invoice=invoice, success=False, message="Financeur non trouvé.")
             try:
                 action_message = "mise à jour"
-                invoice = Invoice.objects.get(establishment=establishment, financier=financier, year=year, month=month)
+                invoice = Invoice.objects.get(establishment=establishment, financier=financier, year=year, month=month, status="DRAFT")
+                # return GenerateInvoice(invoice=invoice, success=True, message=f"Facture {action_message} avec succée.")
             except Invoice.DoesNotExist:
                 action_message = "créée"
                 invoice = Invoice(creator=creator,
@@ -594,10 +595,9 @@ class GenerateInvoice(graphene.Mutation):
 
             # Save the invoice to update changes
             invoice.save()
-            managers = []
-            signatures = []
+            managers = [manager.employee for manager in establishment.managers.all() if manager.employee]
             invoice.managers.set(managers)
-            invoice.signatures.set(signatures)
+            invoice.set_signatures(employees=managers, creator=creator)
 
             present_beneficiaries = establishment.get_present_beneficiaries(year, month)
             # Créer les éléments de facture à partir des bénéficiaires présents
