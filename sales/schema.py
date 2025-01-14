@@ -656,8 +656,8 @@ class DeleteInvoice(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        if current_user.is_superuser:
-            invoice = Invoice.objects.get(pk=id)
+        invoice = Invoice.objects.get(pk=id)
+        if (current_user.is_superuser or invoice.creator==current_user) and invoice.status=="DRAFT":
             if invoice.status == 'DRAFT':
                 invoice.delete()
                 deleted = True
