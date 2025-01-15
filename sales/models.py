@@ -106,6 +106,7 @@ class Invoice(models.Model):
 	title = models.TextField(default='', null=True)
 	description = models.TextField(default='', null=True)
 	#********client************************************************************
+	client_logo_base64_encoded = models.TextField(null=True)
 	client_infos = models.CharField(max_length=255, null=True)
 	client_number = models.CharField(max_length=255, null=True)
 	client_name = models.CharField(max_length=255, null=True)
@@ -122,9 +123,13 @@ class Invoice(models.Model):
 	client_bank_name = models.CharField(max_length=255, null=True)
 	#**************************************************************************
 	#********establishment*****************************************************
+	establishment_logo_base64_encoded = models.TextField(null=True)
 	establishment_infos = models.CharField(max_length=255, null=True)
 	establishment_number = models.CharField(max_length=255, null=True)
 	establishment_name = models.CharField(max_length=255, null=True)
+	establishment_siret = models.CharField(max_length=255, null=True)
+	establishment_finess = models.CharField(max_length=255, null=True)
+	establishment_ape_code = models.CharField(max_length=255, null=True)
 	establishment_tva_number = models.CharField(max_length=255, null=True)
 	establishment_capacity = models.FloatField(null=True)
 	establishment_unit_price = models.DecimalField(decimal_places=2, max_digits=11, null=True, default=Decimal(0))
@@ -210,6 +215,34 @@ class Invoice(models.Model):
 					logo_data = logo_file.read()
 					# Encode it to base64
 					self.company_logo_base64_encoded = f"data:image/png;base64,{base64.b64encode(logo_data).decode('utf-8')}"
+			except Exception as e:
+				raise ValueError(f"Erreur lors de l'encodage base64 du logo : {str(e)}")
+		"""
+		Update the establishment_logo_base64_encoded field with the base64 representation of the establishment's logo.
+		"""
+		if self.establishment and self.establishment.logo and self.establishment.logo.image:
+			logo_data=None,
+			try:
+				# Open the logo file
+				with self.establishment.logo.image.open('rb') as logo_file:
+					# Read the content of the file
+					logo_data = logo_file.read()
+					# Encode it to base64
+					self.establishment_logo_base64_encoded = f"data:image/png;base64,{base64.b64encode(logo_data).decode('utf-8')}"
+			except Exception as e:
+				raise ValueError(f"Erreur lors de l'encodage base64 du logo : {str(e)}")
+		"""
+		Update the client_logo_base64_encoded field with the base64 representation of the financier's logo.
+		"""
+		if self.financier and self.financier.photo and self.financier.photo.image:
+			logo_data=None,
+			try:
+				# Open the logo file
+				with self.financier.photo.image.open('rb') as logo_file:
+					# Read the content of the file
+					logo_data = logo_file.read()
+					# Encode it to base64
+					self.client_logo_base64_encoded = f"data:image/png;base64,{base64.b64encode(logo_data).decode('utf-8')}"
 			except Exception as e:
 				raise ValueError(f"Erreur lors de l'encodage base64 du logo : {str(e)}")
 	

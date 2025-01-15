@@ -583,6 +583,9 @@ class GenerateInvoice(graphene.Mutation):
 
                 'establishment_number': establishment.number,
                 'establishment_name': establishment.name,
+                'establishment_siret': establishment.siret,
+                'establishment_finess': establishment.finess,
+                'establishment_ape_code': establishment.ape_code,
                 'establishment_capacity': capacity,
                 'establishment_unit_price': unit_price,
                 'establishment_tva_number': '',
