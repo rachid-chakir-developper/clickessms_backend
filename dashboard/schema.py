@@ -354,9 +354,11 @@ class DashboardActivityType(graphene.ObjectType):
                 days_in_month = monthrange(int(year), i+1)[1]
                 # capacity=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'capacity')
                 capacity = establishment.get_monthly_capacity(year, i+1)
-                objective_days_count=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'theoretical_number_unit_work')
+                # objective_days_count=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'theoretical_number_unit_work')
+                objective_days_count=days_in_month*capacity
                 days_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_days_present')
-                price = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'price')
+                # price = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'price')
+                price = establishment.get_monthly_unit_price(year, i+1)
                 objective_valuation = Decimal(capacity)*Decimal(price)
                 valuation = Decimal(days_count)*Decimal(price)
                 item = ActivityTrackingMonthType(
