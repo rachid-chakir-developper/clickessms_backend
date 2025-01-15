@@ -206,9 +206,8 @@ class Establishment(models.Model):
 
         # Filtrer les ActivityAuthorization pour cet établissement dans le mois donné
         last_activity = self.activity_authorizations.filter(
-            is_active=True,
-            starting_date_time__lt=end_date,
-            ending_date_time__gte=start_date,
+            Q(starting_date_time__lt=end_date),
+            Q(ending_date_time__isnull=True) | Q(ending_date_time__gte=start_date),
         ).order_by('-starting_date_time').first()
 
         # Retourner la capacité de la dernière autorisation
@@ -232,8 +231,9 @@ class Establishment(models.Model):
 
         # Filtrer les ActivityAuthorization pour cet établissement dans le mois donné
         last_decision_document_item = self.decision_document_items.filter(
-            starting_date_time__lt=end_date,
-            ending_date_time__gte=start_date,
+            Q(price__isnull=False) & ~Q(price=0),
+            Q(starting_date_time__lt=end_date),
+            Q(ending_date_time__isnull=True) | Q(ending_date_time__gte=start_date),
         ).order_by('-starting_date_time').first()
 
         # Retourner la capacité de la dernière autorisation

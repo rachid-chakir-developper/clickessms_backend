@@ -352,7 +352,8 @@ class DashboardActivityType(graphene.ObjectType):
             activity_tracking_month = []
             for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
                 days_in_month = monthrange(int(year), i+1)[1]
-                capacity=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'capacity')
+                # capacity=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'capacity')
+                capacity = establishment.get_monthly_capacity(year, i+1)
                 objective_days_count=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'theoretical_number_unit_work')
                 days_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_days_present')
                 price = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'price')
