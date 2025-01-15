@@ -55,6 +55,7 @@ class Supplier(models.Model):
 	bank_name = models.CharField(max_length=255, null=True)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
+	is_verified = models.BooleanField(default=False, null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_suppliers', null=True)

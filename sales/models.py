@@ -2,6 +2,7 @@ from django.db import models
 from datetime import datetime
 import random
 from decimal import Decimal, ROUND_DOWN
+import base64
 
 PAYMENT_METHOD = [
 	("CASH", "Espèces"),
@@ -138,6 +139,23 @@ class Invoice(models.Model):
 	establishment_bic = models.CharField(max_length=255, null=True)
 	establishment_bank_name = models.CharField(max_length=255, null=True)
 	#**************************************************************************
+	#********establishment*****************************************************
+	company_logo_base64_encoded = models.TextField(null=True)
+	company_infos = models.CharField(max_length=255, null=True)
+	company_number = models.CharField(max_length=255, null=True)
+	company_name = models.CharField(max_length=255, null=True)
+	company_tva_number = models.CharField(max_length=255, null=True)
+	company_address = models.TextField(default='', null=True)
+	company_city = models.CharField(max_length=255, null=True)
+	company_country = models.CharField(max_length=255, null=True)
+	company_zip_code = models.CharField(max_length=255, null=True)
+	company_mobile = models.CharField(max_length=255, null=True)
+	company_fix = models.CharField(max_length=255, null=True)
+	company_email = models.EmailField(max_length=254, null=True)
+	company_iban = models.CharField(max_length=255, null=True)
+	company_bic = models.CharField(max_length=255, null=True)
+	company_bank_name = models.CharField(max_length=255, null=True)
+	#**************************************************************************
 	year = models.CharField(max_length=255, null=True)
 	month = models.CharField(max_length=255, null=True)
 	emission_date = models.DateTimeField(null=True)
@@ -179,6 +197,21 @@ class Invoice(models.Model):
 			self.tva = Decimal(0)
 		
 		self.save()
+
+	def update_company_logo_base64(self):
+		"""
+		Update the company_logo_base64_encoded field with the base64 representation of the company's logo.
+		"""
+		if self.company and self.company.logo and self.company.logo.image:
+			try:
+				# Open the logo file
+				with self.company.logo.image.open('rb') as logo_file:
+					# Read the content of the file
+					logo_data = logo_file.read()
+					# Encode it to base64
+					self.company_logo_base64_encoded = f"data:image/png;base64,{base64.b64encode(logo_data).decode('utf-8')}"
+			except Exception as e:
+				raise ValueError(f"Erreur lors de l'encodage base64 du logo : {str(e)}")
 	
 	def save(self, *args, **kwargs):
 		# Si le numéro n'est pas défini, générer un numéro en fonction du statut
@@ -189,7 +222,7 @@ class Invoice(models.Model):
 				self.number = self.generate_unique_number(prefix='FAC')
 		elif self.status != 'DRAFT' and not self.number.startswith('FAC'):  # Supposons que 'validated' soit le statut pour les factures validées
 				self.number = self.generate_unique_number(prefix='FAC')
-		
+		self.update_company_logo_base64()
 		super().save(*args, **kwargs)
 
 	def generate_unique_number(self, prefix='BR'):

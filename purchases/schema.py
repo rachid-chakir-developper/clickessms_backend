@@ -35,6 +35,7 @@ class SupplierFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    is_verified = graphene.Boolean(required=False)
 
 class SupplierInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -61,6 +62,7 @@ class SupplierInput(graphene.InputObjectType):
     bic = graphene.String(required=False)
     bank_name = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
+    is_verified = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
 
@@ -273,6 +275,9 @@ class PurchasesQuery(graphene.ObjectType):
             keyword = supplier_filter.get('keyword', '')
             starting_date_time = supplier_filter.get('starting_date_time')
             ending_date_time = supplier_filter.get('ending_date_time')
+            is_verified = supplier_filter.get('is_verified')
+            if is_verified:
+                suppliers = suppliers.filter(is_verified=is_verified)
             if keyword:
                 suppliers = suppliers.filter(Q(name__icontains=keyword) | Q(manager_name__icontains=keyword) | Q(email__icontains=keyword))
             if starting_date_time:

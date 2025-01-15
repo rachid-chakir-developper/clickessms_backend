@@ -4,6 +4,8 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
+from django.conf import settings
+
 from django.db.models import Q
 from datetime import datetime, timedelta
 
@@ -16,7 +18,7 @@ class ClientType(DjangoObjectType):
     class Meta:
         model = Client
         fields = "__all__"
-    photo = graphene.String()
+    monthText = graphene.String()
     cover_image = graphene.String()
     def resolve_photo( instance, info, **kwargs ):
         return instance.photo and info.context.build_absolute_uri(instance.photo.image.url)
@@ -59,8 +61,6 @@ class ClientInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
 
-
-
 class InvoiceItemType(DjangoObjectType):
     class Meta:
         model = InvoiceItem
@@ -70,6 +70,9 @@ class InvoiceType(DjangoObjectType):
     class Meta:
         model = Invoice
         fields = "__all__"
+    month_text = graphene.String()
+    def resolve_month_text( instance, info, **kwargs ):
+        return instance.month and settings.MONTHS[int(instance.month)-1]
 
 class InvoiceNodeType(graphene.ObjectType):
     nodes = graphene.List(InvoiceType)
@@ -494,6 +497,7 @@ class GenerateInvoice(graphene.Mutation):
 
     def mutate(self, info, generate_invoice_data=None):
         creator = info.context.user
+        company = creator.the_current_company
         year, month, financier_id, establishment_ids = map(
             lambda field: getattr(generate_invoice_data, field),
             ["year", "month", "financier", "establishments"],
@@ -516,7 +520,7 @@ class GenerateInvoice(graphene.Mutation):
             except Invoice.DoesNotExist:
                 action_message = "créée"
                 invoice = Invoice(creator=creator,
-                        company=creator.the_current_company,
+                        company=company,
                         establishment=establishment, financier=financier,
                         year=year,
                         month=month
@@ -531,6 +535,15 @@ class GenerateInvoice(graphene.Mutation):
             capacity = establishment.get_monthly_capacity(year, month)
             unit_price = establishment.get_monthly_unit_price(year, month)
             # Construction de establishment_infos avec des retours à la ligne
+            company_infos = "\n".join(filter(None, [
+                company.address,  # Adresse principale
+                company.additional_address,  # Complément d'adresse (si présent)
+                f"{company.zip_code} {company.city}",  # Code postal + ville
+                company.country,  # Pays
+                {company.fix} if company.fix else None,  # Téléphone fixe
+                {company.mobile} if company.mobile else None,  # Mobile
+                {company.email} if company.email else None,  # Email
+            ]))
             establishment_infos = "\n".join(filter(None, [
                 establishment.address,  # Adresse principale
                 establishment.additional_address,  # Complément d'adresse (si présent)
@@ -584,6 +597,21 @@ class GenerateInvoice(graphene.Mutation):
                 'establishment_iban': establishment.iban,
                 'establishment_bic': establishment.bic,
                 'establishment_bank_name': establishment.bank_name,
+
+                'company_number': company.number,
+                'company_name': company.name,
+                'company_tva_number': '',
+                'company_infos': company_infos,
+                'company_address': company.address,
+                'company_city': company.city,
+                'company_country': company.country,
+                'company_zip_code': company.zip_code,
+                'company_mobile': company.mobile,
+                'company_fix': company.fix,
+                'company_email': company.email,
+                'company_iban': company.iban,
+                'company_bic': company.bic,
+                'company_bank_name': company.bank_name,
 
                 'emission_date': datetime.now(),
                 'due_date': due_date,

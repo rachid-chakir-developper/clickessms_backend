@@ -51,7 +51,7 @@ class Signature(models.Model):
 					# Lire le contenu du fichier
 					image_data = img_file.read()
 					# Encoder en base64
-					self.base64_encoded = base64.b64encode(image_data).decode('utf-8')
+					self.base64_encoded = f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
 			except Exception as e:
 				raise ValueError(f"Erreur lors de l'encodage base64 de l'image : {str(e)}")
 
