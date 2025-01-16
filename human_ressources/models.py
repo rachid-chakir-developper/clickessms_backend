@@ -557,7 +557,10 @@ class BeneficiaryEntry(models.Model):
         
         # Si les dates sont naïves, les rendre conscientes
         # Étape 1 : Filtrer les enregistrements de base
-        queryset = cls.objects.filter(Q(release_date__isnull=True) | Q(release_date__gt=end_of_year), entry_date__year__lte=year)
+        queryset = cls.objects.filter(
+            Q(entry_date__lt=end_of_year),
+            Q(release_date__isnull=True) | Q(release_date__gte=start_of_year),
+        )
         # Filtrer par société si fourni
         if company:
             queryset = queryset.filter(beneficiary__company=company)
@@ -639,7 +642,7 @@ class BeneficiaryEntry(models.Model):
         queryset = queryset.filter(
             Q(entry_date__lt=end_date),  # Entré avant ou pendant le mois
             Q(release_date__isnull=True) | Q(release_date__gte=start_date)  # Pas encore sorti ou sortie après le début du mois
-        )
+        ).order_by('beneficiary__last_name')
 
         # Regrouper par établissement
         result = {}
@@ -696,7 +699,7 @@ class BeneficiaryEntry(models.Model):
             presences = queryset.filter(
                 Q(release_date__isnull=True) | Q(release_date__gte=start_of_month),  # Pas encore sorti ou sortie après le début du mois
                 entry_date__lte=end_of_month,  # Entré avant ou pendant le mois
-            )
+            ).order_by('beneficiary__last_name')
 
             # Grouper les admissions par établissement
             for presence in presences:
