@@ -322,6 +322,10 @@ class BeneficiaryInput(graphene.InputObjectType):
     last_name = graphene.String(required=False)
     email = graphene.String(required=False)
     birth_date = graphene.DateTime(required=False)
+    birth_address = graphene.String(required=False)
+    birth_city = graphene.String(required=False)
+    birth_country = graphene.String(required=False)
+    nationality = graphene.String(required=False)
     admission_date = graphene.DateTime(required=False)
     latitude = graphene.String(required=False)
     longitude = graphene.String(required=False)
@@ -380,6 +384,10 @@ class BeneficiaryAdmissionInput(graphene.InputObjectType):
     last_name = graphene.String(required=False)
     email = graphene.String(required=False)
     birth_date = graphene.DateTime(required=False)
+    birth_address = graphene.String(required=False)
+    birth_city = graphene.String(required=False)
+    birth_country = graphene.String(required=False)
+    nationality = graphene.String(required=False)
     latitude = graphene.String(required=False)
     longitude = graphene.String(required=False)
     city = graphene.String(required=False)
@@ -1585,6 +1593,10 @@ class GenerateBeneficiary(graphene.Mutation):
             last_name=beneficiary_admission.last_name,
             email=beneficiary_admission.email,
             birth_date=beneficiary_admission.birth_date,
+            birth_address=beneficiary_admission.birth_address,
+            birth_city=beneficiary_admission.birth_city,
+            birth_country=beneficiary_admission.birth_country,
+            nationality=beneficiary_admission.nationality,
             latitude=beneficiary_admission.latitude,
             longitude=beneficiary_admission.longitude,
             city=beneficiary_admission.city,
