@@ -8,7 +8,7 @@ from django.conf import settings
 from decimal import Decimal
 from statistics import mean
 
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, Case, When
 from django.db.models.functions import TruncDate
 
 from works.schema import TaskType,TaskActionType
@@ -340,7 +340,8 @@ class DashboardActivityType(graphene.ObjectType):
             if the_year:
                 year=the_year
             if establishment_ids:
-                establishments=establishments.filter(id__in=establishment_ids)
+                order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
+                establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
 
         beneficiary_entry_monthly_presence_statistics = BeneficiaryEntry.monthly_presence_statistics(year=year, establishments=establishments, company=company)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
@@ -438,7 +439,8 @@ class DashboardActivityType(graphene.ObjectType):
             if the_year:
                 year=the_year
             if establishment_ids:
-                establishments=establishments.filter(id__in=establishment_ids)
+                order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
+                establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
         beneficiary_admission_monthly_statistics = BeneficiaryAdmission.monthly_statistics(year=year, establishments=establishments, company=company)
         beneficiary_admission_monthly_admissions = BeneficiaryAdmission.monthly_admissions(year=year, establishments=establishments, company=company)
         beneficiary_entry_monthly_present_beneficiaries = BeneficiaryEntry.monthly_present_beneficiaries(year=year, establishments=establishments, company=company)
@@ -521,7 +523,8 @@ class DashboardActivityType(graphene.ObjectType):
             if the_month:
                 month=the_month
             if establishment_ids:
-                establishments=establishments.filter(id__in=establishment_ids)
+                order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
+                establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
 
         present_beneficiaries = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=establishments, company=company)
 
