@@ -425,126 +425,6 @@ class BeneficiaryEntry(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     @classmethod
-    def monthly_statistics(cls, year, establishments=None, company=None):
-        # Filtrer les données de base
-        year=int(year)
-        queryset = cls.objects.filter(beneficiary__company=company)
-
-        if establishments:
-            # Filtrer uniquement pour les établissements spécifiés
-            queryset = queryset.filter(establishments__in=establishments)
-
-        # Annoter les dates d'entrée et de sortie avec des valeurs par défaut si nécessaire
-        queryset = queryset.annotate(
-            effective_entry_date=Case(
-                When(entry_date__year__lt=year, then=Value(datetime(year, 1, 1, 00, 00, 00))),  # 1er janvier de l'année donnée
-                default=F('entry_date'),
-                output_field=models.DateTimeField()
-            ),
-            effective_release_date=Case(
-                When(release_date__isnull=True, then=Value(datetime(year, 12, 31, 23, 59, 59))),  # Dernière seconde de l'année
-                default=F('release_date'),
-                output_field=models.DateTimeField()
-            )
-        )
-        # Calculer le nombre de jours en utilisant la fonction `TruncDate` pour obtenir les jours exacts
-        queryset = queryset.annotate(
-            days_present_in_month=ExpressionWrapper(
-                Greatest(
-                    TruncDate(F('effective_release_date')) - TruncDate(F('effective_entry_date')),
-                    Value(0)
-                ),
-                output_field=IntegerField()
-            )
-        )
-
-        # Annoter et grouper les données
-        data = (
-            queryset
-            .values('establishments__id')  # Utilisation de l'ID de l'établissement
-            .annotate(
-                month=ExtractMonth('entry_date'),
-                total_entries=Count('id', filter=Q(entry_date__year=year)),
-                total_releases=Count('id', filter=Q(release_date__year=year)),
-                total_due=Count('id', filter=Q(due_date__year=year)),
-                present_at_end_of_month=Count(
-                    'id',
-                    filter=Q(release_date__year=year) &
-                           (Q(release_date__month__gt=F('month')) | Q(release_date__isnull=False)) |
-                           Q(release_date__year__gt=year)
-                ),
-                total_days_present=Sum('days_present_in_month'),
-                # Capacité totale pour chaque mois et établissement
-                capacity=Sum(
-                    'establishments__activity_authorizations__capacity', 
-                    filter=Q(establishments__activity_authorizations__is_active=True) &
-                           Q(establishments__activity_authorizations__starting_date_time__year=year) &
-                           Q(establishments__activity_authorizations__starting_date_time__month=F('month'))
-                ),
-                # Capacité temporaire pour chaque mois et établissement
-                temporary_capacity=Sum(
-                    'establishments__activity_authorizations__temporary_capacity', 
-                    filter=Q(establishments__activity_authorizations__is_active=True) &
-                           Q(establishments__activity_authorizations__starting_date_time__year=year) &
-                           Q(establishments__activity_authorizations__starting_date_time__month=F('month'))
-                )
-            )
-            .order_by('establishments__id', 'month')
-        )
-
-        # Structurer les données pour inclure les mois manquants
-        stats = defaultdict(lambda: {
-            month: {
-                "total_entries": 0,
-                "total_releases": 0,
-                "total_due": 0,
-                "present_at_end_of_month": 0,
-                "total_days_present": 0,
-                "capacity": 0,
-                "temporary_capacity": 0
-            }
-            for month in range(1, 13)
-        })
-
-        for item in data:
-            establishment_id = item['establishments__id']
-            month = item['month']
-            stats[establishment_id][month] = {
-                "total_entries": item['total_entries'],
-                "total_releases": item['total_releases'],
-                "total_due": item['total_due'],
-                "present_at_end_of_month": item['present_at_end_of_month'],
-                "total_days_present": item['total_days_present'],
-                "capacity": item['capacity'],
-                "temporary_capacity": item['temporary_capacity'],
-            }
-
-        # Si aucun établissement n'est fourni, retourner les totaux globaux
-        if establishments is None:
-            totals = {
-                month: {
-                    "total_entries": 0,
-                    "total_releases": 0,
-                    "total_due": 0,
-                    "present_at_end_of_month": 0,
-                    "total_days_present": 0,
-                    "capacity": 0,
-                    "temporary_capacity": 0
-                }
-                for month in range(1, 13)
-            }
-            for establishment, monthly_data in stats.items():
-                for month, values in monthly_data.items():
-                    totals[month]["total_entries"] += values["total_entries"]
-                    totals[month]["total_releases"] += values["total_releases"]
-                    totals[month]["total_due"] += values["total_due"]
-                    totals[month]["present_at_end_of_month"] += values["present_at_end_of_month"]
-                    totals[month]["total_days_present"] += values["total_days_present"]
-            return {"global_totals": totals}
-
-        return dict(stats)
-
-    @classmethod
     def monthly_presence_statistics(cls, year, establishments=None, company=None):
         year = int(year)
 
@@ -570,10 +450,25 @@ class BeneficiaryEntry(models.Model):
             queryset = queryset.filter(establishments__in=establishments)
 
         # Étape 2 : Calculer les statistiques mensuelles
-        monthly_data = defaultdict(lambda: {month: {"total_days_present": 0, "present_at_end_of_month": 0} for month in range(1, 13)})
+        monthly_data = defaultdict(lambda: {month: 
+            {
+            "total_entries": 0,
+            "total_releases": 0,
+            "total_due": 0,
+            "total_days_present": 0,
+            "total_days_present": 0,
+            "present_at_end_of_month": 0,
+            }
+             for month in range(1, 13)})
         for entry in queryset:
             for establishment in entry.establishments.all():
                 # Ajuster start_date en fonction de entry_date
+                if entry.entry_date and entry.entry_date.year == year:
+                    monthly_data[establishment.id][entry.entry_date.month]["total_entries"] += 1
+                if entry.release_date and entry.release_date.year == year:
+                    monthly_data[establishment.id][entry.release_date.month]["total_releases"] += 1
+                if entry.due_date and entry.due_date.year == year:
+                    monthly_data[establishment.id][entry.due_date.month]["total_due"] += 1
                 start_date = entry.entry_date if entry.entry_date >= start_of_year else start_of_year
                 
                 # Ajuster end_date en fonction de release_date

@@ -342,7 +342,6 @@ class DashboardActivityType(graphene.ObjectType):
             if establishment_ids:
                 establishments=establishments.filter(id__in=establishment_ids)
 
-        beneficiary_entry_monthly_statistics = BeneficiaryEntry.monthly_statistics(year=year, establishments=establishments, company=company)
         beneficiary_entry_monthly_presence_statistics = BeneficiaryEntry.monthly_presence_statistics(year=year, establishments=establishments, company=company)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
 
@@ -352,7 +351,6 @@ class DashboardActivityType(graphene.ObjectType):
             activity_tracking_month = []
             for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
                 days_in_month = monthrange(int(year), i+1)[1]
-                # capacity=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'capacity')
                 capacity = establishment.get_monthly_capacity(year, i+1)
                 objective_occupancy_rate = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'occupancy_rate')
                 # objective_days_count=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'theoretical_number_unit_work')
@@ -365,9 +363,9 @@ class DashboardActivityType(graphene.ObjectType):
                 item = ActivityTrackingMonthType(
                 month=month,
                 year=year,
-                entries_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_entries'),
-                exits_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_releases'),
-                planned_exits_count=get_item_count(beneficiary_entry_monthly_statistics, establishment.id, i+1, 'total_due'),
+                entries_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_entries'),
+                exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_releases'),
+                planned_exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_due'),
                 presents_month_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'present_at_end_of_month'),
                 objective_days_count=objective_days_count,
                 days_count=days_count,
