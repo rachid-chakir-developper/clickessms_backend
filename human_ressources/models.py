@@ -622,6 +622,7 @@ class BeneficiaryAdmission(models.Model):
         ('CANCELED', 'Annulé'),
     ]
     number = models.CharField(max_length=255, editable=False, null=True)
+    reception_date = models.DateTimeField(null=True)
     gender = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
     preferred_name = models.CharField(max_length=255, null=True)
     first_name = models.CharField(max_length=255, null=True)
@@ -648,6 +649,7 @@ class BeneficiaryAdmission(models.Model):
     files = models.ManyToManyField('medias.File', related_name='file_beneficiary_admissions')
     financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="DRAFT")
+    response_date = models.DateTimeField(null=True)
     status_reason = models.TextField(default='', null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='beneficiary_admissions', null=True)
     establishments = models.ManyToManyField('companies.Establishment', related_name='beneficiary_admissions')
@@ -748,10 +750,9 @@ class BeneficiaryAdmission(models.Model):
 
         # Filtrer les enregistrements de base
         queryset = cls.objects.filter(
-            is_deleted=False,  # Exclure les admissions supprimées
-            is_active=True,    # Inclure uniquement les admissions actives
-            created_at__gte=start_of_year,
-            created_at__lte=end_of_year
+            response_date__gte=start_of_year,
+            response_date__lte=end_of_year,
+            status__in=["APPROVED", "REJECTED"]
         )
 
         # Filtrer par société si fourni
@@ -777,8 +778,8 @@ class BeneficiaryAdmission(models.Model):
 
             # Ajouter les admissions pour le mois
             admissions = queryset.filter(
-                created_at__gte=start_of_month,
-                created_at__lte=end_of_month
+                response_date__gte=start_of_month,
+                response_date__lte=end_of_month
             )
 
             # Grouper les admissions par établissement
