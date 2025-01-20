@@ -187,6 +187,14 @@ class EmployeeMission(DataModel):
 	def __str__(self):
 		return str(self.id)
 
+class TypeEndowment(DataModel):
+	def __str__(self):
+		return str(self.id)
+
+class ProfessionalStatus(DataModel):
+	def __str__(self):
+		return str(self.id)
+
 class AccountingNature(DataModel):
 	starting_date = models.DateField(null=True)
 	ending_date = models.DateField(null=True)

@@ -357,7 +357,24 @@ class Beneficiary(models.Model):
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
-    
+
+    @property
+    def age(self):
+        """
+        Calculate and return the beneficiary's age as a float based on the birth_date.
+        The age is calculated in years, including fractions of a year.
+        """
+        if self.birth_date:
+            today = date.today()
+            # Convert birth_date to a date object if it's a datetime
+            birth_date = self.birth_date.date() if isinstance(self.birth_date, datetime) else self.birth_date
+            # Calculate the difference in days
+            delta = today - birth_date
+            # Convert days to years with decimal precision
+            age = delta.days / 365.25  # Using 365.25 to account for leap years
+            return round(age, 2)  # Round the age to 2 decimal places
+        return None  # Return None if birth_date is not set
+        
     def save(self, *args, **kwargs):
         # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
         if not self.number:

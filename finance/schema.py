@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from django.db.models import Q
 
-from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance, CashRegister, CashRegisterEstablishment, CashRegisterManager, CashRegisterTransaction, Budget, BudgetAccountingNature
+from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance, CashRegister, CashRegisterEstablishment, CashRegisterManager, CashRegisterTransaction, Budget, BudgetAccountingNature, Endowment
 from data_management.models import AccountingNature
 from medias.models import Folder, File
 from companies.models import Establishment
@@ -274,6 +274,39 @@ class CashRegisterTransactionInput(graphene.InputObjectType):
     transaction_type = graphene.String(required=False)
     cash_register_id = graphene.Int(name="cashRegister", required=True)
 
+class EndowmentType(DjangoObjectType):
+    class Meta:
+        model = Endowment
+        fields = "__all__"
+
+class EndowmentNodeType(graphene.ObjectType):
+    nodes = graphene.List(EndowmentType)
+    total_count = graphene.Int()
+
+class EndowmentFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+
+class EndowmentInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    label = graphene.String(required=True)
+    amount_allocated = graphene.Decimal(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    age_min = graphene.Float(required=False)
+    age_max = graphene.Float(required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    endowment_type_id = graphene.Int(name="endowmentType", required=True)
+    accounting_nature_id = graphene.Int(name="accountingNature", required=True)
+    gender_id = graphene.Int(name="gender", required=True)
+    professional_status_id = graphene.Int(name="professional_status", required=True)
+    establishment_id = graphene.Int(name="establishment", required=False)
+
+
 class FinanceQuery(graphene.ObjectType):
     decision_documents = graphene.Field(
         DecisionDocumentNodeType,
@@ -323,6 +356,8 @@ class FinanceQuery(graphene.ObjectType):
         page=graphene.Int(required=False),
     )
     budget = graphene.Field(BudgetType, id=graphene.ID())
+    endowments = graphene.Field(EndowmentNodeType, endowment_filter= EndowmentFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    endowment = graphene.Field(EndowmentType, id = graphene.ID())
 
     def resolve_decision_documents(
         root, info, decision_document_filter=None, offset=None, limit=None, page=None
@@ -592,6 +627,38 @@ class FinanceQuery(graphene.ObjectType):
         except Budget.DoesNotExist:
             budget = None
         return budget
+
+    def resolve_endowments(root, info, endowment_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        endowments = Endowment.objects.filter(company=company)
+        if endowment_filter:
+            keyword = endowment_filter.get('keyword', '')
+            starting_date_time = endowment_filter.get('starting_date_time')
+            ending_date_time = endowment_filter.get('ending_date_time')
+            if keyword:
+                endowments = endowments.filter(Q(name__icontains=keyword))
+            if starting_date_time:
+                endowments = endowments.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                endowments = endowments.filter(created_at__lte=ending_date_time)
+        endowments = endowments.order_by('-created_at')
+        total_count = endowments.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            endowments = endowments[offset:offset + limit]
+        return EndowmentNodeType(nodes=endowments, total_count=total_count)
+
+    def resolve_endowment(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            endowment = Endowment.objects.get(pk=id)
+        except Endowment.DoesNotExist:
+            endowment = None
+        return endowment
 
 
 # ************************************************************************
@@ -1379,7 +1446,88 @@ class DeleteBudget(graphene.Mutation):
         return DeleteBudget(
             deleted=deleted, success=success, message=message, id=id
         )
+#************************************************************************
+#************************************************************************
 
+class CreateEndowment(graphene.Mutation):
+    class Arguments:
+        endowment_data = EndowmentInput(required=True)
+
+    endowment = graphene.Field(EndowmentType)
+
+    def mutate(root, info, endowment_data=None):
+        creator = info.context.user
+        endowment = Endowment(**endowment_data)
+        endowment.creator = creator
+        endowment.company = creator.the_current_company
+        endowment.save()
+        return CreateEndowment(endowment=endowment)
+
+class UpdateEndowment(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        endowment_data = EndowmentInput(required=True)
+
+    endowment = graphene.Field(EndowmentType)
+
+    def mutate(root, info, id, endowment_data=None):
+        creator = info.context.user
+        Endowment.objects.filter(pk=id).update(**endowment_data)
+        endowment = Endowment.objects.get(pk=id)
+        return UpdateEndowment(endowment=endowment)
+        
+class UpdateEndowmentState(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    endowment = graphene.Field(EndowmentType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, endowment_fields=None):
+        creator = info.context.user
+        done = True
+        success = True
+        endowment = None
+        message = ''
+        try:
+            endowment = Endowment.objects.get(pk=id)
+            Endowment.objects.filter(pk=id).update(is_active=not endowment.is_active)
+            endowment.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            endowment=None
+            message = "Une erreur s'est produite."
+        return UpdateEndowmentState(done=done, success=success, message=message,endowment=endowment)
+
+
+class DeleteEndowment(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    endowment = graphene.Field(EndowmentType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            endowment = Endowment.objects.get(pk=id)
+            endowment.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteEndowment(deleted=deleted, success=success, message=message, id=id)
+
+#*************************************************************************#
 
 # *************************************************************************#
 
@@ -1414,3 +1562,8 @@ class FinanceMutation(graphene.ObjectType):
     update_budget_state = UpdateBudgetState.Field()
     update_budget_fields = UpdateBudgetFields.Field()
     delete_budget = DeleteBudget.Field()
+
+    create_endowment = CreateEndowment.Field()
+    update_endowment = UpdateEndowment.Field()
+    update_endowment_state = UpdateEndowmentState.Field()
+    delete_endowment = DeleteEndowment.Field()

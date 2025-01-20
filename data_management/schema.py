@@ -16,7 +16,7 @@ import openpyxl
 
 from data_management.utils import CustomFieldEntityBase
 from finance.models import BudgetAccountingNature
-from data_management.models import HumanGender, AdmissionDocumentType, BeneficiaryStatus, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel, EmployeeMission, AccountingNature, CustomField, CustomFieldOption, CustomFieldValue
+from data_management.models import HumanGender, AdmissionDocumentType, BeneficiaryStatus, PhoneNumber, HomeAddress, DataModel, EstablishmentType, EstablishmentCategory, AbsenceReason, UndesirableEventNormalType, UndesirableEventSeriousType, UndesirableEventFrequency, MeetingReason, TypeMeeting, DocumentType, VehicleBrand, VehicleModel, EmployeeMission, TypeEndowment, ProfessionalStatus, AccountingNature, CustomField, CustomFieldOption, CustomFieldValue
 
 
 
@@ -118,6 +118,16 @@ class VehicleModelType(DjangoObjectType):
 class EmployeeMissionType(DjangoObjectType):
     class Meta:
         model = EmployeeMission
+        fields = "__all__"
+     
+class TypeEndowmentType(DjangoObjectType):
+    class Meta:
+        model = TypeEndowment
+        fields = "__all__"
+     
+class ProfessionalStatusType(DjangoObjectType):
+    class Meta:
+        model = ProfessionalStatus
         fields = "__all__"
      
 class AccountingNatureType(DjangoObjectType):

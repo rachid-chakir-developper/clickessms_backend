@@ -473,3 +473,38 @@ class BudgetAccountingNature(models.Model):
 
     def __str__(self):
         return str(self.id)
+
+class Endowment(models.Model):
+    number = models.CharField(max_length=255, editable=False, null=True)
+    label = models.CharField(max_length=255, null=True)
+    endowment_type = models.ForeignKey('data_management.TypeEndowment', on_delete=models.SET_NULL, related_name='endowments', null=True)
+    accounting_nature = models.ForeignKey('data_management.AccountingNature', on_delete=models.SET_NULL, related_name='endowments', null=True)
+    description = models.TextField(default="", null=True, blank=True)
+    observation = models.TextField(default="", null=True, blank=True)
+    amount_allocated = models.DecimalField(max_digits=10, decimal_places=2)  # Montant prévu
+    starting_date_time = models.DateTimeField(null=True)
+    ending_date_time = models.DateTimeField(null=True)
+    establishment = models.ForeignKey(
+        "companies.Establishment",
+        on_delete=models.SET_NULL,
+        related_name="endowments",
+        null=True,
+    )
+    gender = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    age_min = models.FloatField(null=True, blank=True, verbose_name="Âge minimum")
+    age_max = models.FloatField(null=True, blank=True, verbose_name="Âge maximum")
+    professional_status = models.ForeignKey('data_management.ProfessionalStatus', on_delete=models.SET_NULL, related_name='endowments', null=True)
+    is_active = models.BooleanField(default=True, null=True)
+    company = models.ForeignKey(
+        "companies.Company",
+        on_delete=models.SET_NULL,
+        related_name="company_endowments",
+        null=True,
+    )
+    creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.number}"
