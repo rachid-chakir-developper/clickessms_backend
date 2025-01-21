@@ -12,6 +12,13 @@ from calendar import monthrange
 
 from planning.models import EmployeeAbsenceItem
 
+
+GENDERS = [
+    ("MALE", "Homme"),
+    ("FEMALE", "Femme"),
+    ("NOT_SPECIFIED", "Non spécifié"),
+]
+
 # Create your models here.
 class Employee(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)
@@ -424,6 +431,20 @@ class BeneficiaryStatusEntry(models.Model):
     beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True, related_name='beneficiary_status_entries')
     document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='beneficiary_status_entries', null=True)
     beneficiary_status = models.ForeignKey('data_management.BeneficiaryStatus', on_delete=models.SET_NULL, null=True)
+    starting_date = models.DateTimeField(null=True)
+    ending_date = models.DateTimeField(null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.id
+
+# Create your models here.
+class BeneficiaryEndowmentEntry(models.Model):
+    beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True, related_name='beneficiary_endowment_entries')
+    endowment_type = models.ForeignKey('data_management.TypeEndowment', on_delete=models.SET_NULL, related_name='beneficiary_endowment_entries', null=True)
+    initial_balance = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     starting_date = models.DateTimeField(null=True)
     ending_date = models.DateTimeField(null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)

@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem
+from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
 from data_management.models import EmployeeMission
 from companies.models import Establishment
@@ -150,6 +150,11 @@ class BeneficiaryStatusEntryType(DjangoObjectType):
     document = graphene.String()
     def resolve_document( instance, info, **kwargs ):
         return instance.document and info.context.build_absolute_uri(instance.document.file.url)
+
+class BeneficiaryEndowmentEntryType(DjangoObjectType):
+    class Meta:
+        model = BeneficiaryEndowmentEntry
+        fields = "__all__"
 
 class BeneficiaryEntryType(DjangoObjectType):
     class Meta:
@@ -308,6 +313,14 @@ class BeneficiaryStatusEntryInput(graphene.InputObjectType):
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
     beneficiary_status_id = graphene.Int(name="beneficiaryStatus", required=False)
 
+class BeneficiaryEndowmentEntryInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    initial_balance = graphene.Decimal(required=False)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+    endowment_type_id = graphene.Int(name="endowmentType", required=False)
+
 class BeneficiaryEntryInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     entry_date = graphene.DateTime(required=False)
@@ -351,6 +364,7 @@ class BeneficiaryInput(graphene.InputObjectType):
     gender_id = graphene.Int(name="gender", required=False)
     beneficiary_admission_documents = graphene.List(BeneficiaryAdmissionDocumentInput, required=False)
     beneficiary_status_entries = graphene.List(BeneficiaryStatusEntryInput, required=False)
+    beneficiary_endowment_entries = graphene.List(BeneficiaryEndowmentEntryInput, required=False)
     beneficiary_entries = graphene.List(BeneficiaryEntryInput, required=False)
 
 class BeneficiaryAdmissionType(DjangoObjectType):
@@ -1150,6 +1164,7 @@ class CreateBeneficiary(graphene.Mutation):
         beneficiary_admission_documents = beneficiary_data.pop("beneficiary_admission_documents", None)
         beneficiary_status_entries = beneficiary_data.pop("beneficiary_status_entries", None)
         beneficiary_entries = beneficiary_data.pop("beneficiary_entries", None)
+        beneficiary_endowment_entries = beneficiary_data.pop("beneficiary_endowment_entries", None)
         beneficiary = Beneficiary(**beneficiary_data)
         beneficiary.creator = creator
         beneficiary.company = creator.the_current_company
@@ -1210,6 +1225,10 @@ class CreateBeneficiary(graphene.Mutation):
             beneficiary_entry.save()
             beneficiary_entry.establishments.set(establishment_ids)
             beneficiary_entry.internal_referents.set(internal_referent_ids)
+        for item in beneficiary_endowment_entries:
+            beneficiary_endowment_entry = BeneficiaryEndowmentEntry(**item)
+            beneficiary_endowment_entry.beneficiary = beneficiary
+            beneficiary_endowment_entry.save()
         return CreateBeneficiary(beneficiary=beneficiary)
 
 class UpdateBeneficiary(graphene.Mutation):
@@ -1226,6 +1245,7 @@ class UpdateBeneficiary(graphene.Mutation):
         beneficiary_admission_documents = beneficiary_data.pop("beneficiary_admission_documents", None)
         beneficiary_status_entries = beneficiary_data.pop("beneficiary_status_entries", None)
         beneficiary_entries = beneficiary_data.pop("beneficiary_entries", None)
+        beneficiary_endowment_entries = beneficiary_data.pop("beneficiary_endowment_entries", None)
         Beneficiary.objects.filter(pk=id).update(**beneficiary_data)
         beneficiary = Beneficiary.objects.get(pk=id)
         if not beneficiary.folder or beneficiary.folder is None:
@@ -1280,7 +1300,7 @@ class UpdateBeneficiary(graphene.Mutation):
                 document_file.file = document
                 document_file.save()
                 beneficiary_admission_document.document = document_file
-                beneficiary_admission_document.save()            
+                beneficiary_admission_document.save()
         beneficiary_status_entry_ids = [item.id for item in beneficiary_status_entries if item.id is not None]
         BeneficiaryStatusEntry.objects.filter(beneficiary=beneficiary).exclude(id__in=beneficiary_status_entry_ids).delete()
         for item in beneficiary_status_entries:
@@ -1318,6 +1338,17 @@ class UpdateBeneficiary(graphene.Mutation):
                 beneficiary_entry.save()
             beneficiary_entry.establishments.set(establishment_ids)
             beneficiary_entry.internal_referents.set(internal_referent_ids)
+            
+        beneficiary_endowment_entry_ids = [item.id for item in beneficiary_endowment_entries if item.id is not None]
+        BeneficiaryEndowmentEntry.objects.filter(beneficiary=beneficiary).exclude(id__in=beneficiary_endowment_entry_ids).delete()
+        for item in beneficiary_endowment_entries:
+            if id in item or 'id' in item:
+                BeneficiaryEndowmentEntry.objects.filter(pk=item.id).update(**item)
+                beneficiary_endowment_entry = BeneficiaryEndowmentEntry.objects.get(pk=item.id)
+            else:
+                beneficiary_endowment_entry = BeneficiaryEndowmentEntry(**item)
+                beneficiary_endowment_entry.beneficiary = beneficiary
+                beneficiary_endowment_entry.save()
 
         return UpdateBeneficiary(beneficiary=beneficiary)
 

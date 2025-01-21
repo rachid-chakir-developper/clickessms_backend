@@ -287,14 +287,17 @@ class EndowmentFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class EndowmentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
-    label = graphene.String(required=True)
-    amount_allocated = graphene.Decimal(required=False)
+    label = graphene.String(required=False)
+    amount_allocated = graphene.Decimal(required=True)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    gender = graphene.String(required=False)
     age_min = graphene.Float(required=False)
     age_max = graphene.Float(required=False)
     description = graphene.String(required=False)
@@ -302,10 +305,8 @@ class EndowmentInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     endowment_type_id = graphene.Int(name="endowmentType", required=True)
     accounting_nature_id = graphene.Int(name="accountingNature", required=True)
-    gender_id = graphene.Int(name="gender", required=True)
-    professional_status_id = graphene.Int(name="professional_status", required=True)
+    professional_status_id = graphene.Int(name="professionalStatus", required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
-
 
 class FinanceQuery(graphene.ObjectType):
     decision_documents = graphene.Field(
@@ -634,17 +635,29 @@ class FinanceQuery(graphene.ObjectType):
         company = user.the_current_company
         total_count = 0
         endowments = Endowment.objects.filter(company=company)
+        if not user.can_manage_finance():
+            if user.is_manager():
+                endowments = endowments.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                endowments = endowments.filter(creator=user)
+        the_order_by = '-created_at'
         if endowment_filter:
             keyword = endowment_filter.get('keyword', '')
             starting_date_time = endowment_filter.get('starting_date_time')
             ending_date_time = endowment_filter.get('ending_date_time')
+            establishments = endowment_filter.get('establishments')
+            order_by = endowment_filter.get('order_by')
+            if establishments:
+                endowments = endowments.filter(establishment__id__in=establishments)
             if keyword:
-                endowments = endowments.filter(Q(name__icontains=keyword))
+                endowments = endowments.filter(Q(label__icontains=keyword) | Q(endowment_type__name__icontains=keyword))
             if starting_date_time:
-                endowments = endowments.filter(created_at__gte=starting_date_time)
+                endowments = endowments.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
-                endowments = endowments.filter(created_at__lte=ending_date_time)
-        endowments = endowments.order_by('-created_at')
+                endowments = endowments.filter(starting_date_time__lte=ending_date_time)
+            if order_by:
+                the_order_by = order_by
+        endowments = endowments.order_by(the_order_by).distinct()
         total_count = endowments.count()
         if page:
             offset = limit * (page - 1)

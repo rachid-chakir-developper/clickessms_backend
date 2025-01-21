@@ -475,6 +475,11 @@ class BudgetAccountingNature(models.Model):
         return str(self.id)
 
 class Endowment(models.Model):
+    GENDERS = [
+        ("MALE", "Homme"),
+        ("FEMALE", "Femme"),
+        ("NOT_SPECIFIED", "Non spécifié"),
+    ]
     number = models.CharField(max_length=255, editable=False, null=True)
     label = models.CharField(max_length=255, null=True)
     endowment_type = models.ForeignKey('data_management.TypeEndowment', on_delete=models.SET_NULL, related_name='endowments', null=True)
@@ -490,7 +495,7 @@ class Endowment(models.Model):
         related_name="endowments",
         null=True,
     )
-    gender = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    gender = models.CharField(max_length=50, choices=GENDERS, default="NOT_SPECIFIED", null=True, blank=True)
     age_min = models.FloatField(null=True, blank=True, verbose_name="Âge minimum")
     age_max = models.FloatField(null=True, blank=True, verbose_name="Âge maximum")
     professional_status = models.ForeignKey('data_management.ProfessionalStatus', on_delete=models.SET_NULL, related_name='endowments', null=True)
