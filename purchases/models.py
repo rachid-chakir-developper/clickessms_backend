@@ -191,7 +191,7 @@ class Expense(models.Model):
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 	
 	def __str__(self):
-		return f"{self.name} - {self.number}"
+		return f"{self.label} - {self.number}"
 
 	def calculate_total_amount(self):
 		"""Calcule le total_amount en fonction des ExpenseItem associés."""

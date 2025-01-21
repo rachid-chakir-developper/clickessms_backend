@@ -1,6 +1,7 @@
 from django.db import models
 from datetime import datetime
 import random
+from decimal import Decimal
 
 # Create your models here.
 class TransmissionEvent(models.Model):
@@ -113,3 +114,57 @@ class PersonalizedProject(models.Model):
 	    
 	def __str__(self):
 		return self.title
+
+# Create your models here.
+class BeneficiaryExpense(models.Model):
+	STATUS_CHOICES = [
+		('PENDING', 'En Attente'),
+		('APPROVED', 'Approuvé'),
+		('REJECTED', 'Rejeté'),
+		('PAID', 'Payé'),
+		('UNPAID', 'Non payé')
+	]
+	PAYMENT_METHOD = [
+		("CASH", "Espèces"),
+		("CREDIT_CARD", "Carte de crédit"),
+		("BANK_TRANSFER", "Virement bancaire"),
+		("DIRECT_DEBIT", "Prélèvement"),
+		("PURCHASE_ORDER", "Bon de commande"),
+		("CHECK", "Chèque"),
+		("PAYPAL", "PayPal"),
+		("BILL_OF_EXCHANGE", "Lettre de change relevé"),
+		("LIBEO_TRANSFER", "Virement par Libeo"),
+		("MOBILE_PAYMENT", "Paiement mobile"),
+		("CRYPTOCURRENCY", "Cryptomonnaie"),
+		("DEBIT_CARD", "Carte de débit"),
+		("APPLE_PAY", "Apple Pay"),
+		("GOOGLE_PAY", "Google Pay"),
+	]
+	number = models.CharField(max_length=255, editable=False, null=True)
+	label = models.CharField(max_length=255, null=True)
+	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='beneficiary_expenses', null=True)
+	endowment_type = models.ForeignKey('data_management.TypeEndowment', on_delete=models.SET_NULL, related_name='beneficiary_expenses', null=True)
+	amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
+	expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
+	payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CASH")
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+	description = models.TextField(default="", null=True, blank=True)
+	comment = models.TextField(default="", null=True, blank=True)
+	observation = models.TextField(default="", null=True, blank=True)
+	is_active = models.BooleanField(default=True, null=True)
+	files = models.ManyToManyField('medias.File', related_name='file_beneficiary_expenses')
+	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_beneficiary_expenses', null=True)
+	company = models.ForeignKey(
+		"companies.Company",
+		on_delete=models.SET_NULL,
+		related_name="company_beneficiary_expenses",
+		null=True,
+	)
+	creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+	    
+	def __str__(self):
+		return self.label

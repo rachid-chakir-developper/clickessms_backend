@@ -6,9 +6,10 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from activities.models import TransmissionEvent, TransmissionEventBeneficiary, BeneficiaryAbsence, BeneficiaryAbsenceItem, PersonalizedProject
+from activities.models import TransmissionEvent, TransmissionEventBeneficiary, BeneficiaryAbsence, BeneficiaryAbsenceItem, PersonalizedProject, BeneficiaryExpense
 from data_management.models import AbsenceReason
 from medias.models import Folder, File
+from medias.schema import MediaInput
 from human_ressources.models import Beneficiary
 
 class TransmissionEventBeneficiaryType(DjangoObjectType):
@@ -106,6 +107,32 @@ class PersonalizedProjectInput(graphene.InputObjectType):
     employee_id = graphene.Int(name="employee", required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
 
+class BeneficiaryExpenseType(DjangoObjectType):
+    class Meta:
+        model = BeneficiaryExpense
+        fields = "__all__"
+        
+class BeneficiaryExpenseNodeType(graphene.ObjectType):
+    nodes = graphene.List(BeneficiaryExpenseType)
+    total_count = graphene.Int()
+
+class BeneficiaryExpenseFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    beneficiaries = graphene.List(graphene.Int, required=False)
+
+class BeneficiaryExpenseInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    label = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+
 class ActivitiesQuery(graphene.ObjectType):
     transmission_events = graphene.Field(TransmissionEventNodeType, transmission_event_filter= TransmissionEventFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     transmission_event = graphene.Field(TransmissionEventType, id = graphene.ID())
@@ -113,6 +140,8 @@ class ActivitiesQuery(graphene.ObjectType):
     beneficiary_absence = graphene.Field(BeneficiaryAbsenceType, id = graphene.ID())
     personalized_projects = graphene.Field(PersonalizedProjectNodeType, personalized_project_filter= PersonalizedProjectFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     personalized_project = graphene.Field(PersonalizedProjectType, id = graphene.ID())
+    beneficiary_expenses = graphene.Field(BeneficiaryExpenseNodeType, beneficiary_expense_filter= BeneficiaryExpenseFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    beneficiary_expense = graphene.Field(BeneficiaryExpenseType, id = graphene.ID())
     def resolve_transmission_events(root, info, transmission_event_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -234,6 +263,47 @@ class ActivitiesQuery(graphene.ObjectType):
         except PersonalizedProject.DoesNotExist:
             personalized_project = None
         return personalized_project
+
+    def resolve_beneficiary_expenses(root, info, beneficiary_expense_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        beneficiary_expenses = BeneficiaryExpense.objects.filter(company=company)
+        if not user.can_manage_activity():
+            if user.is_manager():
+                beneficiary_expenses = beneficiary_expenses.filter(Q(beneficiary__beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                beneficiary_expenses = beneficiary_expenses.filter(creator=user)
+        if beneficiary_expense_filter:
+            keyword = beneficiary_expense_filter.get('keyword', '')
+            starting_date_time = beneficiary_expense_filter.get('starting_date_time')
+            ending_date_time = beneficiary_expense_filter.get('ending_date_time')
+            beneficiaries = beneficiary_expense_filter.get('beneficiaries')
+            if beneficiaries:
+                beneficiary_expenses = beneficiary_expenses.filter(beneficiary__id__in=beneficiaries)
+            if keyword:
+                beneficiary_expenses = beneficiary_expenses.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
+            if starting_date_time:
+                beneficiary_expenses = beneficiary_expenses.filter(starting_date_time__gte=starting_date_time)
+            if ending_date_time:
+                beneficiary_expenses = beneficiary_expenses.filter(starting_date_time__lte=ending_date_time)
+
+        beneficiary_expenses = beneficiary_expenses.order_by('-created_at').distinct()
+        total_count = beneficiary_expenses.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            beneficiary_expenses = beneficiary_expenses[offset:offset + limit]
+        return BeneficiaryExpenseNodeType(nodes=beneficiary_expenses, total_count=total_count)
+
+    def resolve_beneficiary_expense(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            beneficiary_expense = BeneficiaryExpense.objects.get(pk=id)
+        except BeneficiaryExpense.DoesNotExist:
+            beneficiary_expense = None
+        return beneficiary_expense
 
 #************************************************************************
 
@@ -490,7 +560,7 @@ class CreatePersonalizedProject(graphene.Mutation):
         personalized_project = PersonalizedProject(**personalized_project_data)
         personalized_project.creator = creator
         personalized_project.company = creator.the_current_company
-        folder = Folder.objects.create(name=str(personalized_project.id)+'_'+personalized_project.title,creator=creator)
+        folder = Folder.objects.create(name=str(personalized_project.id)+'_'+personalized_project.label,creator=creator)
         personalized_project.folder = folder
         personalized_project.save()
         if not personalized_project.employee:
@@ -505,12 +575,12 @@ class UpdatePersonalizedProject(graphene.Mutation):
 
     personalized_project = graphene.Field(PersonalizedProjectType)
 
-    def mutate(root, info, id, image=None, personalized_project_data=None):
+    def mutate(root, info, id, personalized_project_data=None):
         creator = info.context.user
         PersonalizedProject.objects.filter(pk=id).update(**personalized_project_data)
         personalized_project = PersonalizedProject.objects.get(pk=id)
         if not personalized_project.folder or personalized_project.folder is None:
-            folder = Folder.objects.create(name=str(personalized_project.id)+'_'+personalized_project.title,creator=creator)
+            folder = Folder.objects.create(name=str(personalized_project.id)+'_'+personalized_project.label,creator=creator)
             PersonalizedProject.objects.filter(pk=id).update(folder=folder)
         if not personalized_project.employee:
             personalized_project.employee = creator.get_employee_in_company()
@@ -542,7 +612,114 @@ class DeletePersonalizedProject(graphene.Mutation):
         else:
             message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeletePersonalizedProject(deleted=deleted, success=success, message=message, id=id)
+
+#*************************************************************************#
+#************************************************************************
+
+class CreateBeneficiaryExpense(graphene.Mutation):
+    class Arguments:
+        beneficiary_expense_data = BeneficiaryExpenseInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    beneficiary_expense = graphene.Field(BeneficiaryExpenseType)
+
+    def mutate(root, info, files=None, beneficiary_expense_data=None):
+        creator = info.context.user
+        beneficiary_expense = BeneficiaryExpense(**beneficiary_expense_data)
+        beneficiary_expense.creator = creator
+        beneficiary_expense.company = creator.the_current_company
+        folder = Folder.objects.create(name=str(beneficiary_expense.id)+'_'+beneficiary_expense.title,creator=creator)
+        beneficiary_expense.folder = folder
+        if not files:
+            files = []
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = beneficiary_expense.folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            beneficiary_expense.files.add(file_file)
+        beneficiary_expense.save()
+        if not beneficiary_expense.employee:
+            beneficiary_expense.employee = creator.get_employee_in_company()
+        beneficiary_expense.save()
+        return CreateBeneficiaryExpense(beneficiary_expense=beneficiary_expense)
+
+class UpdateBeneficiaryExpense(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        beneficiary_expense_data = BeneficiaryExpenseInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    beneficiary_expense = graphene.Field(BeneficiaryExpenseType)
+
+    def mutate(root, info, id, files=None, beneficiary_expense_data=None):
+        creator = info.context.user
+        BeneficiaryExpense.objects.filter(pk=id).update(**beneficiary_expense_data)
+        beneficiary_expense = BeneficiaryExpense.objects.get(pk=id)
+        if not beneficiary_expense.folder or beneficiary_expense.folder is None:
+            folder = Folder.objects.create(name=str(beneficiary_expense.id)+'_'+beneficiary_expense.title,creator=creator)
+            BeneficiaryExpense.objects.filter(pk=id).update(folder=folder)
+        if not beneficiary_expense.employee:
+            beneficiary_expense.employee = creator.get_employee_in_company()
+            beneficiary_expense.save()
+        if not files:
+            files = []
+        else:
+            file_ids = [item.id for item in files if item.id is not None]
+            File.objects.filter(file_beneficiary_expenses=beneficiary_expense).exclude(id__in=file_ids).delete()
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = beneficiary_expense.folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            beneficiary_expense.files.add(file_file)
+        beneficiary_expense.save()
+        return UpdateBeneficiaryExpense(beneficiary_expense=beneficiary_expense)
+
+class DeleteBeneficiaryExpense(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    beneficiary_expense = graphene.Field(BeneficiaryExpenseType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        beneficiary_expense = BeneficiaryExpense.objects.get(pk=id)
+        if current_user.can_manage_activity() or current_user.is_manager() or beneficiary_expense.creator == current_user:
+            # beneficiary_expense = BeneficiaryExpense.objects.get(pk=id)
+            # beneficiary_expense.delete()
+            BeneficiaryExpense.objects.filter(pk=id).update(is_deleted=True)
+            deleted = True
+            success = True
+        else:
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
+        return DeleteBeneficiaryExpense(deleted=deleted, success=success, message=message, id=id)
+
         
+#*************************************************************************#       
 #*************************************************************************#
 
 class ActivitiesMutation(graphene.ObjectType):
@@ -558,3 +735,7 @@ class ActivitiesMutation(graphene.ObjectType):
     create_personalized_project = CreatePersonalizedProject.Field()
     update_personalized_project = UpdatePersonalizedProject.Field()
     delete_personalized_project = DeletePersonalizedProject.Field()
+
+    create_beneficiary_expense = CreateBeneficiaryExpense.Field()
+    update_beneficiary_expense = UpdateBeneficiaryExpense.Field()
+    delete_beneficiary_expense = DeleteBeneficiaryExpense.Field()
