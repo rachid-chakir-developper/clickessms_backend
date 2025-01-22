@@ -575,9 +575,6 @@ class HumanRessourcesQuery(graphene.ObjectType):
 
     def resolve_beneficiaries(root, info, beneficiary_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
-        # Mettre à jour les femmes
-        Beneficiary.objects.filter(genderh__name__iexact="Femme").update(gender="FEMALE")
-        Beneficiary.objects.filter(genderh__name__iexact="Homme").update(gender="MALE")
         user = info.context.user
         company = user.the_current_company
         total_count = 0
@@ -619,8 +616,6 @@ class HumanRessourcesQuery(graphene.ObjectType):
         root, info, beneficiary_admission_filter=None, offset=None, limit=None, page=None
     ):
         # We can easily optimize query count in the resolve method
-        BeneficiaryAdmission.objects.filter(genderh__name__iexact="Femme").update(gender="FEMALE")
-        BeneficiaryAdmission.objects.filter(genderh__name__iexact="Homme").update(gender="MALE")
         user = info.context.user
         company = user.the_current_company
         total_count = 0
