@@ -288,7 +288,7 @@ class ActivitiesQuery(graphene.ObjectType):
             if beneficiaries:
                 beneficiary_expenses = beneficiary_expenses.filter(beneficiary__id__in=beneficiaries)
             if keyword:
-                beneficiary_expenses = beneficiary_expenses.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
+                beneficiary_expenses = beneficiary_expenses.filter(Q(label__icontains=keyword) | Q(description__icontains=keyword))
             if starting_date_time:
                 beneficiary_expenses = beneficiary_expenses.filter(expense_date_time__gte=starting_date_time)
             if ending_date_time:
