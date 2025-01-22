@@ -126,10 +126,15 @@ class BeneficiaryExpenseInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     label = graphene.String(required=False)
-    starting_date_time = graphene.DateTime(required=False)
-    ending_date_time = graphene.DateTime(required=False)
+    amount = graphene.Decimal(required=False)
+    expense_date_time = graphene.DateTime(required=False)
+    payment_method = graphene.String(required=False)
+    status = graphene.String(required=False)
     description = graphene.String(required=False)
+    comment = graphene.String(required=False)
     observation = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    endowment_type_id = graphene.Int(name="endowmentType", required=True)
     employee_id = graphene.Int(name="employee", required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
 
@@ -285,9 +290,9 @@ class ActivitiesQuery(graphene.ObjectType):
             if keyword:
                 beneficiary_expenses = beneficiary_expenses.filter(Q(title__icontains=keyword) | Q(description__icontains=keyword))
             if starting_date_time:
-                beneficiary_expenses = beneficiary_expenses.filter(starting_date_time__gte=starting_date_time)
+                beneficiary_expenses = beneficiary_expenses.filter(expense_date_time__gte=starting_date_time)
             if ending_date_time:
-                beneficiary_expenses = beneficiary_expenses.filter(starting_date_time__lte=ending_date_time)
+                beneficiary_expenses = beneficiary_expenses.filter(expense_date_time__lte=ending_date_time)
 
         beneficiary_expenses = beneficiary_expenses.order_by('-created_at').distinct()
         total_count = beneficiary_expenses.count()
@@ -628,7 +633,8 @@ class CreateBeneficiaryExpense(graphene.Mutation):
         beneficiary_expense = BeneficiaryExpense(**beneficiary_expense_data)
         beneficiary_expense.creator = creator
         beneficiary_expense.company = creator.the_current_company
-        folder = Folder.objects.create(name=str(beneficiary_expense.id)+'_'+beneficiary_expense.title,creator=creator)
+        beneficiary_expense.status = 'APPROVED'
+        folder = Folder.objects.create(name=str(beneficiary_expense.id)+'_'+beneficiary_expense.label,creator=creator)
         beneficiary_expense.folder = folder
         if not files:
             files = []
@@ -665,7 +671,7 @@ class UpdateBeneficiaryExpense(graphene.Mutation):
         BeneficiaryExpense.objects.filter(pk=id).update(**beneficiary_expense_data)
         beneficiary_expense = BeneficiaryExpense.objects.get(pk=id)
         if not beneficiary_expense.folder or beneficiary_expense.folder is None:
-            folder = Folder.objects.create(name=str(beneficiary_expense.id)+'_'+beneficiary_expense.title,creator=creator)
+            folder = Folder.objects.create(name=str(beneficiary_expense.id)+'_'+beneficiary_expense.label,creator=creator)
             BeneficiaryExpense.objects.filter(pk=id).update(folder=folder)
         if not beneficiary_expense.employee:
             beneficiary_expense.employee = creator.get_employee_in_company()
@@ -689,6 +695,7 @@ class UpdateBeneficiaryExpense(graphene.Mutation):
             file_file.caption = caption
             file_file.save()
             beneficiary_expense.files.add(file_file)
+        beneficiary_expense.status = 'APPROVED'
         beneficiary_expense.save()
         return UpdateBeneficiaryExpense(beneficiary_expense=beneficiary_expense)
 
