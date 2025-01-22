@@ -316,6 +316,63 @@ class Balance(models.Model):
     def __str__(self):
         return self.amount
 
+# Create your models here.
+class BankCard(models.Model):
+    number = models.CharField(max_length=255, editable=False, null=True)
+    title = models.CharField(max_length=255, blank=True, null=True)
+    image = models.ForeignKey( "medias.File", on_delete=models.SET_NULL, related_name="image_bank_cards", null=True)
+    card_number = models.CharField(max_length=255, null=False)  # Numéro de la carte
+    cardholder_name = models.CharField(max_length=255, null=False)  # Titulaire de la carte
+    expiration_date = models.DateField(null=False)  # Date d'expiration
+    cvv = models.CharField(max_length=4, null=False)  # Code de sécurité CVV
+    bank_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.SET_NULL,
+        related_name="bank_cards",
+        null=True,
+    )   
+    is_active = models.BooleanField(default=True, null=True)
+    company = models.ForeignKey(
+        "companies.Company",
+        on_delete=models.SET_NULL,
+        related_name="company_bank_cards",
+        null=True,
+    )
+    creator = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def save(self, *args, **kwargs):
+        # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+        if not self.number:
+            self.number = self.generate_unique_number()
+
+        super(BankCard, self).save(*args, **kwargs)
+
+    def generate_unique_number(self):
+        # Implémentez la logique de génération du numéro unique ici
+        # Vous pouvez utiliser des combinaisons de date, heure, etc.
+        # par exemple, en utilisant la fonction strftime de l'objet datetime
+        # pour générer une chaîne basée sur la date et l'heure actuelles.
+
+        # Exemple : Utilisation de la date et de l'heure actuelles
+        current_time = datetime.now()
+        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+        number_prefix = "".join(
+            random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ", k=2)
+        )  # Ajoutez 3 lettres au début
+        number = f"{number_prefix}{number_suffix}"
+
+        # Vérifier s'il est unique dans la base de données
+        while BankCard.objects.filter(number=number).exists():
+            number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+            number = f"{number_prefix}{number_suffix}"
+
+        return number
+
+    def __str__(self):
+        return self.card_number
 
 class CashRegister(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)

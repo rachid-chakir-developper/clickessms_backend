@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from django.db.models import Q
 
-from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, Balance, CashRegister, CashRegisterEstablishment, CashRegisterManager, CashRegisterTransaction, Budget, BudgetAccountingNature, Endowment
+from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, BankCard, Balance, CashRegister, CashRegisterEstablishment, CashRegisterManager, CashRegisterTransaction, Budget, BudgetAccountingNature, Endowment
 from data_management.models import AccountingNature
 from medias.models import Folder, File
 from companies.models import Establishment
@@ -150,6 +150,38 @@ class BalanceInput(graphene.InputObjectType):
     amount = graphene.Decimal(required=False)
     bank_account_id = graphene.Int(name="bankAccount", required=False)
 
+class BankCardType(DjangoObjectType):
+    class Meta:
+        model = BankCard
+        fields = "__all__"
+
+    image = graphene.String()
+
+    def resolve_image(instance, info, **kwargs):
+        return instance.image and info.context.build_absolute_uri(
+            instance.image.image.url
+        )
+
+class BankCardNodeType(graphene.ObjectType):
+    nodes = graphene.List(BankCardType)
+    total_count = graphene.Int()
+
+
+class BankCardFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+
+class BankCardInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    title = graphene.String(required=False)
+    card_number = graphene.String(required=False)
+    cardholder_name = graphene.String(required=False)
+    expiration_date = graphene.DateTime(required=False)
+    cvv = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    bank_account_id = graphene.Int(name="bankAccount", required=False)
 
 class BudgetAccountingNatureType(DjangoObjectType):
     class Meta:
@@ -333,6 +365,14 @@ class FinanceQuery(graphene.ObjectType):
         page=graphene.Int(required=False),
     )
     balance = graphene.Field(BalanceType, id=graphene.ID())
+    bank_cards = graphene.Field(
+        BankCardNodeType,
+        bank_card_filter=BankCardFilterInput(required=False),
+        offset=graphene.Int(required=False),
+        limit=graphene.Int(required=False),
+        page=graphene.Int(required=False),
+    )
+    bank_card = graphene.Field(BankCardType, id=graphene.ID())
     cash_registers = graphene.Field(
         CashRegisterNodeType,
         cash_register_filter=CashRegisterFilterInput(required=False),
@@ -492,7 +532,49 @@ class FinanceQuery(graphene.ObjectType):
             balance = Balance.objects.get(pk=id)
         except Balance.DoesNotExist:
             balance = None
-        return balance    
+        return balance
+
+    def resolve_bank_cards(
+        root, info, bank_card_filter=None, offset=None, limit=None, page=None
+    ):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        bank_cards = BankCard.objects.filter(bank_account__company=company)
+        if not user.can_manage_finance():
+            if user.is_manager():
+                bank_cards = bank_cards.filter(Q(bank_account__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                bank_cards = bank_cards.filter(creator=user)
+        if bank_card_filter:
+            keyword = bank_card_filter.get("keyword", "")
+            starting_date_time = bank_card_filter.get("starting_date_time")
+            ending_date_time = bank_card_filter.get("ending_date_time")
+            if keyword:
+                bank_cards = bank_cards.filter(
+                    Q(card_number=keyword)
+                    | Q(cardholder_name__icontains=keyword)
+                )
+            if starting_date_time:
+                bank_cards = bank_cards.filter(expiration_date__gte=starting_date_time)
+            if ending_date_time:
+                bank_cards = bank_cards.filter(expiration_date__lte=ending_date_time)
+        bank_cards = bank_cards.order_by("-created_at").distinct()
+        total_count = bank_cards.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            bank_cards = bank_cards[offset : offset + limit]
+        return BankCardNodeType(nodes=bank_cards, total_count=total_count)
+
+    def resolve_bank_card(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            bank_card = BankCard.objects.get(pk=id)
+        except BankCard.DoesNotExist:
+            bank_card = None
+        return bank_card   
     def resolve_cash_registers(
         root, info, cash_register_filter=None, offset=None, limit=None, page=None
     ):
@@ -1541,7 +1623,89 @@ class DeleteEndowment(graphene.Mutation):
         return DeleteEndowment(deleted=deleted, success=success, message=message, id=id)
 
 #*************************************************************************#
+# ************************************************************************
 
+# ************************************************************************
+
+
+class CreateBankCard(graphene.Mutation):
+    class Arguments:
+        bank_card_data = BankCardInput(required=True)
+        image = Upload(required=False)
+
+    bank_card = graphene.Field(BankCardType)
+
+    def mutate(root, info, image=None, bank_card_data=None):
+        creator = info.context.user
+        bank_card = BankCard(**bank_card_data)
+        bank_card.creator = creator
+        bank_card.company = creator.the_current_company
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if image and isinstance(image, UploadedFile):
+                image_file = bank_card.image
+                if not image_file:
+                    image_file = File()
+                    image_file.creator = creator
+                image_file.image = image
+                image_file.save()
+                bank_card.image = image_file
+        bank_card.save()
+        return CreateBankCard(bank_card=bank_card)
+
+
+class UpdateBankCard(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        bank_card_data = BankCardInput(required=True)
+        image = Upload(required=False)
+
+    bank_card = graphene.Field(BankCardType)
+
+    def mutate(root, info, id, image=None, bank_card_data=None):
+        creator = info.context.user
+        BankCard.objects.filter(pk=id).update(**bank_card_data)
+        bank_card = BankCard.objects.get(pk=id)
+        if not image and bank_card.image:
+            image_file = bank_card.image
+            image_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if image and isinstance(image, UploadedFile):
+                image_file = bank_card.image
+                if not image_file:
+                    image_file = File()
+                    image_file.creator = creator
+                image_file.image = image
+                image_file.save()
+                bank_card.image = image_file
+            bank_card.save()
+        return UpdateBankCard(bank_card=bank_card)
+
+
+class DeleteBankCard(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    bank_card = graphene.Field(BankCardType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ""
+        current_user = info.context.user
+        if current_user.is_superuser:
+            bank_card = BankCard.objects.get(pk=id)
+            bank_card.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteBankCard(deleted=deleted, success=success, message=message, id=id)
 # *************************************************************************#
 
 
@@ -1558,7 +1722,11 @@ class FinanceMutation(graphene.ObjectType):
 
     create_balance = CreateBalance.Field()
     update_balance = UpdateBalance.Field()
-    delete_balance = DeleteBalance.Field()  
+    delete_balance = DeleteBalance.Field()
+
+    create_bank_card = CreateBankCard.Field()
+    update_bank_card = UpdateBankCard.Field()
+    delete_bank_card = DeleteBankCard.Field()
 
     create_cash_register = CreateCashRegister.Field()
     update_cash_register = UpdateCashRegister.Field()
