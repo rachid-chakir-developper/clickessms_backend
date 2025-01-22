@@ -254,7 +254,7 @@ class EmployeeInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
-    gender_id = graphene.Int(name="gender", required=False)
+    gender = graphene.String(required=False)
 
 class EmployeeGroupInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -361,7 +361,7 @@ class BeneficiaryInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
-    gender_id = graphene.Int(name="gender", required=False)
+    gender = graphene.String(required=False)
     beneficiary_admission_documents = graphene.List(BeneficiaryAdmissionDocumentInput, required=False)
     beneficiary_status_entries = graphene.List(BeneficiaryStatusEntryInput, required=False)
     beneficiary_endowment_entries = graphene.List(BeneficiaryEndowmentEntryInput, required=False)
@@ -420,7 +420,7 @@ class BeneficiaryAdmissionInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
-    gender_id = graphene.Int(name="gender", required=False)
+    gender = graphene.String(required=False)
     status = graphene.String(required=False)
     response_date = graphene.DateTime(required=False)
     status_reason = graphene.String(required=False)
@@ -460,7 +460,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
     def resolve_employees(root, info, employee_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         employees = Employee.objects.filter(company__id=id_company, is_deleted=False) if id_company else Employee.objects.filter(company=company, is_deleted=False)
         # if not user.can_manage_administration():
@@ -500,7 +500,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
     def resolve_employee_contracts(root, info, employee_contract_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         employee_contracts = EmployeeContract.objects.filter(employee__company=company, is_deleted=False)
         if not user.can_manage_administration():
@@ -544,7 +544,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
     def resolve_employee_groups(root, info, employee_group_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         employee_groups = EmployeeGroup.objects.filter(company=company, is_deleted=False)
         if employee_group_filter:
@@ -575,8 +575,11 @@ class HumanRessourcesQuery(graphene.ObjectType):
 
     def resolve_beneficiaries(root, info, beneficiary_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
+        # Mettre à jour les femmes
+        Beneficiary.objects.filter(genderh__name__iexact="Femme").update(gender="FEMALE")
+        Beneficiary.objects.filter(genderh__name__iexact="Homme").update(gender="MALE")
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         beneficiaries = Beneficiary.objects.filter(company__id=id_company, is_deleted=False) if id_company else Beneficiary.objects.filter(company=company, is_deleted=False)
         # if not user.can_manage_administration():
@@ -616,6 +619,8 @@ class HumanRessourcesQuery(graphene.ObjectType):
         root, info, beneficiary_admission_filter=None, offset=None, limit=None, page=None
     ):
         # We can easily optimize query count in the resolve method
+        BeneficiaryAdmission.objects.filter(genderh__name__iexact="Femme").update(gender="FEMALE")
+        BeneficiaryAdmission.objects.filter(genderh__name__iexact="Homme").update(gender="MALE")
         user = info.context.user
         company = user.the_current_company
         total_count = 0
@@ -674,7 +679,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
     def resolve_beneficiary_groups(root, info, beneficiary_group_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         beneficiary_groups = BeneficiaryGroup.objects.filter(company=company, is_deleted=False)
         if beneficiary_group_filter:

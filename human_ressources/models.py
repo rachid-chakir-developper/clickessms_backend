@@ -23,7 +23,8 @@ GENDERS = [
 class Employee(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)
     registration_number = models.CharField(max_length=255, null=True)
-    gender = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    genderh = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    gender = models.CharField(max_length=50, choices=GENDERS, default="NOT_SPECIFIED", null=True, blank=True)
     preferred_name = models.CharField(max_length=255, null=True)
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
@@ -326,7 +327,8 @@ class EmployeeContractReplacedEmployee(models.Model):
 # Create your models here.
 class Beneficiary(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)
-    gender = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    genderh = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    gender = models.CharField(max_length=50, choices=GENDERS, default="NOT_SPECIFIED", null=True, blank=True)
     preferred_name = models.CharField(max_length=255, null=True)
     first_name = models.CharField(max_length=255, null=True)
     last_name = models.CharField(max_length=255, null=True)
@@ -665,7 +667,8 @@ class BeneficiaryAdmission(models.Model):
     ]
     number = models.CharField(max_length=255, editable=False, null=True)
     reception_date = models.DateTimeField(null=True)
-    gender = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    genderh = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
+    gender = models.CharField(max_length=50, choices=GENDERS, default="NOT_SPECIFIED", null=True, blank=True)
     preferred_name = models.CharField(max_length=255, null=True)
     first_name = models.CharField(max_length=255, null=True)
     last_name = models.CharField(max_length=255, null=True)
