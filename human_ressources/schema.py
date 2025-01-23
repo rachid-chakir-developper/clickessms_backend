@@ -109,6 +109,7 @@ class EmployeeFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     establishments = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class EmployeeGroupItemType(DjangoObjectType):
     class Meta:
@@ -193,6 +194,7 @@ class BeneficiaryFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     establishments = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class BeneficiaryGroupItemType(DjangoObjectType):
     class Meta:
@@ -473,11 +475,13 @@ class HumanRessourcesQuery(graphene.ObjectType):
         #         employees = employees.filter(Q(employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
         #     else:
         #         employees = employees.filter(creator=user)
+        the_order_by = '-created_at'
         if employee_filter:
             keyword = employee_filter.get('keyword', '')
             starting_date_time = employee_filter.get('starting_date_time')
             ending_date_time = employee_filter.get('ending_date_time')
             establishments = employee_filter.get('establishments')
+            order_by = employee_filter.get('order_by')
             if keyword:
                 employees = employees.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword) | Q(registration_number__icontains=keyword))
             if establishments:
@@ -486,7 +490,9 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 employees = employees.filter(created_at__date__gte=starting_date_time.date())
             if ending_date_time:
                 employees = employees.filter(created_at__date__lte=ending_date_time.date())
-        employees = employees.order_by('-created_at').distinct()
+            if order_by:
+                the_order_by = order_by
+        employees = employees.order_by(the_order_by).distinct()
         total_count = employees.count()
         if page:
             offset = limit * (page - 1)
@@ -589,11 +595,13 @@ class HumanRessourcesQuery(graphene.ObjectType):
         #         beneficiaries = beneficiaries.filter(Q(beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
         #     else:
         #         beneficiaries = beneficiaries.filter(creator=user)
+        the_order_by = '-created_at'
         if beneficiary_filter:
             keyword = beneficiary_filter.get('keyword', '')
             starting_date_time = beneficiary_filter.get('starting_date_time')
             ending_date_time = beneficiary_filter.get('ending_date_time')
             establishments = beneficiary_filter.get('establishments')
+            order_by = beneficiary_filter.get('order_by')
             if keyword:
                 beneficiaries = beneficiaries.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword))
             if establishments:
@@ -602,7 +610,9 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 beneficiaries = beneficiaries.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 beneficiaries = beneficiaries.filter(created_at__lte=ending_date_time)
-        beneficiaries = beneficiaries.order_by('-created_at').distinct()
+            if order_by:
+                the_order_by = order_by
+        beneficiaries = beneficiaries.order_by(the_order_by).distinct()
         total_count = beneficiaries.count()
         if page:
             offset = limit * (page - 1)
