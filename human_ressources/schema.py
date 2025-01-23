@@ -362,6 +362,7 @@ class BeneficiaryInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     gender = graphene.String(required=False)
+    professional_status_id = graphene.Int(name="professionalStatus", required=False)
     beneficiary_admission_documents = graphene.List(BeneficiaryAdmissionDocumentInput, required=False)
     beneficiary_status_entries = graphene.List(BeneficiaryStatusEntryInput, required=False)
     beneficiary_endowment_entries = graphene.List(BeneficiaryEndowmentEntryInput, required=False)
@@ -371,6 +372,9 @@ class BeneficiaryAdmissionType(DjangoObjectType):
     class Meta:
         model = BeneficiaryAdmission
         fields = "__all__"
+    age = graphene.Float()
+    def resolve_age( instance, info, **kwargs ):
+        return instance.age
 
 class BeneficiaryAdmissionNodeType(graphene.ObjectType):
     nodes = graphene.List(BeneficiaryAdmissionType)
@@ -424,6 +428,7 @@ class BeneficiaryAdmissionInput(graphene.InputObjectType):
     status = graphene.String(required=False)
     response_date = graphene.DateTime(required=False)
     status_reason = graphene.String(required=False)
+    professional_status_id = graphene.Int(name="professionalStatus", required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
     financier_id = graphene.Int(name="financier", required=False)
     employee_id = graphene.Int(name="employee", required=False)
@@ -1631,6 +1636,7 @@ class GenerateBeneficiary(graphene.Mutation):
             birth_city=beneficiary_admission.birth_city,
             birth_country=beneficiary_admission.birth_country,
             nationality=beneficiary_admission.nationality,
+            professional_status=beneficiary_admission.professional_status,
             latitude=beneficiary_admission.latitude,
             longitude=beneficiary_admission.longitude,
             city=beneficiary_admission.city,
