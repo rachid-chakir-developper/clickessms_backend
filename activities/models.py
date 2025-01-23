@@ -147,6 +147,10 @@ class BeneficiaryExpense(models.Model):
 	amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
 	expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
 	payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CASH")
+	bank_card = models.ForeignKey('finance.BankCard', on_delete=models.SET_NULL, null=True, related_name='beneficiary_expenses')
+	cash_register = models.ForeignKey('finance.CashRegister', on_delete=models.SET_NULL, null=True, related_name='beneficiary_expenses')
+	check_number = models.CharField(max_length=255, blank=True, null=True)
+	bank_name = models.CharField(max_length=255, blank=True, null=True)
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
 	description = models.TextField(default="", null=True, blank=True)
 	comment = models.TextField(default="", null=True, blank=True)

@@ -330,7 +330,9 @@ class BankCard(models.Model):
         on_delete=models.SET_NULL,
         related_name="bank_cards",
         null=True,
-    )   
+    )
+    description = models.TextField(default="", null=True)
+    observation = models.TextField(default="", null=True)
     is_active = models.BooleanField(default=True, null=True)
     company = models.ForeignKey(
         "companies.Company",

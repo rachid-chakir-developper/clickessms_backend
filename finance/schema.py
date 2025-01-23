@@ -94,7 +94,9 @@ class BalanceFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
-
+    bank_accounts = graphene.List(graphene.Int, required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class DecisionDocumentItemInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -156,11 +158,15 @@ class BankCardType(DjangoObjectType):
         fields = "__all__"
 
     image = graphene.String()
+    name = graphene.String()
 
     def resolve_image(instance, info, **kwargs):
         return instance.image and info.context.build_absolute_uri(
             instance.image.image.url
         )
+
+    def resolve_name(instance, info, **kwargs):
+        return instance.card_number
 
 class BankCardNodeType(graphene.ObjectType):
     nodes = graphene.List(BankCardType)
@@ -171,6 +177,9 @@ class BankCardFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    bank_accounts = graphene.List(graphene.Int, required=False)
+    establishments = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class BankCardInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -180,6 +189,8 @@ class BankCardInput(graphene.InputObjectType):
     cardholder_name = graphene.String(required=False)
     expiration_date = graphene.DateTime(required=False)
     cvv = graphene.String(required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     bank_account_id = graphene.Int(name="bankAccount", required=False)
 
@@ -508,6 +519,12 @@ class FinanceQuery(graphene.ObjectType):
             keyword = balance_filter.get("keyword", "")
             starting_date_time = balance_filter.get("starting_date_time")
             ending_date_time = balance_filter.get("ending_date_time")
+            bank_accounts = balance_filter.get('bank_accounts')
+            establishments = balance_filter.get('establishments')
+            if bank_accounts:
+                balances = balances.filter(bank_account__id__in=establishments)
+            if establishments:
+                balances = balances.filter(bank_account__establishment__id__in=establishments)
             if keyword:
                 balances = balances.filter(
                     Q(name__icontains=keyword)
@@ -542,6 +559,7 @@ class FinanceQuery(graphene.ObjectType):
         company = user.the_current_company
         total_count = 0
         bank_cards = BankCard.objects.filter(bank_account__company=company)
+        the_order_by = '-created_at'
         if not user.can_manage_finance():
             if user.is_manager():
                 bank_cards = bank_cards.filter(Q(bank_account__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -551,6 +569,13 @@ class FinanceQuery(graphene.ObjectType):
             keyword = bank_card_filter.get("keyword", "")
             starting_date_time = bank_card_filter.get("starting_date_time")
             ending_date_time = bank_card_filter.get("ending_date_time")
+            bank_accounts = bank_card_filter.get('bank_accounts')
+            establishments = bank_card_filter.get('establishments')
+            order_by = bank_card_filter.get('order_by')
+            if bank_accounts:
+                bank_cards = bank_cards.filter(bank_account__id__in=establishments)
+            if establishments:
+                bank_cards = bank_cards.filter(bank_account__establishment__id__in=establishments)
             if keyword:
                 bank_cards = bank_cards.filter(
                     Q(card_number=keyword)
@@ -560,7 +585,9 @@ class FinanceQuery(graphene.ObjectType):
                 bank_cards = bank_cards.filter(expiration_date__gte=starting_date_time)
             if ending_date_time:
                 bank_cards = bank_cards.filter(expiration_date__lte=ending_date_time)
-        bank_cards = bank_cards.order_by("-created_at").distinct()
+            if order_by:
+                the_order_by = order_by
+        bank_cards = bank_cards.order_by(the_order_by).distinct()
         total_count = bank_cards.count()
         if page:
             offset = limit * (page - 1)

@@ -129,6 +129,8 @@ class BeneficiaryExpenseInput(graphene.InputObjectType):
     amount = graphene.Decimal(required=False)
     expense_date_time = graphene.DateTime(required=False)
     payment_method = graphene.String(required=False)
+    check_number = graphene.String(required=False)
+    bank_name = graphene.String(required=False)
     status = graphene.String(required=False)
     description = graphene.String(required=False)
     comment = graphene.String(required=False)
@@ -137,6 +139,8 @@ class BeneficiaryExpenseInput(graphene.InputObjectType):
     endowment_type_id = graphene.Int(name="endowmentType", required=True)
     employee_id = graphene.Int(name="employee", required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
+    bank_card_id = graphene.Int(name="bankCard", required=False)
+    cash_register_id = graphene.Int(name="cashRegister", required=False)
 
 class ActivitiesQuery(graphene.ObjectType):
     transmission_events = graphene.Field(TransmissionEventNodeType, transmission_event_filter= TransmissionEventFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))

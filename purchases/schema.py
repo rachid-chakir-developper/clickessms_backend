@@ -143,6 +143,8 @@ class ExpenseInput(graphene.InputObjectType):
     total_amount = graphene.Decimal(required=False)
     expense_date_time = graphene.DateTime(required=False)
     payment_method = graphene.String(required=False)
+    check_number = graphene.String(required=False)
+    bank_name = graphene.String(required=False)
     expense_type = graphene.String(required=False)
     description = graphene.String(required=False)
     comment = graphene.String(required=False)
@@ -155,6 +157,7 @@ class ExpenseInput(graphene.InputObjectType):
     supplier_id = graphene.Int(name="supplier", required=False)
     employee_id = graphene.Int(name="employee", required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
+    bank_card_id = graphene.Int(name="bankCard", required=False)
     cash_register_id = graphene.Int(name="cashRegister", required=False)
 
 class PurchaseOrderItemType(DjangoObjectType):

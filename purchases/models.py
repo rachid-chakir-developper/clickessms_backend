@@ -159,7 +159,6 @@ class Expense(models.Model):
 	label = models.CharField(max_length=255, null=True)
 	total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # Montant total
 	expense_date_time = models.DateTimeField(null=True, blank=True)  # Date de la dépense
-	payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CREDIT_CARD")
 	expense_type = models.CharField(max_length=50, choices=EXPENSE_TYPE_CHOICES, default= "PURCHASE")
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
 	description = models.TextField(default="", null=True, blank=True)
@@ -168,7 +167,11 @@ class Expense(models.Model):
 	is_amount_accurate = models.BooleanField(default=True, null=True)
 	is_planned_in_budget = models.BooleanField(default=False, null=True)
 	is_active = models.BooleanField(default=True, null=True)
+	payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "CREDIT_CARD")
+	bank_card = models.ForeignKey('finance.BankCard', on_delete=models.SET_NULL, null=True, related_name='bank_card_expenses')
 	cash_register = models.ForeignKey('finance.CashRegister', on_delete=models.SET_NULL, null=True, related_name='cash_register_expenses')
+	check_number = models.CharField(max_length=255, blank=True, null=True)
+	bank_name = models.CharField(max_length=255, blank=True, null=True)
 	files = models.ManyToManyField('medias.File', related_name='file_expenses')
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='supplier_expenses', null=True)
