@@ -121,6 +121,7 @@ class BeneficiaryExpenseFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class BeneficiaryExpenseInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -279,6 +280,7 @@ class ActivitiesQuery(graphene.ObjectType):
         company = user.the_current_company
         total_count = 0
         beneficiary_expenses = BeneficiaryExpense.objects.filter(company=company)
+        the_order_by = '-created_at'
         if not user.can_manage_activity():
             if user.is_manager():
                 beneficiary_expenses = beneficiary_expenses.filter(Q(beneficiary__beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -289,6 +291,7 @@ class ActivitiesQuery(graphene.ObjectType):
             starting_date_time = beneficiary_expense_filter.get('starting_date_time')
             ending_date_time = beneficiary_expense_filter.get('ending_date_time')
             beneficiaries = beneficiary_expense_filter.get('beneficiaries')
+            order_by = beneficiary_expense_filter.get('order_by')
             if beneficiaries:
                 beneficiary_expenses = beneficiary_expenses.filter(beneficiary__id__in=beneficiaries)
             if keyword:
@@ -297,8 +300,9 @@ class ActivitiesQuery(graphene.ObjectType):
                 beneficiary_expenses = beneficiary_expenses.filter(expense_date_time__gte=starting_date_time)
             if ending_date_time:
                 beneficiary_expenses = beneficiary_expenses.filter(expense_date_time__lte=ending_date_time)
-
-        beneficiary_expenses = beneficiary_expenses.order_by('-created_at').distinct()
+            if order_by:
+                the_order_by = order_by
+        beneficiary_expenses = beneficiary_expenses.order_by(the_order_by).distinct()
         total_count = beneficiary_expenses.count()
         if page:
             offset = limit * (page - 1)
