@@ -6,6 +6,7 @@ import random
 from collections import defaultdict
 from django.db.models import Count, Sum, Q, Min, Avg
 from django.db.models.functions import ExtractMonth
+from finance.utils import parse_recurrence_rule
 
 # Create your models here.
 class DecisionDocument(models.Model):
@@ -559,6 +560,21 @@ class Endowment(models.Model):
     age_max = models.FloatField(null=True, blank=True, verbose_name="Âge maximum")
     professional_status = models.ForeignKey('data_management.ProfessionalStatus', on_delete=models.SET_NULL, related_name='endowments', null=True)
     is_active = models.BooleanField(default=True, null=True)
+    is_recurring = models.BooleanField(default=False, null=True)
+    recurrence_rule = models.TextField(blank=True, null=True)   # Ex : 'RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR;COUNT=10'
+    recurrence_frequency = models.CharField(
+        max_length=20,
+        choices=[
+            ("DAILY", "Tous les jours"),
+            ("WEEKLY", "Toutes les semaines"),
+            ("MONTHLY", "Tous les mois"),
+            ("YEARLY", "Tous les ans"),
+        ],
+        blank=True,
+        null=True,
+    )
+    recurrence_days = models.CharField(max_length=255, null=True, blank=True)   # Liste des jours 0,1,2
+    recurrence_end_date = models.DateTimeField(blank=True, null=True)   # Date de fin (optionnel)
     company = models.ForeignKey(
         "companies.Company",
         on_delete=models.SET_NULL,
@@ -569,6 +585,14 @@ class Endowment(models.Model):
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def set_recurrence_from_rule(self):
+        if self.recurrence_rule:
+            recurrence_frequency, recurrence_days, recurrence_end_date, count = parse_recurrence_rule(recurrence_rule=self.recurrence_rule, starting_date_time=self.starting_date_time)
+            self.is_recurring = True
+            self.recurrence_frequency = recurrence_frequency
+            self.recurrence_days = recurrence_days
+            self.recurrence_end_date = self.ending_date_time
 
     def __str__(self):
         return f"{self.name} - {self.number}"

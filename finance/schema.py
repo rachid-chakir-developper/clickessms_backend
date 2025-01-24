@@ -340,6 +340,9 @@ class EndowmentInput(graphene.InputObjectType):
     amount_allocated = graphene.Decimal(required=True)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    is_recurring = graphene.Boolean(required=False)
+    recurrence_rule = graphene.String(required=False)
+    recurrence_frequency = graphene.String(required=False)
     gender = graphene.String(required=False)
     age_min = graphene.Float(required=False)
     age_max = graphene.Float(required=False)
@@ -1582,6 +1585,7 @@ class CreateEndowment(graphene.Mutation):
         endowment = Endowment(**endowment_data)
         endowment.creator = creator
         endowment.company = creator.the_current_company
+        endowment.set_recurrence_from_rule()
         endowment.save()
         return CreateEndowment(endowment=endowment)
 
@@ -1596,6 +1600,8 @@ class UpdateEndowment(graphene.Mutation):
         creator = info.context.user
         Endowment.objects.filter(pk=id).update(**endowment_data)
         endowment = Endowment.objects.get(pk=id)
+        endowment.set_recurrence_from_rule()
+        endowment.save()
         return UpdateEndowment(endowment=endowment)
         
 class UpdateEndowmentState(graphene.Mutation):
