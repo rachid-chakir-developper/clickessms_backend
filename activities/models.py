@@ -20,33 +20,33 @@ class TransmissionEvent(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
-    
+	
 	def save(self, *args, **kwargs):
-	    # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
-	    if not self.number:
-	        self.number = self.generate_unique_number()
+		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+		if not self.number:
+			self.number = self.generate_unique_number()
 
-	    super(TransmissionEvent, self).save(*args, **kwargs)
+		super(TransmissionEvent, self).save(*args, **kwargs)
 
 	def generate_unique_number(self):
-	    # Implémentez la logique de génération du numéro unique ici
-	    # Vous pouvez utiliser des combinaisons de date, heure, etc.
-	    # par exemple, en utilisant la fonction strftime de l'objet datetime
-	    # pour générer une chaîne basée sur la date et l'heure actuelles.
+		# Implémentez la logique de génération du numéro unique ici
+		# Vous pouvez utiliser des combinaisons de date, heure, etc.
+		# par exemple, en utilisant la fonction strftime de l'objet datetime
+		# pour générer une chaîne basée sur la date et l'heure actuelles.
 
-	    # Exemple : Utilisation de la date et de l'heure actuelles
-	    current_time = datetime.now()
-	    number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	    number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
-	    number = f'{number_prefix}{number_suffix}'
+		# Exemple : Utilisation de la date et de l'heure actuelles
+		current_time = datetime.now()
+		number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+		number_prefix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=2))  # Ajoutez 3 lettres au début
+		number = f'{number_prefix}{number_suffix}'
 
-	    # Vérifier s'il est unique dans la base de données
-	    while TransmissionEvent.objects.filter(number=number).exists():
-	        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
-	        number = f'{number_prefix}{number_suffix}'
+		# Vérifier s'il est unique dans la base de données
+		while TransmissionEvent.objects.filter(number=number).exists():
+			number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+			number = f'{number_prefix}{number_suffix}'
 
-	    return number
-	    
+		return number
+		
 	def __str__(self):
 		return self.title
 
@@ -111,10 +111,9 @@ class PersonalizedProject(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
-	    
+		
 	def __str__(self):
 		return self.title
-
 # Create your models here.
 class BeneficiaryExpense(models.Model):
 	STATUS_CHOICES = [
@@ -169,6 +168,6 @@ class BeneficiaryExpense(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
-	    
+		
 	def __str__(self):
 		return self.label

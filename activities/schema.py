@@ -734,7 +734,9 @@ class DeleteBeneficiaryExpense(graphene.Mutation):
         return DeleteBeneficiaryExpense(deleted=deleted, success=success, message=message, id=id)
 
         
-#*************************************************************************#       
+#*************************************************************************# 
+#*************************************************************************#
+    
 #*************************************************************************#
 
 class ActivitiesMutation(graphene.ObjectType):

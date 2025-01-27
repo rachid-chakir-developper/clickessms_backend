@@ -7,9 +7,10 @@ from decimal import Decimal
 
 from django.db.models import Q
 
-from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, BankCard, Balance, CashRegister, CashRegisterEstablishment, CashRegisterManager, CashRegisterTransaction, Budget, BudgetAccountingNature, Endowment
+from finance.models import DecisionDocument, DecisionDocumentItem, BankAccount, BankCard, Balance, CashRegister, CashRegisterEstablishment, CashRegisterManager, CashRegisterTransaction, Budget, BudgetAccountingNature, Endowment, EndowmentPayment
 from data_management.models import AccountingNature
 from medias.models import Folder, File
+from medias.schema import MediaInput
 from companies.models import Establishment
 from human_ressources.models import Employee
 
@@ -354,6 +355,43 @@ class EndowmentInput(graphene.InputObjectType):
     professional_status_id = graphene.Int(name="professionalStatus", required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
 
+class EndowmentPaymentType(DjangoObjectType):
+    class Meta:
+        model = EndowmentPayment
+        fields = "__all__"
+        
+class EndowmentPaymentNodeType(graphene.ObjectType):
+    nodes = graphene.List(EndowmentPaymentType)
+    total_count = graphene.Int()
+
+class EndowmentPaymentFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    beneficiaries = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
+
+class EndowmentPaymentInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    label = graphene.String(required=False)
+    amount = graphene.Decimal(required=False)
+    date = graphene.DateTime(required=False)
+    payment_method = graphene.String(required=False)
+    check_number = graphene.String(required=False)
+    bank_name = graphene.String(required=False)
+    status = graphene.String(required=False)
+    description = graphene.String(required=False)
+    comment = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    endowment_type_id = graphene.Int(name="endowmentType", required=True)
+    endowment_id = graphene.Int(name="endowment", required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=True)
+    bank_card_id = graphene.Int(name="bankCard", required=False)
+    cash_register_id = graphene.Int(name="cashRegister", required=False)
+
 class FinanceQuery(graphene.ObjectType):
     decision_documents = graphene.Field(
         DecisionDocumentNodeType,
@@ -413,6 +451,8 @@ class FinanceQuery(graphene.ObjectType):
     budget = graphene.Field(BudgetType, id=graphene.ID())
     endowments = graphene.Field(EndowmentNodeType, endowment_filter= EndowmentFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     endowment = graphene.Field(EndowmentType, id = graphene.ID())
+    endowment_payments = graphene.Field(EndowmentPaymentNodeType, endowment_payment_filter= EndowmentPaymentFilterInput(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    endowment_payment = graphene.Field(EndowmentPaymentType, id = graphene.ID())
 
     def resolve_decision_documents(
         root, info, decision_document_filter=None, offset=None, limit=None, page=None
@@ -421,7 +461,7 @@ class FinanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        decision_documents = DecisionDocument.objects.filter(company=company)
+        decision_documents = DecisionDocument.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 decision_documents = decision_documents.filter(Q(decision_document_items__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -469,7 +509,7 @@ class FinanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        bank_accounts = BankAccount.objects.filter(company=company)
+        bank_accounts = BankAccount.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 bank_accounts = bank_accounts.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -512,7 +552,7 @@ class FinanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        balances = Balance.objects.filter(bank_account__company=company)
+        balances = Balance.objects.filter(bank_account__company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 balances = balances.filter(Q(bank_account__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -561,7 +601,7 @@ class FinanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        bank_cards = BankCard.objects.filter(bank_account__company=company)
+        bank_cards = BankCard.objects.filter(bank_account__company=company, is_deleted=False)
         the_order_by = '-created_at'
         if not user.can_manage_finance():
             if user.is_manager():
@@ -612,7 +652,7 @@ class FinanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        cash_registers = CashRegister.objects.filter(company=company)
+        cash_registers = CashRegister.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 cash_registers = cash_registers.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -655,7 +695,7 @@ class FinanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        cash_register_transactions = CashRegisterTransaction.objects.filter(cash_register__company=company)
+        cash_register_transactions = CashRegisterTransaction.objects.filter(cash_register__company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 cash_register_transactions = cash_register_transactions.filter(Q(cash_register__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -700,7 +740,7 @@ class FinanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        budgets = Budget.objects.filter(company=company)
+        budgets = Budget.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 budgets = budgets.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -746,7 +786,7 @@ class FinanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        endowments = Endowment.objects.filter(company=company)
+        endowments = Endowment.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 endowments = endowments.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -784,6 +824,50 @@ class FinanceQuery(graphene.ObjectType):
         except Endowment.DoesNotExist:
             endowment = None
         return endowment
+
+    def resolve_endowment_payments(root, info, endowment_payment_filter=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        endowment_payments = EndowmentPayment.objects.filter(company=company, is_deleted=False)
+        the_order_by = '-created_at'
+        if not user.can_manage_finance():
+            if user.is_manager():
+                endowment_payments = endowment_payments.filter(Q(beneficiary__beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                endowment_payments = endowment_payments.filter(creator=user)
+        if endowment_payment_filter:
+            keyword = endowment_payment_filter.get('keyword', '')
+            starting_date_time = endowment_payment_filter.get('starting_date_time')
+            ending_date_time = endowment_payment_filter.get('ending_date_time')
+            beneficiaries = endowment_payment_filter.get('beneficiaries')
+            order_by = endowment_payment_filter.get('order_by')
+            if beneficiaries:
+                endowment_payments = endowment_payments.filter(beneficiary__id__in=beneficiaries)
+            if keyword:
+                endowment_payments = endowment_payments.filter(Q(label__icontains=keyword) | Q(description__icontains=keyword))
+            if starting_date_time:
+                endowment_payments = endowment_payments.filter(expense_date_time__gte=starting_date_time)
+            if ending_date_time:
+                endowment_payments = endowment_payments.filter(expense_date_time__lte=ending_date_time)
+            if order_by:
+                the_order_by = order_by
+        endowment_payments = endowment_payments.order_by(the_order_by).distinct()
+        total_count = endowment_payments.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            endowment_payments = endowment_payments[offset:offset + limit]
+        return EndowmentPaymentNodeType(nodes=endowment_payments, total_count=total_count)
+
+    def resolve_endowment_payment(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            endowment_payment = EndowmentPayment.objects.get(pk=id)
+        except EndowmentPayment.DoesNotExist:
+            endowment_payment = None
+        return endowment_payment
 
 
 # ************************************************************************
@@ -1741,6 +1825,114 @@ class DeleteBankCard(graphene.Mutation):
         return DeleteBankCard(deleted=deleted, success=success, message=message, id=id)
 # *************************************************************************#
 
+#************************************************************************
+
+class CreateEndowmentPayment(graphene.Mutation):
+    class Arguments:
+        endowment_payment_data = EndowmentPaymentInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    endowment_payment = graphene.Field(EndowmentPaymentType)
+
+    def mutate(root, info, files=None, endowment_payment_data=None):
+        creator = info.context.user
+        endowment_payment = EndowmentPayment(**endowment_payment_data)
+        endowment_payment.creator = creator
+        endowment_payment.company = creator.the_current_company
+        folder = Folder.objects.create(name=str(endowment_payment.id)+'_'+endowment_payment.label,creator=creator)
+        endowment_payment.folder = folder
+        if not files:
+            files = []
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = endowment_payment.folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            endowment_payment.files.add(file_file)
+        endowment_payment.save()
+        if not endowment_payment.employee:
+            endowment_payment.employee = creator.get_employee_in_company()
+        endowment_payment.save()
+        return CreateEndowmentPayment(endowment_payment=endowment_payment)
+
+class UpdateEndowmentPayment(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        endowment_payment_data = EndowmentPaymentInput(required=True)
+        files = graphene.List(MediaInput, required=False)
+
+    endowment_payment = graphene.Field(EndowmentPaymentType)
+
+    def mutate(root, info, id, files=None, endowment_payment_data=None):
+        creator = info.context.user
+        EndowmentPayment.objects.filter(pk=id).update(**endowment_payment_data)
+        endowment_payment = EndowmentPayment.objects.get(pk=id)
+        if not endowment_payment.folder or endowment_payment.folder is None:
+            folder = Folder.objects.create(name=str(endowment_payment.id)+'_'+endowment_payment.label,creator=creator)
+            EndowmentPayment.objects.filter(pk=id).update(folder=folder)
+        if not endowment_payment.employee:
+            endowment_payment.employee = creator.get_employee_in_company()
+            endowment_payment.save()
+        if not files:
+            files = []
+        else:
+            file_ids = [item.id for item in files if item.id is not None]
+            File.objects.filter(file_endowment_payments=endowment_payment).exclude(id__in=file_ids).delete()
+        for file_media in files:
+            file = file_media.file
+            caption = file_media.caption
+            if id in file_media  or 'id' in file_media:
+                file_file = File.objects.get(pk=file_media.id)
+            else:
+                file_file = File()
+                file_file.creator = creator
+                file_file.folder = endowment_payment.folder
+            if info.context.FILES and file and isinstance(file, UploadedFile):
+                file_file.file = file
+            file_file.caption = caption
+            file_file.save()
+            endowment_payment.files.add(file_file)
+        endowment_payment.save()
+        return UpdateEndowmentPayment(endowment_payment=endowment_payment)
+
+class DeleteEndowmentPayment(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    endowment_payment = graphene.Field(EndowmentPaymentType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        endowment_payment = EndowmentPayment.objects.get(pk=id)
+        if current_user.can_manage_finance() or current_user.is_manager() or endowment_payment.creator == current_user:
+            # endowment_payment = EndowmentPayment.objects.get(pk=id)
+            # endowment_payment.delete()
+            EndowmentPayment.objects.filter(pk=id).update(is_deleted=True)
+            deleted = True
+            success = True
+        else:
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
+        return DeleteEndowmentPayment(deleted=deleted, success=success, message=message, id=id)
+
+        
+#*************************************************************************#       
+#*************************************************************************#  
+
 
 class FinanceMutation(graphene.ObjectType):
     create_decision_document = CreateDecisionDocument.Field()
@@ -1781,3 +1973,7 @@ class FinanceMutation(graphene.ObjectType):
     update_endowment = UpdateEndowment.Field()
     update_endowment_state = UpdateEndowmentState.Field()
     delete_endowment = DeleteEndowment.Field()
+    
+    create_endowment_payment = CreateEndowmentPayment.Field()
+    update_endowment_payment = UpdateEndowmentPayment.Field()
+    delete_endowment_payment = DeleteEndowmentPayment.Field()
