@@ -633,6 +633,8 @@ class EndowmentPayment(models.Model):
     cash_register = models.ForeignKey('finance.CashRegister', on_delete=models.SET_NULL, null=True, related_name='endowment_payments')
     check_number = models.CharField(max_length=255, blank=True, null=True)
     bank_name = models.CharField(max_length=255, blank=True, null=True)
+    iban = models.CharField(max_length=255, null=True)
+    bic = models.CharField(max_length=255, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
     description = models.TextField(default="", null=True, blank=True)
     comment = models.TextField(default="", null=True, blank=True)

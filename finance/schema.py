@@ -370,7 +370,7 @@ class EndowmentPaymentFilterInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
     order_by = graphene.String(required=False)
-    
+
 class EndowmentPaymentFieldInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     amount = graphene.Decimal(required=False)
@@ -378,6 +378,7 @@ class EndowmentPaymentFieldInput(graphene.InputObjectType):
     payment_method = graphene.String(required=False)
     check_number = graphene.String(required=False)
     bank_name = graphene.String(required=False)
+    iban = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     status = graphene.String(required=False)
     description = graphene.String(required=False)
@@ -396,6 +397,7 @@ class EndowmentPaymentInput(graphene.InputObjectType):
     payment_method = graphene.String(required=False)
     check_number = graphene.String(required=False)
     bank_name = graphene.String(required=False)
+    iban = graphene.String(required=False)
     status = graphene.String(required=False)
     description = graphene.String(required=False)
     comment = graphene.String(required=False)
