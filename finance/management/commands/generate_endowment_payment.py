@@ -47,7 +47,7 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.SUCCESS(f"existing_payment.exists(): {endowment.amount_allocated} - {today}"))
                     if self.is_payment_due_for_recurring(endowment, today):
                         EndowmentPayment.objects.create(
-                            label=f"Paiement {endowment.label} - {entry.beneficiary.first_name} - {today}",  # Libellé descriptif
+                            label=f"Paiement {endowment.label} - {entry.beneficiary.first_name} - {today.strftime('%d-%m-%Y')}",  # Libellé descriptif
                             beneficiary=entry.beneficiary,
                             endowment_type=endowment.endowment_type,
                             endowment=endowment,

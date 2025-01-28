@@ -172,6 +172,10 @@ class BeneficiaryType(DjangoObjectType):
     photo = graphene.String()
     cover_image = graphene.String()
     age = graphene.Float()
+    balance_details = graphene.JSONString()
+    balance = graphene.Float()
+    total_expenses = graphene.Float()
+    total_payments = graphene.Float()
     def resolve_first_name( instance, info, **kwargs ):
         return instance.first_name and instance.first_name.capitalize()
     def resolve_preferred_name( instance, info, **kwargs ):
@@ -184,6 +188,14 @@ class BeneficiaryType(DjangoObjectType):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
     def resolve_age( instance, info, **kwargs ):
         return instance.age
+    def resolve_balance_details( instance, info, **kwargs ):
+        return instance.balance_details
+    def resolve_balance( instance, info, **kwargs ):
+        return instance.balance
+    def resolve_total_expenses( instance, info, **kwargs ):
+        return instance.total_expenses
+    def resolve_total_payments( instance, info, **kwargs ):
+        return instance.total_payments
 
 class BeneficiaryNodeType(graphene.ObjectType):
     nodes = graphene.List(BeneficiaryType)

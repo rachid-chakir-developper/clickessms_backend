@@ -114,6 +114,7 @@ class PersonalizedProject(models.Model):
 		
 	def __str__(self):
 		return self.title
+		
 # Create your models here.
 class BeneficiaryExpense(models.Model):
 	STATUS_CHOICES = [

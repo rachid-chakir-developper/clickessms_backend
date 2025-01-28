@@ -1,5 +1,5 @@
 from django.db import models
-from django.utils.timezone import make_aware, is_naive
+from django.utils.timezone import make_aware, is_naive, now
 from datetime import datetime, date, timedelta
 import random
 from django.utils import timezone
@@ -384,6 +384,89 @@ class Beneficiary(models.Model):
             age = delta.days / 365.25  # Using 365.25 to account for leap years
             return round(age, 2)  # Round the age to 2 decimal places
         return None  # Return None if birth_date is not set
+
+    @property
+    def balance_details(self):
+        """
+        Propriété qui calcule les détails du solde et les totaux pour un bénéficiaire,
+        regroupés par type de dotation.
+        Retourne un dictionnaire contenant :
+        - Les détails des soldes par type de dotation.
+        - Les totaux globaux (solde initial total, dotations versées, dépenses totales, et balance).
+        """
+
+        # Initialiser un dictionnaire pour stocker les détails par type de dotation
+        details = defaultdict(lambda: {"initial_balance": 0, "endowments_paid": 0, "expenses": 0})
+
+        # Calculer le solde initial par type de dotation (pour les dotations commencées)
+        dotations = self.beneficiary_endowment_entries.filter(
+            starting_date__lte=now()
+        ).values('endowment_type__name').annotate(total_initial=Sum('initial_balance'))
+
+        for dotation in dotations:
+            details[dotation['endowment_type__name']]['initial_balance'] = float(dotation['total_initial']) or 0
+
+        # Calculer les dotations versées par type
+        endowments = self.endowment_payments.values('endowment_type__name').annotate(
+            total_paid=Sum('amount')
+        )
+        for endowment in endowments:
+            details[endowment['endowment_type__name']]['endowments_paid'] = float(endowment['total_paid']) or 0
+
+        # Calculer les dépenses totales par type si applicable (ou globalement si non lié)
+        expenses = self.beneficiary_expenses.values('endowment_type__name').annotate(
+            total_spent=Sum('amount')
+        )
+        for expense in expenses:
+            details[expense['endowment_type__name']]['expenses'] = float(expense['total_spent']) or 0
+
+        # Calculer les totaux globaux
+        total_initial_balance = sum(d['initial_balance'] for d in details.values())
+        total_endowments_paid = sum(d['endowments_paid'] for d in details.values())
+        total_expenses = sum(d['expenses'] for d in details.values())
+        total_balance = total_initial_balance + total_endowments_paid - total_expenses  # Balance = soldes initiaux + versements - dépenses
+
+        # Structurer la réponse
+        result = {
+            "details": dict(details),  # Convertir le defaultdict en dict pour le rendre sérialisable
+            "totals": {
+                "balance": float(total_balance),  # Balance = initial_balance + endowments_paid - expenses
+                "endowments_paid": float(total_endowments_paid),
+                "expenses": float(total_expenses),
+            },
+        }
+        return result
+
+    @property
+    def balance(self):
+        """
+        Propriété qui calcule la balance totale du bénéficiaire :
+        Solde initial + Paiements - Dépenses.
+        """
+        total_initial_balance = sum(
+            entry.initial_balance for entry in self.beneficiary_endowment_entries.filter(starting_date__lte=now())
+        )
+        total_endowments_paid = sum(payment.amount for payment in self.endowment_payments.all())
+        total_expenses = sum(expense.amount for expense in self.beneficiary_expenses.all())
+        
+        # Calcul de la balance (solde initial + paiements - dépenses)
+        return total_initial_balance + total_endowments_paid - total_expenses
+
+    @property
+    def total_expenses(self):
+        """
+        Propriété qui calcule les dépenses totales du bénéficiaire.
+        Retourne la somme des dépenses.
+        """
+        return sum(expense.amount for expense in self.beneficiary_expenses.all())
+
+    @property
+    def total_payments(self):
+        """
+        Propriété qui calcule les paiements totaux effectués pour le bénéficiaire.
+        Retourne la somme des paiements effectués.
+        """
+        return sum(payment.amount for payment in self.endowment_payments.all())
         
     def save(self, *args, **kwargs):
         # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
