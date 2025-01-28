@@ -370,6 +370,22 @@ class EndowmentPaymentFilterInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
     order_by = graphene.String(required=False)
+    
+class EndowmentPaymentFieldInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    amount = graphene.Decimal(required=False)
+    date = graphene.DateTime(required=False)
+    payment_method = graphene.String(required=False)
+    check_number = graphene.String(required=False)
+    bank_name = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    status = graphene.String(required=False)
+    description = graphene.String(required=False)
+    comment = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    response_date = graphene.DateTime(required=False)
+    bank_card_id = graphene.Int(name="bankCard", required=False)
+    cash_register_id = graphene.Int(name="cashRegister", required=False)
 
 class EndowmentPaymentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -1903,6 +1919,34 @@ class UpdateEndowmentPayment(graphene.Mutation):
         endowment_payment.save()
         return UpdateEndowmentPayment(endowment_payment=endowment_payment)
 
+class UpdateEndowmentPaymentFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        endowment_payment_data = EndowmentPaymentFieldInput(required=True)
+
+    endowment_payment = graphene.Field(EndowmentPaymentType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, endowment_payment_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        endowment_payment = None
+        message = ''
+        try:
+            endowment_payment = EndowmentPayment.objects.get(pk=id)
+            EndowmentPayment.objects.filter(pk=id).update(**endowment_payment_data)
+            endowment_payment.refresh_from_db()
+        except Exception as e:
+            print(e)
+            done = False
+            success = False
+            endowment_payment=None
+            message = "Une erreur s'est produite."
+        return UpdateEndowmentPaymentFields(done=done, success=success, message=message, endowment_payment=endowment_payment)
+
 class DeleteEndowmentPayment(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -1976,4 +2020,5 @@ class FinanceMutation(graphene.ObjectType):
     
     create_endowment_payment = CreateEndowmentPayment.Field()
     update_endowment_payment = UpdateEndowmentPayment.Field()
+    update_endowment_payment_fields = UpdateEndowmentPaymentFields.Field()
     delete_endowment_payment = DeleteEndowmentPayment.Field()
