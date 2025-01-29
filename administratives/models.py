@@ -238,7 +238,7 @@ class Meeting(models.Model):
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255, null=True)
-	topic = models.CharField(max_length=255, null=True, blank=True)
+	topics = models.TextField(default='', blank=True, null=True)
 	video_call_link = models.URLField(max_length=255, null=True)
 	starting_date_time = models.DateTimeField(null=True)
 	ending_date_time = models.DateTimeField(null=True)

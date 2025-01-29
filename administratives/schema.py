@@ -120,6 +120,9 @@ class MeetingType(DjangoObjectType):
         model = Meeting
         fields = "__all__"
 
+    def resolve_topics(instance, info, **kwargs):
+        return instance.topics if (instance.topics and instance.topics != '') else instance.title
+
 class MeetingNodeType(graphene.ObjectType):
     nodes = graphene.List(MeetingType)
     total_count = graphene.Int()
@@ -218,7 +221,7 @@ class MeetingInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     title = graphene.String(required=False)
-    topic = graphene.String(required=False)
+    topics = graphene.String(required=False)
     meeting_mode = graphene.String(required=False)
     video_call_link = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
