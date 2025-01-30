@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem
+from human_ressources.models import AddressBookEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
 from data_management.models import EmployeeMission
 from companies.models import Establishment
@@ -17,6 +17,11 @@ from data_management.schema import CustomFieldValueInput
 from data_management.utils import CustomFieldEntityBase
 
 from notifications.notificator import notify_beneficiary_admission
+
+class AddressBookEntryType(DjangoObjectType):
+    class Meta:
+        model = AddressBookEntry
+        fields = "__all__"
 
 class EmployeeContractEstablishmentType(DjangoObjectType):
     class Meta:
@@ -233,6 +238,18 @@ class BeneficiaryGroupFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
 
+class AddressBookEntryInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    title = graphene.String(required=False)
+    first_name = graphene.String(required=False)
+    last_name = graphene.String(required=False)
+    email = graphene.String(required=False)
+    full_address = graphene.String(required=False)
+    mobile = graphene.String(required=False)
+    fix = graphene.String(required=False)
+    fax = graphene.String(required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+
 class EmployeeInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -381,6 +398,7 @@ class BeneficiaryInput(graphene.InputObjectType):
     beneficiary_status_entries = graphene.List(BeneficiaryStatusEntryInput, required=False)
     beneficiary_endowment_entries = graphene.List(BeneficiaryEndowmentEntryInput, required=False)
     beneficiary_entries = graphene.List(BeneficiaryEntryInput, required=False)
+    address_book_entries = graphene.List(AddressBookEntryInput, required=False)
 
 class BeneficiaryAdmissionType(DjangoObjectType):
     class Meta:
@@ -1192,6 +1210,7 @@ class CreateBeneficiary(graphene.Mutation):
         beneficiary_status_entries = beneficiary_data.pop("beneficiary_status_entries", None)
         beneficiary_entries = beneficiary_data.pop("beneficiary_entries", None)
         beneficiary_endowment_entries = beneficiary_data.pop("beneficiary_endowment_entries", None)
+        address_book_entries = beneficiary_data.pop("address_book_entries", None)
         beneficiary = Beneficiary(**beneficiary_data)
         beneficiary.creator = creator
         beneficiary.company = creator.the_current_company
@@ -1256,6 +1275,10 @@ class CreateBeneficiary(graphene.Mutation):
             beneficiary_endowment_entry = BeneficiaryEndowmentEntry(**item)
             beneficiary_endowment_entry.beneficiary = beneficiary
             beneficiary_endowment_entry.save()
+        for item in address_book_entries:
+            address_book_entry = AddressBookEntry(**item)
+            address_book_entry.beneficiary = beneficiary
+            address_book_entry.save()
         return CreateBeneficiary(beneficiary=beneficiary)
 
 class UpdateBeneficiary(graphene.Mutation):
@@ -1273,6 +1296,7 @@ class UpdateBeneficiary(graphene.Mutation):
         beneficiary_status_entries = beneficiary_data.pop("beneficiary_status_entries", None)
         beneficiary_entries = beneficiary_data.pop("beneficiary_entries", None)
         beneficiary_endowment_entries = beneficiary_data.pop("beneficiary_endowment_entries", None)
+        address_book_entries = beneficiary_data.pop("address_book_entries", None)
         Beneficiary.objects.filter(pk=id).update(**beneficiary_data)
         beneficiary = Beneficiary.objects.get(pk=id)
         if not beneficiary.folder or beneficiary.folder is None:
@@ -1376,6 +1400,17 @@ class UpdateBeneficiary(graphene.Mutation):
                 beneficiary_endowment_entry = BeneficiaryEndowmentEntry(**item)
                 beneficiary_endowment_entry.beneficiary = beneficiary
                 beneficiary_endowment_entry.save()
+            
+        address_book_entry_ids = [item.id for item in address_book_entries if item.id is not None]
+        AddressBookEntry.objects.filter(beneficiary=beneficiary).exclude(id__in=address_book_entry_ids).delete()
+        for item in address_book_entries:
+            if id in item or 'id' in item:
+                AddressBookEntry.objects.filter(pk=item.id).update(**item)
+                address_book_entry = AddressBookEntry.objects.get(pk=item.id)
+            else:
+                address_book_entry = AddressBookEntry(**item)
+                address_book_entry.beneficiary = beneficiary
+                address_book_entry.save()
 
         return UpdateBeneficiary(beneficiary=beneficiary)
 
