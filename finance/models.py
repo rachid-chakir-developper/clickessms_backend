@@ -447,6 +447,7 @@ class CashRegisterTransaction(models.Model):
     date = models.DateTimeField(null=True)
     amount = models.DecimalField(decimal_places=2, max_digits=11, null=True)
     transaction_type = models.CharField(max_length=50, choices=TRANSACTION_TYPES, default="CREDIT")
+    is_deleted = models.BooleanField(default=False, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='cash_register_transactions', null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
