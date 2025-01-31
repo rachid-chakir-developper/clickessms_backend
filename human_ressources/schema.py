@@ -1278,6 +1278,8 @@ class CreateBeneficiary(graphene.Mutation):
             beneficiary_endowment_entry.save()
         for item in address_book_entries:
             address_book_entry = AddressBookEntry(**item)
+            address_book_entry.creator = creator
+            address_book_entry.company = creator.the_current_company
             address_book_entry.beneficiary = beneficiary
             address_book_entry.save()
         return CreateBeneficiary(beneficiary=beneficiary)
@@ -1410,6 +1412,8 @@ class UpdateBeneficiary(graphene.Mutation):
                 address_book_entry = AddressBookEntry.objects.get(pk=item.id)
             else:
                 address_book_entry = AddressBookEntry(**item)
+                address_book_entry.creator = creator
+                address_book_entry.company = creator.the_current_company
                 address_book_entry.beneficiary = beneficiary
                 address_book_entry.save()
 
