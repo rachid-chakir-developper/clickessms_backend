@@ -84,6 +84,24 @@ class File(models.Model):
 
 		super().save(*args, **kwargs)
 
+# Create your models here.
+class DocumentRecord(models.Model):
+	number = models.CharField(max_length=255, editable=False, null=True)
+	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='document_records', null=True)
+	name = models.CharField(max_length=255)
+	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='document_records', null=True)
+	document_type = models.ForeignKey('data_management.DocumentType', on_delete=models.SET_NULL, related_name='document_records', null=True)
+	starting_date = models.DateField(null=True)
+	ending_date = models.DateField(null=True)
+	description = models.TextField(default='', null=True)
+	is_notification_enabled = models.BooleanField(default=True, null=True)
+	is_active = models.BooleanField(default=True, null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='document_records', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
 class ContractTemplate(models.Model):
 	CONTRACT_TYPES = [
 		("CDI", "CDI"),

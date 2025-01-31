@@ -394,7 +394,6 @@ class MeetingBeneficiary(models.Model):
 	def __str__(self):
 		return str(self.id)
 
-
 # Create your models here.
 class FrameDocument(models.Model):
 	number = models.CharField(max_length=255, editable=False, null=True)
