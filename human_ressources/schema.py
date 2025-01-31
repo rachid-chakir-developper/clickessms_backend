@@ -6,9 +6,9 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from human_ressources.models import AddressBookEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem
+from human_ressources.models import Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File
-from data_management.models import EmployeeMission
+from data_management.models import EmployeeMission, AddressBookEntry
 from companies.models import Establishment
 from accounts.models import User
 from medias.schema import MediaInput
@@ -245,6 +245,7 @@ class AddressBookEntryInput(graphene.InputObjectType):
     last_name = graphene.String(required=False)
     email = graphene.String(required=False)
     full_address = graphene.String(required=False)
+    description = graphene.String(required=False)
     mobile = graphene.String(required=False)
     fix = graphene.String(required=False)
     fax = graphene.String(required=False)
