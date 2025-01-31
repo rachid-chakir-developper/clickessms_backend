@@ -974,3 +974,42 @@ class BeneficiaryGroupItem(models.Model):
 
     def __str__(self):
         return str(self.id)
+
+# Create your models here.
+class CareerEntry(models.Model):
+    TYPE_CHOICES = [
+        ("EDUCATION", "Scolarité"),
+        ("INTERNSHIP", "Stage"),
+        ("JOB", "Emploi"),
+        ("TRAINING", "Formation"),
+        ("VOLUNTEERING", "Bénévolat"),
+        ("OTHER", "Autre"),
+    ]
+    number = models.CharField(max_length=255, editable=False, null=True)
+    beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='career_entries', null=True)
+    career_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default="EDUCATION")
+    institution = models.CharField(max_length=255, blank=False, null=True)
+    professional_status = models.ForeignKey('data_management.ProfessionalStatus', on_delete=models.SET_NULL, related_name='career_entries', null=True)
+    title = models.CharField(max_length=255, blank=False, null=True)
+    starting_date = models.DateField(null=True)
+    ending_date = models.DateField(null=True)
+    email = models.EmailField(blank=False, max_length=255, verbose_name="email", null=True)
+    full_address = models.TextField(default='', null=True)
+    address = models.TextField(default='', null=True)
+    additional_address = models.TextField(default='', null=True)
+    latitude = models.CharField(max_length=255, null=True)
+    longitude = models.CharField(max_length=255, null=True)
+    city = models.CharField(max_length=255, null=True)
+    country = models.CharField(max_length=255, null=True)
+    zip_code = models.CharField(max_length=255, null=True)
+    mobile = models.CharField(max_length=255, null=True)
+    fix = models.CharField(max_length=255, null=True)
+    fax = models.CharField(max_length=255, null=True)
+    web_site = models.URLField(max_length=255, null=True)
+    description = models.TextField(default='', null=True)
+    other_contacts = models.CharField(max_length=255, null=True)
+    company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='career_entries', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='former_career_entries', null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
