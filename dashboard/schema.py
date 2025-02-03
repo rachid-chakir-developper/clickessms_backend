@@ -313,12 +313,12 @@ class DashboardActivityType(graphene.ObjectType):
                 presents_month_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'present_at_end_of_month'),
                 objective_days_count=objective_days_count,
                 days_count=days_count,
-                gap_days_count=-(objective_days_count-days_count),
+                gap_days_count=days_count-objective_days_count,
                 objective_occupancy_rate=objective_occupancy_rate,
                 occupancy_rate=round(((days_count/(days_in_month*capacity))*100 if capacity else 0), 2),
                 valuation=valuation,
                 objective_valuation=objective_valuation,
-                gap_valuation=-(objective_valuation-valuation),
+                gap_valuation=valuation-objective_valuation,
                 )  # 'day' utilisé pour le nom du mois
                 activity_tracking_month.append(item)
 
@@ -329,6 +329,7 @@ class DashboardActivityType(graphene.ObjectType):
             presents_month_count_sum = sum(item.presents_month_count for item in activity_tracking_month)
             objective_days_count_sum = sum(item.objective_days_count for item in activity_tracking_month)
             days_count_sum = sum(item.days_count for item in activity_tracking_month)
+            gap_days_count_sum = sum(item.gap_days_count for item in activity_tracking_month)
             valuation_sum = sum(item.valuation for item in activity_tracking_month)
             objective_valuation_sum = sum(item.objective_valuation for item in activity_tracking_month)
             gap_valuation_sum = sum(item.gap_valuation for item in activity_tracking_month)
@@ -346,7 +347,7 @@ class DashboardActivityType(graphene.ObjectType):
                 presents_month_count=round(presents_month_count_sum, 2),
                 objective_days_count=round(objective_days_count_sum, 2),
                 days_count=round(days_count_sum, 2),
-                gap_days_count=round(objective_days_count_sum-days_count_sum, 2),
+                gap_days_count=round(gap_days_count_sum, 2),
                 objective_occupancy_rate=round(objective_occupancy_rate_avg, 2),  # Moyenne des pourcentages
                 occupancy_rate=round(occupancy_rate_avg, 2),  # Moyenne des pourcentages
                 valuation=round(valuation_sum, 2),
