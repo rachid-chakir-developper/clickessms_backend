@@ -137,10 +137,6 @@ class ActivitySynthesisEstablishmentType(graphene.ObjectType):
     activity_synthesis_month = graphene.List(ActivitySynthesisMonthType)
     activity_total_synthesis_month = graphene.Field(ActivityTotalSynthesisMonthType)
 
-class ActivityTrackingType(graphene.ObjectType):
-    activity_tracking_month = graphene.List(ActivityTrackingMonthType)
-    activity_tracking_accumulation = graphene.Field(ActivityTrackingAccumulationType)
-
 class ActivitySynthesisType(graphene.ObjectType):
     title = graphene.String()
     year = graphene.String()
@@ -266,61 +262,10 @@ def get_item_object(monthly_statistics, establishment_id, month, key):
     value = month_data.get(key, 0)
     return value
 class DashboardActivityType(graphene.ObjectType):
-    activity_tracking = graphene.Field(ActivityTrackingType)
     activity_tracking_establishments = graphene.List(ActivityTrackingEstablishmentType)
     activity_synthesis = graphene.Field(ActivitySynthesisType)
     activity_month = graphene.Field(ActivityMonthType)
 
-    def resolve_activity_tracking(instance, info, **kwargs):
-        user = info.context.user
-        dashboard_activity_filter = getattr(info.context, 'dashboard_activity_filter', None)
-        company = user.the_current_company
-        # Obtenir l'année en cours pour filtrer par année
-        date = datetime.date.today()
-        year=str(date.year)
-        start_year = date.replace(month=1, day=1)  # Début de l'année
-        end_year = date.replace(month=12, day=31)  # Fin de l'année
-
-        # Initialiser les activity_tracking_month par mois
-        activity_tracking_month = []
-        for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
-            item = ActivityTrackingMonthType(
-            month=month,
-            year=year,
-            objective_days_count=10,
-            days_count=4.5,
-            gap_days_count=5.5,
-            objective_occupancy_rate=10,
-            occupancy_rate=2.5,
-            valuation=Decimal(8.5),
-            objective_valuation=Decimal(10),
-            gap_valuation=Decimal(-1.5),
-            )  # 'day' utilisé pour le nom du mois
-            activity_tracking_month.append(item)
-
-        # Calcul des agrégats pour ActivityTrackingAccumulationType
-        objective_days_count_sum = sum(item.objective_days_count for item in activity_tracking_month)
-        days_count_sum = sum(item.days_count for item in activity_tracking_month)
-        valuation_sum = sum(item.valuation for item in activity_tracking_month)
-        objective_valuation_sum = sum(item.objective_valuation for item in activity_tracking_month)
-        gap_valuation_sum = sum(item.gap_valuation for item in activity_tracking_month)
-
-        # Calcul de la moyenne pour les pourcentages
-        objective_occupancy_rate_avg = mean(item.objective_occupancy_rate for item in activity_tracking_month)
-        occupancy_rate_avg = mean(item.occupancy_rate for item in activity_tracking_month)
-
-        activity_tracking_accumulation = ActivityTrackingAccumulationType(
-            year=year,
-            objective_days_count=objective_days_count_sum,
-            days_count=days_count_sum,
-            gap_days_count=objective_days_count_sum-days_count_sum,
-            objective_occupancy_rate=objective_occupancy_rate_avg,  # Moyenne des pourcentages
-            occupancy_rate=occupancy_rate_avg,  # Moyenne des pourcentages
-            valuation=valuation_sum,
-            objective_valuation=objective_valuation_sum,
-            gap_valuation=gap_valuation_sum,
-        )
-        return ActivityTrackingType(activity_tracking_month=activity_tracking_month, activity_tracking_accumulation=activity_tracking_accumulation)
     def resolve_activity_tracking_establishments(instance, info, **kwargs):
         user = info.context.user
         dashboard_activity_filter = getattr(info.context, 'dashboard_activity_filter', None)
@@ -354,10 +299,8 @@ class DashboardActivityType(graphene.ObjectType):
                 days_in_month = monthrange(int(year), i+1)[1]
                 capacity = establishment.get_monthly_capacity(year, i+1)
                 objective_occupancy_rate = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'occupancy_rate')
-                # objective_days_count=get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'theoretical_number_unit_work')
-                objective_days_count=days_in_month*capacity*objective_occupancy_rate/100
+                objective_days_count=round(days_in_month*capacity*objective_occupancy_rate/100)
                 days_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_days_present')
-                # price = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'price')
                 price = establishment.get_monthly_unit_price(year, i+1)
                 objective_valuation = Decimal(capacity)*Decimal(price)
                 valuation = Decimal(days_count)*Decimal(price)
