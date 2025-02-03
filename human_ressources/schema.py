@@ -7,7 +7,7 @@ from graphene_file_upload.scalars import Upload
 from django.db.models import Q
 
 from human_ressources.models import CareerEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem
-from medias.models import Folder, File
+from medias.models import Folder, File, DocumentRecord
 from data_management.models import EmployeeMission, AddressBookEntry
 from companies.models import Establishment
 from accounts.models import User
@@ -27,6 +27,14 @@ class CareerEntryType(DjangoObjectType):
     class Meta:
         model = CareerEntry
         fields = "__all__"
+
+class DocumentRecordType(DjangoObjectType):
+    class Meta:
+        model = DocumentRecord
+        fields = "__all__"
+    document = graphene.String()
+    def resolve_document( instance, info, **kwargs ):
+        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
 
 class EmployeeContractEstablishmentType(DjangoObjectType):
     class Meta:
@@ -259,6 +267,18 @@ class CareerEntryInput(graphene.InputObjectType):
     professional_status_id = graphene.Int(name="professionalStatus", required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
 
+class DocumentRecordInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    name = graphene.String(required=False)
+    document = Upload(required=False)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    description = graphene.String(required=False)
+    is_notification_enabled = graphene.Boolean(required=False)
+    is_active = graphene.Boolean(required=False)
+    document_type_id = graphene.Int(name="documentType", required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+
 class AddressBookEntryInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     title = graphene.String(required=False)
@@ -422,6 +442,7 @@ class BeneficiaryInput(graphene.InputObjectType):
     beneficiary_entries = graphene.List(BeneficiaryEntryInput, required=False)
     address_book_entries = graphene.List(AddressBookEntryInput, required=False)
     career_entries = graphene.List(CareerEntryInput, required=False)
+    document_records = graphene.List(DocumentRecordInput, required=False)
 
 class BeneficiaryAdmissionType(DjangoObjectType):
     class Meta:
@@ -1235,6 +1256,7 @@ class CreateBeneficiary(graphene.Mutation):
         beneficiary_endowment_entries = beneficiary_data.pop("beneficiary_endowment_entries", None)
         address_book_entries = beneficiary_data.pop("address_book_entries", None)
         career_entries = beneficiary_data.pop("career_entries", None)
+        document_records = beneficiary_data.pop("document_records", None)
         
         beneficiary = Beneficiary(**beneficiary_data)
         beneficiary.creator = creator
@@ -1312,6 +1334,21 @@ class CreateBeneficiary(graphene.Mutation):
             career_entry.company = creator.the_current_company
             career_entry.beneficiary = beneficiary
             career_entry.save()
+        for item in document_records:
+            document = item.pop("document", None)
+            document_record = DocumentRecord(**item)
+            document_record.creator = creator
+            document_record.company = creator.the_current_company
+            document_record.beneficiary = beneficiary
+            if document and isinstance(document, UploadedFile):
+                document_file = document_record.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                document_record.document = document_file
+            document_record.save()
         return CreateBeneficiary(beneficiary=beneficiary)
 
 class UpdateBeneficiary(graphene.Mutation):
@@ -1331,6 +1368,7 @@ class UpdateBeneficiary(graphene.Mutation):
         beneficiary_endowment_entries = beneficiary_data.pop("beneficiary_endowment_entries", None)
         address_book_entries = beneficiary_data.pop("address_book_entries", None)
         career_entries = beneficiary_data.pop("career_entries", None)
+        document_records = beneficiary_data.pop("document_records", None)
         
         Beneficiary.objects.filter(pk=id).update(**beneficiary_data)
         beneficiary = Beneficiary.objects.get(pk=id)
@@ -1461,6 +1499,32 @@ class UpdateBeneficiary(graphene.Mutation):
                 career_entry.company = creator.the_current_company
                 career_entry.beneficiary = beneficiary
                 career_entry.save()
+
+        document_record_ids = [item.id for item in document_records if item.id is not None]
+        DocumentRecord.objects.filter(beneficiary=beneficiary).exclude(id__in=document_record_ids).delete()
+        for item in document_records:
+            document = item.pop("document", None)
+            if id in item or 'id' in item:
+                DocumentRecord.objects.filter(pk=item.id).update(**item)
+                document_record = DocumentRecord.objects.get(pk=item.id)
+            else:
+                document_record = DocumentRecord(**item)
+                document_record.creator = creator
+                document_record.company = creator.the_current_company
+                document_record.beneficiary = beneficiary
+                document_record.save()
+            if not document and document_record.document:
+                document_file = document_record.document
+                document_file.delete()
+            if document and isinstance(document, UploadedFile):
+                document_file = document_record.document
+                if not document_file:
+                    document_file = File()
+                    document_file.creator = creator
+                document_file.file = document
+                document_file.save()
+                document_record.document = document_file
+                document_record.save()
 
         return UpdateBeneficiary(beneficiary=beneficiary)
 
