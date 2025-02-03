@@ -313,12 +313,12 @@ class DashboardActivityType(graphene.ObjectType):
                 presents_month_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'present_at_end_of_month'),
                 objective_days_count=objective_days_count,
                 days_count=days_count,
-                gap_days_count=objective_days_count-days_count,
+                gap_days_count=-(objective_days_count-days_count),
                 objective_occupancy_rate=objective_occupancy_rate,
                 occupancy_rate=round(((days_count/(days_in_month*capacity))*100 if capacity else 0), 2),
                 valuation=valuation,
                 objective_valuation=objective_valuation,
-                gap_valuation=objective_valuation-valuation,
+                gap_valuation=-(objective_valuation-valuation),
                 )  # 'day' utilisé pour le nom du mois
                 activity_tracking_month.append(item)
 
