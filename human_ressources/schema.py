@@ -475,6 +475,7 @@ class BeneficiaryAdmissionFieldInput(graphene.InputObjectType):
 class BeneficiaryAdmissionInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
+    pre_admission_date = graphene.DateTime(required=False)
     reception_date = graphene.DateTime(required=False)
     first_name = graphene.String(required=True)
     preferred_name = graphene.String(required=False)

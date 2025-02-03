@@ -748,6 +748,7 @@ class BeneficiaryAdmission(models.Model):
         ('CANCELED', 'Annulé'),
     ]
     number = models.CharField(max_length=255, editable=False, null=True)
+    pre_admission_date = models.DateTimeField(null=True)  # Added pre-admission date
     reception_date = models.DateTimeField(null=True)
     genderh = models.ForeignKey('data_management.HumanGender', on_delete=models.SET_NULL, null=True)
     gender = models.CharField(max_length=50, choices=GENDERS, default="NOT_SPECIFIED", null=True, blank=True)
