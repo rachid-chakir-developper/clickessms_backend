@@ -553,6 +553,7 @@ class BeneficiaryEntry(models.Model):
     @classmethod
     def monthly_presence_statistics(cls, year, establishments=None, company=None):
         year = int(year)
+        today = make_aware(datetime.today())
 
         # Convertir les datetime naïfs en datetime conscients des fuseaux horaires
         start_of_year = datetime(year, 1, 1, 00, 00, 00)
@@ -615,6 +616,8 @@ class BeneficiaryEntry(models.Model):
                     # Rendre month_start et month_end conscients si nécessaire
                     month_start = make_aware(month_start)
                     month_end = make_aware(month_end)
+                    if start_date.year == today.year and start_date.month == today.month:
+                        end_date = min(end_date, today)
                     days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
 
                     # Ajouter au total des jours pour le mois
