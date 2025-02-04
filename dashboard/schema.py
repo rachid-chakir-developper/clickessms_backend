@@ -278,6 +278,7 @@ class DashboardActivityType(graphene.ObjectType):
         year=str(date.year)
         current_year = date.year
         current_month = date.month
+        prev_month_index = 11
         start_year = date.replace(month=1, day=1)  # Début de l'année
         end_year = date.replace(month=12, day=31)  # Fin de l'année
 
@@ -301,6 +302,7 @@ class DashboardActivityType(graphene.ObjectType):
             activity_tracking_month = []
             for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
                 is_current_month = (int(year) == current_year and i+1 == current_month)
+                prev_month_index = i - 1 if i > 0 and is_current_month else prev_month_index
                 is_future_month = (int(year) > current_year) or (int(year) == current_year and i+1 > current_month)
                 days_in_month = monthrange(int(year), i+1)[1]
                 capacity = establishment.get_monthly_capacity(year, i+1)
@@ -350,7 +352,7 @@ class DashboardActivityType(graphene.ObjectType):
             occupancy_rate_avg = mean(item.occupancy_rate for item in past_months)
 
             activity_tracking_accumulation = ActivityTrackingAccumulationType(
-                label=f'Cumul à fin Nov.',
+                label=f'Cumul à fin {settings.MONTHS[prev_month_index]}',
                 year=year,
                 entries_count=round(entries_count_sum, 2),
                 exits_count=round(exits_count_sum, 2),
