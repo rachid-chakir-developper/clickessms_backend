@@ -66,8 +66,10 @@ class UndesirableEventsWeekType(graphene.ObjectType):
     count = graphene.Float()
 
 class ActivityTrackingMonthType(graphene.ObjectType):
-    month = graphene.String()
     year = graphene.String()
+    month = graphene.String()
+    is_current_month = graphene.Boolean()
+    is_future_month = graphene.Boolean()
     entries_count = graphene.Float()
     exits_count = graphene.Float()
     planned_exits_count = graphene.Float()
@@ -274,6 +276,8 @@ class DashboardActivityType(graphene.ObjectType):
         # Obtenir l'année en cours pour filtrer par année
         date = datetime.date.today()
         year=str(date.year)
+        current_year = date.year
+        current_month = date.month
         start_year = date.replace(month=1, day=1)  # Début de l'année
         end_year = date.replace(month=12, day=31)  # Fin de l'année
 
@@ -296,6 +300,8 @@ class DashboardActivityType(graphene.ObjectType):
             # Initialiser les activity_tracking_month par mois
             activity_tracking_month = []
             for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
+                is_current_month = (int(year) == current_year and i+1 == current_month)
+                is_future_month = (int(year) > current_year) or (int(year) == current_year and i+1 > current_month)
                 days_in_month = monthrange(int(year), i+1)[1]
                 capacity = establishment.get_monthly_capacity(year, i+1)
                 objective_occupancy_rate = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'occupancy_rate')
@@ -306,6 +312,8 @@ class DashboardActivityType(graphene.ObjectType):
                 valuation = Decimal(days_count)*Decimal(price)
                 item = ActivityTrackingMonthType(
                 month=month,
+                is_current_month=is_current_month,
+                is_future_month=is_future_month,
                 year=year,
                 entries_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_entries'),
                 exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_releases'),
@@ -323,23 +331,26 @@ class DashboardActivityType(graphene.ObjectType):
                 activity_tracking_month.append(item)
 
             # Calcul des agrégats pour ActivityTrackingAccumulationType
-            entries_count_sum = sum(item.entries_count for item in activity_tracking_month)
-            exits_count_sum = sum(item.exits_count for item in activity_tracking_month)
-            planned_exits_count_sum = sum(item.planned_exits_count for item in activity_tracking_month)
-            presents_month_count_sum = sum(item.presents_month_count for item in activity_tracking_month)
-            objective_days_count_sum = sum(item.objective_days_count for item in activity_tracking_month)
-            days_count_sum = sum(item.days_count for item in activity_tracking_month)
-            gap_days_count_sum = sum(item.gap_days_count for item in activity_tracking_month)
-            valuation_sum = sum(item.valuation for item in activity_tracking_month)
-            objective_valuation_sum = sum(item.objective_valuation for item in activity_tracking_month)
-            gap_valuation_sum = sum(item.gap_valuation for item in activity_tracking_month)
+            past_months = [
+                item for item in activity_tracking_month if (not item.is_current_month and not item.is_future_month)
+            ]
+            entries_count_sum = sum(item.entries_count for item in past_months)
+            exits_count_sum = sum(item.exits_count for item in past_months)
+            planned_exits_count_sum = sum(item.planned_exits_count for item in past_months)
+            presents_month_count_sum = sum(item.presents_month_count for item in past_months)
+            objective_days_count_sum = sum(item.objective_days_count for item in past_months)
+            days_count_sum = sum(item.days_count for item in past_months)
+            gap_days_count_sum = sum(item.gap_days_count for item in past_months)
+            valuation_sum = sum(item.valuation for item in past_months)
+            objective_valuation_sum = sum(item.objective_valuation for item in past_months)
+            gap_valuation_sum = sum(item.gap_valuation for item in past_months)
 
             # Calcul de la moyenne pour les pourcentages
-            objective_occupancy_rate_avg = mean(item.objective_occupancy_rate for item in activity_tracking_month)
-            occupancy_rate_avg = mean(item.occupancy_rate for item in activity_tracking_month)
+            objective_occupancy_rate_avg = mean(item.objective_occupancy_rate for item in past_months)
+            occupancy_rate_avg = mean(item.occupancy_rate for item in past_months)
 
             activity_tracking_accumulation = ActivityTrackingAccumulationType(
-                label='Cumul à fin Nov.',
+                label=f'Cumul à fin Nov.',
                 year=year,
                 entries_count=round(entries_count_sum, 2),
                 exits_count=round(exits_count_sum, 2),
