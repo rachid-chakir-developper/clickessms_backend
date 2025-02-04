@@ -215,26 +215,45 @@ class Establishment(models.Model):
 
     def get_monthly_unit_price(self, year, month):
         """
-        Retourne la dernière capacité saisie pour un mois donné.
+        Retourne le prix pour un mois donné. Si aucun prix trouvé, recherche dans l'établissement parent.
+        Évite les boucles infinies en cas de référence circulaire.
 
-        :param year: Année pour laquelle la capacité est calculée.
-        :param month: Mois pour lequel la capacité est calculée (1-12).
-        :return: Dernière capacité saisie (float) ou None si aucune.
+        :param year: Année (int).
+        :param month: Mois (int).
+        :return: Dernier prix trouvé (Decimal) ou 0 si aucun.
         """
-        year=int(year)
-        month=int(month)
+        year = int(year)
+        month = int(month)
+        
         start_date = datetime(year, month, 1)
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1)
-        else:
-            end_date = datetime(year, month + 1, 1)
+        end_date = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
 
-        # Filtrer les ActivityAuthorization pour cet établissement dans le mois donné
-        last_decision_document_item = self.decision_document_items.filter(
-            Q(price__isnull=False) & ~Q(price=0),
-            Q(starting_date_time__lt=end_date),
-            Q(ending_date_time__isnull=True) | Q(ending_date_time__gte=start_date),
-        ).order_by('-starting_date_time').first()
+        establishment = self  
+        visited = set()  # Stocker les établissements déjà visités
+
+        while establishment:
+            if establishment.id in visited:  # Détection d'une boucle infinie
+                print(f"Boucle détectée dans la hiérarchie des établissements ! Arrêt.")
+                break
+
+            visited.add(establishment.id)  # Ajouter l'établissement à l'ensemble des visités
+
+            try:
+                last_decision_document_item = establishment.decision_document_items.filter(
+                    Q(price__isnull=False) & ~Q(price=0),
+                    Q(starting_date_time__lt=end_date),
+                    Q(ending_date_time__isnull=True) | Q(ending_date_time__gte=start_date),
+                ).order_by('-starting_date_time').first()
+                
+                if last_decision_document_item and last_decision_document_item.price:
+                    return Decimal(last_decision_document_item.price)
+
+            except Exception as e:
+                print(f"Erreur lors de la récupération du prix: {e}")
+
+            establishment = establishment.establishment_parent  # Passer au parent
+
+        return Decimal(0)  # Aucun prix trouvé
 
         # Retourner la capacité de la dernière autorisation
         return last_decision_document_item.price if last_decision_document_item and last_decision_document_item.price else Decimal(0)
