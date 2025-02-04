@@ -619,6 +619,8 @@ class BeneficiaryEntry(models.Model):
                     if start_date.year == today.year and start_date.month == today.month:
                         end_date = min(end_date, today)
                     days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
+                    if entry.release_date is not None and entry.release_date <= month_end and entry.release_date.month == month_end.month:
+                        days_in_month += 1
 
                     # Ajouter au total des jours pour le mois
                     monthly_data[establishment.id][start_date.month]["total_days_present"] += max(0, days_in_month)
