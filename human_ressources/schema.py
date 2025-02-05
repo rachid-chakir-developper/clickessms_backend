@@ -460,6 +460,7 @@ class BeneficiaryAdmissionFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
     statuses = graphene.List(graphene.String, required=False)
     list_type = graphene.String(required=False)
     order_by = graphene.String(required=False)
