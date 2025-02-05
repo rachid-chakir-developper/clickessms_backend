@@ -611,14 +611,16 @@ class BeneficiaryEntry(models.Model):
                 end_date = make_aware(end_date) if is_naive(end_date) else end_date
                 # Rendre start_date et end_date conscients si nécessaire
                 while start_date <= end_date:
+                    end_date_aux = end_date
                     month_start = datetime(start_date.year, start_date.month, 1, 00, 00, 00)
                     month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
                     # Rendre month_start et month_end conscients si nécessaire
                     month_start = make_aware(month_start)
                     month_end = make_aware(month_end)
                     if start_date.year == today.year and start_date.month == today.month:
-                        end_date = min(end_date, today)
-                    days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days + 1
+                        end_date_aux = min(end_date_aux, today)
+
+                    days_in_month = (min(end_date_aux, month_end) - max(start_date, month_start)).days + 1
                     if entry.release_date is not None and entry.release_date <= month_end and entry.release_date.month == month_end.month:
                         days_in_month += 1
 
