@@ -823,7 +823,7 @@ class BeneficiaryAdmission(models.Model):
         queryset = cls.objects.filter(
             company=company,
             is_deleted=False,
-            created_at__year=year
+            reception_date__year=year
         )
 
         if establishments:
@@ -906,8 +906,8 @@ class BeneficiaryAdmission(models.Model):
 
         # Filtrer les enregistrements de base
         queryset = cls.objects.filter(
-            response_date__gte=start_of_year,
-            response_date__lte=end_of_year,
+            reception_date__gte=start_of_year,
+            reception_date__lte=end_of_year,
             status__in=["APPROVED", "REJECTED"]
         )
 
@@ -934,8 +934,8 @@ class BeneficiaryAdmission(models.Model):
 
             # Ajouter les admissions pour le mois
             admissions = queryset.filter(
-                response_date__gte=start_of_month,
-                response_date__lte=end_of_month
+                reception_date__gte=start_of_month,
+                reception_date__lte=end_of_month
             )
 
             # Grouper les admissions par établissement
