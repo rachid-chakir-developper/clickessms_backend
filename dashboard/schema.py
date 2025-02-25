@@ -422,7 +422,7 @@ class DashboardActivityType(graphene.ObjectType):
                     beneficiary_entries=beneficiary_entries,
                     capacity=capacity,
                     count_occupied_places = count_occupied_places,
-                    count_available_places = capacity-count_occupied_places_prev_month,
+                    count_available_places = capacity-count_occupied_places,
                 )  # 'day' utilisé pour le nom du mois
                 activity_synthesis_month.append(item)
                 month_total = month_totals[i]
@@ -506,7 +506,7 @@ class DashboardActivityType(graphene.ObjectType):
                     capacity=capacity,
                     count_outside_places_department=0,
                     count_occupied_places=count_occupied_places,
-                    count_available_places=capacity-count_occupied_places_prev_month,
+                    count_available_places=capacity-count_occupied_places,
                     ages_text=get_age_range(beneficiary_entries),
                     beneficiary_entries=beneficiary_entries
                     )
