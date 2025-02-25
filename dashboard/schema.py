@@ -497,7 +497,6 @@ class DashboardActivityType(graphene.ObjectType):
             beneficiary_entries=present_beneficiaries.get(establishment.id, [])
             capacity = establishment.get_monthly_capacity(year, month)
             count_occupied_places= len(beneficiary_entries)
-            count_occupied_places_prev_month = BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[establishment.id], company=company)
             activity_month_establishments.append(
                 ActivityMonthEstablishmentType(
                     month=settings.MONTHS[int(month)-1],
