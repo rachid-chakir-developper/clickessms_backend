@@ -410,6 +410,7 @@ class DashboardActivityType(graphene.ObjectType):
                 capacity = establishment.get_monthly_capacity(year, i+1)
                 beneficiary_entries = get_item_object(beneficiary_entry_monthly_present_beneficiaries, establishment.id, i+1, 'presences')
                 count_occupied_places= len(beneficiary_entries)
+                count_occupied_places_prev_month = BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[establishment.id], company=company)
                 item = ActivitySynthesisMonthType(
                     month=month,
                     year=year,
@@ -421,7 +422,7 @@ class DashboardActivityType(graphene.ObjectType):
                     beneficiary_entries=beneficiary_entries,
                     capacity=capacity,
                     count_occupied_places = count_occupied_places,
-                    count_available_places = capacity-count_occupied_places,
+                    count_available_places = capacity-count_occupied_places_prev_month,
                 )  # 'day' utilisé pour le nom du mois
                 activity_synthesis_month.append(item)
                 month_total = month_totals[i]
@@ -490,6 +491,7 @@ class DashboardActivityType(graphene.ObjectType):
             beneficiary_entries=present_beneficiaries.get(establishment.id, [])
             capacity = establishment.get_monthly_capacity(year, month)
             count_occupied_places= len(beneficiary_entries)
+            count_occupied_places_prev_month = BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[establishment.id], company=company)
             activity_month_establishments.append(
                 ActivityMonthEstablishmentType(
                     month=settings.MONTHS[int(month)-1],
@@ -498,7 +500,7 @@ class DashboardActivityType(graphene.ObjectType):
                     capacity=capacity,
                     count_outside_places_department=0,
                     count_occupied_places=count_occupied_places,
-                    count_available_places=capacity-count_occupied_places,
+                    count_available_places=capacity-count_occupied_places_prev_month,
                     ages_text=get_age_range(beneficiary_entries),
                     beneficiary_entries=beneficiary_entries
                     )

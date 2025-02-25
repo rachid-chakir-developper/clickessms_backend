@@ -741,8 +741,52 @@ class BeneficiaryEntry(models.Model):
 
         return {est_id: dict(months) for est_id, months in monthly_data.items()}
 
+    @classmethod
+    def count_present_beneficiaries(cls, year, month, establishments=None, company=None):
+        """
+        Retourne le nombre d'entrées de bénéficiaires pour un mois donné d'une année spécifique
+        et optionnellement pour un ou plusieurs établissements.
+
+        :param year: Année concernée (int).
+        :param month: Mois concerné (int, 1-12).
+        :param establishments: QuerySet ou liste d'ID des établissements concernés (optionnel).
+        :param company: Entreprise concernée (optionnel, si applicable).
+        :return: Nombre d'entrées (int).
+        """
+        year = int(year)
+        month = int(month)
+        if month <= 0:  
+            month = 12  
+            year -= 1  
+        elif month > 12:  
+            month = 1  
+            year += 1  
+
+        start_date = datetime(year, month, 1)
+        
+        # Définir la date de fin comme le premier jour du mois suivant
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+
+        # Filtrer les entrées dans la plage de dates donnée
+        query = Q(entry_date__gte=start_date, entry_date__lt=end_date)
+
+        # Filtrer par établissements si spécifié
+        if establishments:
+            query &= Q(establishments__in=establishments)
+
+        # Filtrer par entreprise si nécessaire (ajouter une relation entreprise dans BeneficiaryEntry si besoin)
+        if company:
+            query &= Q(beneficiary__company=company)
+
+        return cls.objects.filter(query).distinct().count()
+
+
     def __str__(self):
         return str(self.id)
+
 
 # Create your models here.
 class BeneficiaryAdmission(models.Model):
