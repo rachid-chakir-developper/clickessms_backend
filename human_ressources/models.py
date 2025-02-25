@@ -744,14 +744,13 @@ class BeneficiaryEntry(models.Model):
     @classmethod
     def count_present_beneficiaries(cls, year, month, establishments=None, company=None):
         """
-        Retourne le nombre d'entrées de bénéficiaires pour un mois donné d'une année spécifique
-        et optionnellement pour un ou plusieurs établissements.
-
+        Retourne le nombre de bénéficiaires présents au dernier jour du mois pour une année donnée.
+        
         :param year: Année concernée (int).
         :param month: Mois concerné (int, 1-12).
         :param establishments: QuerySet ou liste d'ID des établissements concernés (optionnel).
         :param company: Entreprise concernée (optionnel, si applicable).
-        :return: Nombre d'entrées (int).
+        :return: Nombre de bénéficiaires présents au dernier jour du mois (int).
         """
         year = int(year)
         month = int(month)
@@ -760,29 +759,30 @@ class BeneficiaryEntry(models.Model):
             year -= 1  
         elif month > 12:  
             month = 1  
-            year += 1  
+            year += 1
 
+        # Début et fin du mois spécifié
         start_date = datetime(year, month, 1)
-        
-        # Définir la date de fin comme le premier jour du mois suivant
         if month == 12:
             end_date = datetime(year + 1, 1, 1)
         else:
             end_date = datetime(year, month + 1, 1)
 
-        # Filtrer les entrées dans la plage de dates donnée
-        query = Q(entry_date__gte=start_date, entry_date__lt=end_date)
+        # Filtrer les données de base par entreprise
+        queryset = cls.objects.filter(beneficiary__company=company)
 
-        # Filtrer par établissements si spécifié
         if establishments:
-            query &= Q(establishments__in=establishments)
+            # Filtrer uniquement pour les établissements spécifiés
+            queryset = queryset.filter(establishments__in=establishments)
 
-        # Filtrer par entreprise si nécessaire (ajouter une relation entreprise dans BeneficiaryEntry si besoin)
-        if company:
-            query &= Q(beneficiary__company=company)
+        # Filtrer les bénéficiaires toujours présents à la fin du mois spécifié
+        queryset = queryset.filter(
+            Q(entry_date__lt=end_date),  # Entré avant ou pendant le mois
+            Q(release_date__isnull=True) | Q(release_date__gt=end_date)  # Toujours présents après le dernier jour du mois
+        )
 
-        return cls.objects.filter(query).distinct().count()
-
+        # Compter le nombre de bénéficiaires distincts présents
+        return queryset.distinct().count()
 
     def __str__(self):
         return str(self.id)
