@@ -468,6 +468,12 @@ class DashboardActivityType(graphene.ObjectType):
         date = datetime.date.today()
         year=str(date.year)
         month=date.month - 1
+        if month <= 0:  
+            month = 12  
+            year -= 1  
+        elif month > 12:  
+            month = 1  
+            year += 1 
         start_year = date.replace(month=1, day=1)  # Début de l'année
         end_year = date.replace(month=12, day=31)  # Fin de l'année
 
