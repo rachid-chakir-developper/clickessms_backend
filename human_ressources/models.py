@@ -669,7 +669,7 @@ class BeneficiaryEntry(models.Model):
         # Filtrer les bénéficiaires toujours présents dans le mois spécifié
         queryset = queryset.filter(
             Q(entry_date__lt=end_date),  # Entré avant ou pendant le mois
-            Q(release_date__isnull=True) | Q(release_date__gte=start_date)  # Pas encore sorti ou sortie après le début du mois
+            Q(release_date__isnull=True) | Q(release_date__gt=month_end)  # Toujours présent après le dernier jour du mois
         ).order_by('beneficiary__last_name', 'beneficiary__first_name')
 
         # Regrouper par établissement
