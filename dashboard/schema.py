@@ -133,6 +133,7 @@ class ActivitySynthesisMonthType(graphene.ObjectType):
     count_occupied_places = graphene.Int()
     count_available_places = graphene.Int()
     dashboard_comments = graphene.List(DashboardCommentType)
+    dashboard_comment = graphene.Field(DashboardCommentType)
     beneficiary_admissions = graphene.List(BeneficiaryAdmissionType)
     beneficiary_entries = graphene.List(BeneficiaryEntryType)
 
@@ -426,6 +427,7 @@ class DashboardActivityType(graphene.ObjectType):
                 beneficiary_entries = get_item_object(beneficiary_entry_monthly_present_beneficiaries, establishment.id, i+1, 'presences')
                 count_occupied_places= len(beneficiary_entries)
                 count_occupied_places_prev_month = BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[establishment.id], company=company)
+                dashboard_comment = DashboardComment.objects.filter(establishment=establishment, comment_type='SYNTHESIS_ALL', year=str(year), month=str(i+1)).first()
                 dashboard_comments = DashboardComment.objects.filter(establishment=establishment, comment_type='SYNTHESIS', year=str(year), month=str(i+1))
                 item = ActivitySynthesisMonthType(
                     month=month,
@@ -435,6 +437,7 @@ class DashboardActivityType(graphene.ObjectType):
                     count_rejected=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_rejected'),
                     count_canceled=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled'),
                     beneficiary_admissions=get_item_object(beneficiary_admission_monthly_admissions, establishment.id, i+1, 'admissions'),
+                    dashboard_comment=dashboard_comment,
                     dashboard_comments=dashboard_comments,
                     beneficiary_entries=beneficiary_entries,
                     capacity=capacity,

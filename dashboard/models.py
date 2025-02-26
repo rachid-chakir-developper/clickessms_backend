@@ -3,6 +3,7 @@ from django.db import models
 # Create your models here.
 class DashboardComment(models.Model):
 	COMMENT_TYPE_CHOICES = [
+		("SYNTHESIS_ALL", "Synthesis de tous"),
 		("SYNTHESIS", "Synthesis"),
 		('ACTIVITY', 'Activity'),
 		('GRAPH', 'Graph'),
