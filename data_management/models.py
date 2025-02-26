@@ -203,6 +203,10 @@ class DocumentType(DataModel):
 	def __str__(self):
 		return str(self.id)
 
+class BeneficiaryDocumentType(DataModel):
+	def __str__(self):
+		return str(self.id)
+
 class VehicleBrand(DataModel):
 	def __str__(self):
 		return str(self.id)

@@ -426,7 +426,7 @@ class DashboardActivityType(graphene.ObjectType):
                 beneficiary_entries = get_item_object(beneficiary_entry_monthly_present_beneficiaries, establishment.id, i+1, 'presences')
                 count_occupied_places= len(beneficiary_entries)
                 count_occupied_places_prev_month = BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[establishment.id], company=company)
-                dashboard_comments = []
+                dashboard_comments = EmployeeGroup.objects.filter(establishment=establishment, comment_type='SYNTHESIS', year=str(year), month=str(i+1))
                 item = ActivitySynthesisMonthType(
                     month=month,
                     year=year,

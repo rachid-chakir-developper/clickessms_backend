@@ -276,7 +276,7 @@ class DocumentRecordInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     is_notification_enabled = graphene.Boolean(required=False)
     is_active = graphene.Boolean(required=False)
-    document_type_id = graphene.Int(name="documentType", required=False)
+    beneficiary_document_type_id = graphene.Int(name="beneficiaryDocumentType", required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
 
 class AddressBookEntryInput(graphene.InputObjectType):

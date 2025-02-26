@@ -91,6 +91,7 @@ class DocumentRecord(models.Model):
 	name = models.CharField(max_length=255)
 	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='document_records', null=True)
 	document_type = models.ForeignKey('data_management.DocumentType', on_delete=models.SET_NULL, related_name='document_records', null=True)
+	beneficiary_document_type = models.ForeignKey('data_management.BeneficiaryDocumentType', on_delete=models.SET_NULL, related_name='document_records', null=True)
 	starting_date = models.DateField(null=True)
 	ending_date = models.DateField(null=True)
 	description = models.TextField(default='', null=True)
