@@ -7,7 +7,7 @@ from accounts.schema import UserQuery, UserMutation, UserSubscription, UserType
 from medias.schema import MediasQuery, MediasMutation
 from data_management.schema import DataQuery, DataMutation
 from searching.schema import SearchQuery
-from dashboard.schema import DashboardQuery
+from dashboard.schema import DashboardQuery, DashboardMutation
 from companies.schema import CompanyQuery, CompanyMutation
 from human_ressources.schema import HumanRessourcesQuery, HumanRessourcesMutation
 from stocks.schema import StocksQuery, StocksMutation
@@ -69,7 +69,7 @@ class Query(MeQuery, UserQuery, MediasQuery, DataQuery, SearchQuery, DashboardQu
     graphene.ObjectType):
     pass
 
-class Mutation(AuthMutation, UserMutation, MediasMutation, DataMutation,
+class Mutation(AuthMutation, UserMutation, MediasMutation, DataMutation, DashboardMutation,
     CompanyMutation, HumanRessourcesMutation, StocksMutation, ComputersMutation,
     VehiclesMutation, PartnershipsMutation, PurchasesMutation, SalesMutation, WorksMutation,
     CommentsMutation, NotificationsMutation, ChatMutation, LoansMutation, ActivitiesMutation,

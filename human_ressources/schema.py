@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from django.db.models import Q
+from django.db.models import Q, Subquery, OuterRef
 
 from human_ressources.models import CareerEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem
 from medias.models import Folder, File, DocumentRecord
@@ -680,12 +680,18 @@ class HumanRessourcesQuery(graphene.ObjectType):
             order_by = beneficiary_filter.get('order_by')
             if keyword:
                 beneficiaries = beneficiaries.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword))
-            if establishments:
-                beneficiaries = beneficiaries.filter(beneficiary_entries__establishments__id__in=establishments)
             if starting_date_time:
-                beneficiaries = beneficiaries.filter(created_at__gte=starting_date_time)
+                beneficiaries = beneficiaries.filter(beneficiary_entries__entry_date__gte=starting_date_time)
             if ending_date_time:
-                beneficiaries = beneficiaries.filter(created_at__lte=ending_date_time)
+                beneficiaries = beneficiaries.filter(beneficiary_entries__entry_date__lte=ending_date_time)
+            if establishments:
+                last_entry_subquery = BeneficiaryEntry.objects.filter(
+                    beneficiary=OuterRef('pk')
+                ).order_by('-entry_date').values('id')[:1]
+                beneficiaries = beneficiaries.filter(
+                    beneficiary_entries__id=Subquery(last_entry_subquery),
+                    beneficiary_entries__establishments__id__in=establishments
+                )
             if order_by:
                 the_order_by = order_by
         beneficiaries = beneficiaries.order_by(the_order_by).distinct()

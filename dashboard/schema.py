@@ -11,12 +11,14 @@ from statistics import mean
 from django.db.models import Sum, Count, Q, Case, When
 from django.db.models.functions import TruncDate
 
+
+from dashboard.utils import get_age_range
+from dashboard.models import DashboardComment
+
 from works.schema import TaskType,TaskActionType
 from human_ressources.schema import EmployeeType
 from companies.schema import EstablishmentType
 from qualities.schema import UndesirableEventType
-
-from dashboard.utils import get_age_range
 
 from works.models import Task, STATUS_All, TaskAction
 from qualities.models import UndesirableEvent
@@ -25,6 +27,18 @@ from human_ressources.models import BeneficiaryEntry, BeneficiaryAdmission
 from finance.models import DecisionDocumentItem
 from human_ressources.schema import BeneficiaryEntryType, BeneficiaryAdmissionType
 
+class DashboardCommentType(DjangoObjectType):
+    class Meta:
+        model = DashboardComment
+        fields = "__all__"
+
+class DashboardCommentInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    text = graphene.String(required=False)
+    comment_type = graphene.String(required=False)
+    year = graphene.String(required=False)
+    month = graphene.String(required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
 
 class DashboardActivityFilterInput(graphene.InputObjectType):
         keyword = graphene.String(required=False)
@@ -118,6 +132,7 @@ class ActivitySynthesisMonthType(graphene.ObjectType):
     capacity = graphene.Int()
     count_occupied_places = graphene.Int()
     count_available_places = graphene.Int()
+    dashboard_comments = graphene.List(DashboardCommentType)
     beneficiary_admissions = graphene.List(BeneficiaryAdmissionType)
     beneficiary_entries = graphene.List(BeneficiaryEntryType)
 
@@ -411,6 +426,7 @@ class DashboardActivityType(graphene.ObjectType):
                 beneficiary_entries = get_item_object(beneficiary_entry_monthly_present_beneficiaries, establishment.id, i+1, 'presences')
                 count_occupied_places= len(beneficiary_entries)
                 count_occupied_places_prev_month = BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[establishment.id], company=company)
+                dashboard_comments = []
                 item = ActivitySynthesisMonthType(
                     month=month,
                     year=year,
@@ -419,6 +435,7 @@ class DashboardActivityType(graphene.ObjectType):
                     count_rejected=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_rejected'),
                     count_canceled=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled'),
                     beneficiary_admissions=get_item_object(beneficiary_admission_monthly_admissions, establishment.id, i+1, 'admissions'),
+                    dashboard_comments=dashboard_comments,
                     beneficiary_entries=beneficiary_entries,
                     capacity=capacity,
                     count_occupied_places = count_occupied_places,
@@ -531,3 +548,69 @@ class DashboardQuery(graphene.ObjectType):
         info.context.dashboard_activity_filter = dashboard_activity_filter
         dashboard_activity = 0
         return dashboard_activity
+
+
+#************************************************************************
+
+class CreateDashboardComment(graphene.Mutation):
+    class Arguments:
+        dashboard_comment_data = DashboardCommentInput(required=True)
+
+    dashboard_comment = graphene.Field(DashboardCommentType)
+
+    def mutate(root, info, dashboard_comment_data=None):
+        creator = info.context.user
+        dashboard_comment = DashboardComment(**dashboard_comment_data)
+        dashboard_comment.creator = creator
+        dashboard_comment.company = creator.the_current_company
+        dashboard_comment.save()
+        return CreateDashboardComment(dashboard_comment=dashboard_comment)
+
+class UpdateDashboardComment(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        dashboard_comment_data = DashboardCommentInput(required=True)
+
+    dashboard_comment = graphene.Field(DashboardCommentType)
+
+    def mutate(root, info, id, dashboard_comment_data=None):
+        creator = info.context.user
+        DashboardComment.objects.filter(pk=id).update(**dashboard_comment_data)
+        dashboard_comment = DashboardComment.objects.get(pk=id)
+        return UpdateDashboardComment(dashboard_comment=dashboard_comment)
+
+
+class DeleteDashboardComment(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    dashboard_comment = graphene.Field(DashboardCommentType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser or True:
+            dashboard_comment = DashboardComment.objects.get(pk=id)
+            broadcastDashboardCommentDeleted(dashboard_comment)
+            dashboard_comment.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteDashboardComment(deleted=deleted, success=success, message=message, id=id)
+
+# **********************************************************************************************
+
+#************************************************************************
+#*******************************************************************************************************************************
+
+class DashboardMutation(graphene.ObjectType):
+    create_dashboard_comment = CreateDashboardComment.Field()
+    update_dashboard_comment = UpdateDashboardComment.Field()
+    delete_dashboard_comment = DeleteDashboardComment.Field()
