@@ -116,6 +116,8 @@ class DocumentRecord(models.Model):
 
 	@property
 	def expiration_status(self):
+		if not self.ending_date:
+			return "NO_EXPIRATION_DATE"
 		today = date.today()
 
 		# Compute notification period (ex: 10 jours, 2 semaines, etc.)
