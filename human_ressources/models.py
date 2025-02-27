@@ -550,6 +550,9 @@ class BeneficiaryEntry(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
+    class Meta:
+        ordering = ['entry_date']  # Tri par date d'entrée décroissante (du plus récent au plus ancien)
+
     @classmethod
     def monthly_presence_statistics(cls, year, establishments=None, company=None):
         year = int(year)
