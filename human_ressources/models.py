@@ -507,6 +507,9 @@ class BeneficiaryAdmissionDocument(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
+    class Meta:
+        ordering = ['starting_date']
+
     def __str__(self):
         return self.id
 
@@ -521,6 +524,9 @@ class BeneficiaryStatusEntry(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
+    class Meta:
+        ordering = ['starting_date']
+
     def __str__(self):
         return self.id
 
@@ -534,6 +540,9 @@ class BeneficiaryEndowmentEntry(models.Model):
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        ordering = ['starting_date']
 
     def __str__(self):
         return self.id
@@ -1068,3 +1077,6 @@ class CareerEntry(models.Model):
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        ordering = ['starting_date']
