@@ -116,8 +116,9 @@ class Company(models.Model):
 
 class Establishment(models.Model):
     MEASUREMENT_ACTIVITY_UNITS = [
-        ("DAY", "Jour"),#
         ("HOUR", "Heure"),#
+        ("DAY", "Jour"),#
+        ("WEEK", "Semaine"),#
         ("MONTH", "Mois")#
     ]
     number = models.CharField(max_length=255, editable=False, null=True)

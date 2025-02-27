@@ -33,8 +33,11 @@ class DocumentRecordType(DjangoObjectType):
         model = DocumentRecord
         fields = "__all__"
     document = graphene.String()
+    expiration_status = graphene.String()
     def resolve_document( instance, info, **kwargs ):
         return instance.document and info.context.build_absolute_uri(instance.document.file.url)
+    def resolve_expiration_status( instance, info, **kwargs ):
+        return instance.expiration_status
 
 class EmployeeContractEstablishmentType(DjangoObjectType):
     class Meta:
@@ -275,6 +278,8 @@ class DocumentRecordInput(graphene.InputObjectType):
     ending_date = graphene.DateTime(required=False)
     description = graphene.String(required=False)
     is_notification_enabled = graphene.Boolean(required=False)
+    notification_period_unit = graphene.String(required=False)
+    notification_period_value = graphene.Int(required=False)
     is_active = graphene.Boolean(required=False)
     beneficiary_document_type_id = graphene.Int(name="beneficiaryDocumentType", required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)

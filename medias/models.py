@@ -2,6 +2,9 @@ from django.db import models
 from moviepy.editor import VideoFileClip
 import os
 from django.conf import settings
+from datetime import date, timedelta
+from django.utils.timezone import now
+
 
 # Create your models here.
 
@@ -86,6 +89,12 @@ class File(models.Model):
 
 # Create your models here.
 class DocumentRecord(models.Model):
+	NOTIFICATION_PERIOD_UNITS = [
+		("HOUR", "Heure"),#
+		("DAY", "Jour"),#
+		("WEEK", "Semaine"),#
+		("MONTH", "Mois")#
+	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='document_records', null=True)
 	name = models.CharField(max_length=255)
@@ -96,12 +105,54 @@ class DocumentRecord(models.Model):
 	ending_date = models.DateField(null=True)
 	description = models.TextField(default='', null=True)
 	is_notification_enabled = models.BooleanField(default=True, null=True)
+	notification_period_unit = models.CharField(max_length=50, choices=NOTIFICATION_PERIOD_UNITS, default= "MONTH")
+	notification_period_value = models.PositiveIntegerField(default=1, null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='document_records', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	@property
+	def expiration_status(self):
+		today = date.today()
+
+		# Compute notification period (ex: 10 jours, 2 semaines, etc.)
+		delta = self.get_notification_timedelta()
+
+		# Début de la période de notification
+		notify_start_date = self.ending_date - delta
+
+		# Seuil de 20% AVANT la date de fin
+		alert_threshold = self.ending_date - (delta * 0.2)
+
+		if today > self.ending_date:
+			return "EXPIRED"
+		elif today >= notify_start_date:
+			return "EXPIRING_SOON"
+		elif today >= alert_threshold:
+			return "ALMOST_EXPIRED"
+		else:
+			return "NOT_YET_EXPIRED"
+
+	def get_notification_timedelta(self):
+		"""Returns the notification duration as a timedelta."""
+		if not self.notification_period_value:
+			return timedelta(days=0)
+
+		if self.notification_period_unit == "HOUR":
+			return timedelta(hours=self.notification_period_value)
+		elif self.notification_period_unit == "DAY":
+			return timedelta(days=self.notification_period_value)
+		elif self.notification_period_unit == "WEEK":
+			return timedelta(weeks=self.notification_period_value)
+		elif self.notification_period_unit == "MONTH":
+			return timedelta(days=self.notification_period_value * 30)  # Approximation
+		return timedelta(days=0)
+
+	def __str__(self):
+		return self.name
 
 class ContractTemplate(models.Model):
 	CONTRACT_TYPES = [

@@ -316,8 +316,9 @@ class Invoice(models.Model):
 
 class InvoiceItem(models.Model):
 	MEASUREMENT_UNITS = [
-		("DAY", "Jour"),#
 		("HOUR", "Heure"),#
+		("DAY", "Jour"),#
+		("WEEK", "Semaine"),#
 		("MONTH", "Mois")#
 	]
 	invoice = models.ForeignKey(Invoice, on_delete=models.SET_NULL, null=True, related_name='invoice_items')
