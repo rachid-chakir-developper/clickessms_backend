@@ -131,10 +131,10 @@ class DocumentRecord(models.Model):
 
 		if today > self.ending_date:
 			return "EXPIRED"
-		elif today >= notify_start_date:
-			return "EXPIRING_SOON"
 		elif today >= alert_threshold:
 			return "ALMOST_EXPIRED"
+		elif today >= notify_start_date:
+			return "EXPIRING_SOON"
 		else:
 			return "NOT_YET_EXPIRED"
 
