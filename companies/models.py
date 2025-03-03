@@ -189,6 +189,23 @@ class Establishment(models.Model):
 
         return number
 
+    def get_all_children(self):
+        """ Récupère tous les établissements enfants de manière itérative (évite la récursion infinie et les boucles) """
+        children = []
+        stack = list(self.establishment_childs.all())  # Initialiser avec les enfants directs
+        visited = set()  # Stocke les IDs des établissements déjà visités
+
+        while stack:
+            current = stack.pop()  # Récupérer un élément de la pile
+            if current.id in visited:
+                # Boucle infinie détectée, on passe à l'élément suivant
+                continue
+            visited.add(current.id)  # Marquer l'établissement comme visité
+            children.append(current)  # Ajouter l'établissement à la liste des enfants
+            stack.extend(current.establishment_childs.all())  # Ajouter ses enfants à la pile
+
+        return children
+
     def get_monthly_capacity(self, year, month):
         """
         Retourne la dernière capacité saisie pour un mois donné.
@@ -304,6 +321,7 @@ class Establishment(models.Model):
             beneficiaries.append({
                 'beneficiary_entry': entry,
                 'days_in_month': days_in_month,
+                'establishment': self,
             })
 
         return beneficiaries

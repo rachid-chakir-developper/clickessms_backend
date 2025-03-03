@@ -166,7 +166,7 @@ class GenerateInvoiceInput(graphene.InputObjectType):
     year = graphene.String(required=True)
     month = graphene.String(required=True)
     financier = graphene.Int(required=True)
-    establishments = graphene.List(graphene.Int, required=True)
+    establishment = graphene.Int(required=True)
 
 class SalesQuery(graphene.ObjectType):
     clients = graphene.Field(ClientNodeType, client_filter= ClientFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -498,15 +498,15 @@ class GenerateInvoice(graphene.Mutation):
     def mutate(self, info, generate_invoice_data=None):
         creator = info.context.user
         company = creator.the_current_company
-        year, month, financier_id, establishment_ids = map(
+        year, month, financier_id, establishment_id = map(
             lambda field: getattr(generate_invoice_data, field),
-            ["year", "month", "financier", "establishments"],
+            ["year", "month", "financier", "establishment"],
         )
         invoice = None
         invoices = []
         try:
             try:
-                establishments = Establishment.objects.filter(id__in=establishment_ids)
+                establishments = Establishment.objects.filter(id=establishment_id)
                 if not establishments:
                     return GenerateInvoice(invoice=invoice, success=False, message="Structures non trouvées.")
                 establishment=establishments.first()
@@ -634,32 +634,46 @@ class GenerateInvoice(graphene.Mutation):
                 invoice.managers.set(managers)
                 invoice.set_signatures(employees=managers, creator=creator)
 
-            present_beneficiaries = establishment.get_present_beneficiaries(year, month)
+            all_establishments = [establishment] + establishment.get_all_children()
+            # Récupérer tous les bénéficiaires présents pour ces établissements
+            present_beneficiaries = []
+            for est in all_establishments:
+                present_beneficiaries.extend(est.get_present_beneficiaries(year, month))
+            present_beneficiaries = sorted(present_beneficiaries, key=lambda item: (item['beneficiary_entry'].beneficiary.id, item['beneficiary_entry'].beneficiary.first_name, item['beneficiary_entry'].beneficiary.last_name))
             # Créer les éléments de facture à partir des bénéficiaires présents
-            invoice_items = [
-                InvoiceItem(
-                    invoice=invoice,
-                    label=f"Bénéficiaire : {item['beneficiary_entry'].beneficiary.preferred_name}",
-                    establishment_number=establishment.number,
-                    establishment_name=establishment.name,
-                    preferred_name=item['beneficiary_entry'].beneficiary.preferred_name,
-                    first_name=item['beneficiary_entry'].beneficiary.first_name,
-                    last_name=item['beneficiary_entry'].beneficiary.last_name,
-                    birth_date=item['beneficiary_entry'].beneficiary.birth_date,
-                    entry_date=item['beneficiary_entry'].entry_date,
-                    release_date=item['beneficiary_entry'].release_date,
-                    description=f"{item['days_in_month']} jour(s) dans le mois {month}/{year}",
-                    measurement_unit=establishment.measurement_activity_unit,
-                    unit_price=unit_price,
-                    quantity=item['days_in_month'],  # Utiliser le nombre de jours comme quantité
-                    # amount_ht=None,  # Calcul automatique si nécessaire
-                    # amount_ttc=None,  # Calcul automatique si nécessaire
-                    beneficiary=item['beneficiary_entry'].beneficiary,
-                    establishment=establishment,
-                    creator=creator
-                )
-                for item in present_beneficiaries
-            ]
+            invoice_items = []
+            for item in present_beneficiaries:
+                release_date = item['beneficiary_entry'].release_date
+                if release_date and release_date.year == year and release_date.month == month:
+                    release_date = release_date
+                else:
+                    release_date = None
+                try:
+                    invoice_item = InvoiceItem.objects.get(invoice=invoice, establishment=item['establishment'], entry_date=item['beneficiary_entry'].entry_date)
+                except InvoiceItem.DoesNotExist:
+                    invoice_item = InvoiceItem(
+                            invoice=invoice,
+                            label=f"Bénéficiaire : {item['beneficiary_entry'].beneficiary.preferred_name}",
+                            establishment_number=item['establishment'].number,
+                            establishment_name=item['establishment'].name,
+                            preferred_name=item['beneficiary_entry'].beneficiary.preferred_name,
+                            first_name=item['beneficiary_entry'].beneficiary.first_name,
+                            last_name=item['beneficiary_entry'].beneficiary.last_name,
+                            birth_date=item['beneficiary_entry'].beneficiary.birth_date,
+                            entry_date=item['beneficiary_entry'].entry_date,
+                            release_date=release_date,
+                            description=f"{item['days_in_month']} jour(s) dans le mois {month}/{year}",
+                            measurement_unit=establishment.measurement_activity_unit,
+                            unit_price=unit_price,
+                            quantity=item['days_in_month'],  # Utiliser le nombre de jours comme quantité
+                            # amount_ht=None,  # Calcul automatique si nécessaire
+                            # amount_ttc=None,  # Calcul automatique si nécessaire
+                            beneficiary=item['beneficiary_entry'].beneficiary,
+                            establishment=item['establishment'],
+                            creator=creator
+                        )
+                    invoice_items.append(invoice_item)
+
             # Bulk create invoice items
             InvoiceItem.objects.bulk_create(invoice_items)
 
