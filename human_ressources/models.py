@@ -756,6 +756,8 @@ class BeneficiaryEntry(models.Model):
     @classmethod
     def monthly_beneficiary_attendance(cls, year, establishments=None, company=None):
         year = int(year)
+        today = make_aware(datetime.today())
+
         start_of_year = make_aware(datetime(year, 1, 1, 0, 0, 0))
         end_of_year = make_aware(datetime(year, 12, 31, 23, 59, 59))
 
@@ -776,10 +778,13 @@ class BeneficiaryEntry(models.Model):
         # Pour chaque mois de l'année
         for month in range(1, 13):
             start_of_month = make_aware(datetime(year, month, 1, 0, 0, 0))
-            if month == 12:
-                end_of_month = make_aware(datetime(year + 1, 1, 1, 0, 0, 0)) - timedelta(seconds=1)
+            if year == today.year and month == today.month:
+                end_of_month = today
             else:
-                end_of_month = make_aware(datetime(year, month + 1, 1, 0, 0, 0)) - timedelta(seconds=1)
+                if month == 12:
+                    end_of_month = make_aware(datetime(year + 1, 1, 1, 0, 0, 0)) - timedelta(seconds=1)
+                else:
+                    end_of_month = make_aware(datetime(year, month + 1, 1, 0, 0, 0)) - timedelta(seconds=1)
 
             # Filtrer les présences pour ce mois
             presences = queryset.filter(
