@@ -25,7 +25,7 @@ from qualities.models import UndesirableEvent
 from companies.models import Establishment
 from human_ressources.models import BeneficiaryEntry, BeneficiaryAdmission
 from finance.models import DecisionDocumentItem
-from human_ressources.schema import BeneficiaryEntryType, BeneficiaryAdmissionType
+from human_ressources.schema import BeneficiaryType, BeneficiaryEntryType, BeneficiaryAdmissionType
 
 class DashboardCommentType(DjangoObjectType):
     class Meta:
@@ -120,6 +120,26 @@ class ActivityTrackingEstablishmentType(graphene.ObjectType):
     months = graphene.List(graphene.String)
     activity_tracking_month = graphene.List(ActivityTrackingMonthType)
     activity_tracking_accumulation = graphene.Field(ActivityTrackingAccumulationType)
+
+class ActivityBeneficiaryMonthType(graphene.ObjectType):
+    year = graphene.String()
+    month = graphene.String()
+    is_current_month = graphene.Boolean()
+    is_future_month = graphene.Boolean()
+    days_count = graphene.Float()
+
+class ActivityBeneficiaryType(graphene.ObjectType):
+    year = graphene.String()
+    beneficiary = graphene.Field(BeneficiaryType)
+    days_count = graphene.Float()
+    activity_beneficiary_months = graphene.List(ActivityBeneficiaryMonthType)
+
+class ActivityBeneficiaryEstablishmentType(graphene.ObjectType):
+    title = graphene.String()
+    establishment = graphene.Field(EstablishmentType)
+    year = graphene.String()
+    months = graphene.List(graphene.String)
+    activity_beneficiaries = graphene.List(ActivityBeneficiaryType)
 
 class ActivitySynthesisMonthType(graphene.ObjectType):
     label = graphene.String()
@@ -281,6 +301,7 @@ def get_item_object(monthly_statistics, establishment_id, month, key):
     return value
 class DashboardActivityType(graphene.ObjectType):
     activity_tracking_establishments = graphene.List(ActivityTrackingEstablishmentType)
+    activity_beneficiary_establishments = graphene.List(ActivityBeneficiaryEstablishmentType)
     activity_synthesis = graphene.Field(ActivitySynthesisType)
     activity_month = graphene.Field(ActivityMonthType)
 
@@ -308,7 +329,6 @@ class DashboardActivityType(graphene.ObjectType):
             if establishment_ids:
                 order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
                 establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
-
         beneficiary_entry_monthly_presence_statistics = BeneficiaryEntry.monthly_presence_statistics(year=year, establishments=establishments, company=company)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
 
@@ -393,6 +413,75 @@ class DashboardActivityType(graphene.ObjectType):
                     )
                 )
         return activity_tracking_establishments
+
+    def resolve_activity_beneficiary_establishments(instance, info, **kwargs):
+        user = info.context.user
+        dashboard_activity_filter = getattr(info.context, 'dashboard_activity_filter', None)
+        company = user.the_current_company
+
+        # Obtenir l'année en cours pour filtrer par année
+        date = datetime.date.today()
+        year=str(date.year)
+        current_year = date.year
+        current_month = date.month
+        prev_month_index = 11
+        start_year = date.replace(month=1, day=1)  # Début de l'année
+        end_year = date.replace(month=12, day=31)  # Fin de l'année
+
+        establishments = Establishment.objects.filter(company=company)
+
+        if dashboard_activity_filter:
+            the_year = dashboard_activity_filter.get('year', None)
+            establishment_ids = dashboard_activity_filter.get('establishments', None)
+            if the_year:
+                year=the_year
+            if establishment_ids:
+                order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
+                establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
+
+        monthly_beneficiary_attendance = BeneficiaryEntry.monthly_beneficiary_attendance(year=year, establishments=establishments, company=company)
+
+        activity_beneficiary_establishments = []
+        for i, establishment in enumerate(establishments):
+            # Initialiser les activity_beneficiary_month par mois
+            activity_beneficiaries=[]
+            activity_beneficiary_entries=monthly_beneficiary_attendance.get(establishment.id, [])
+            for i, activity_beneficiary_entry in enumerate(activity_beneficiary_entries):
+                beneficiary = activity_beneficiary_entry["beneficiary"]
+                monthly_attendance = activity_beneficiary_entry["monthly_attendance"]
+                activity_beneficiary_months = []
+                for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
+                    is_current_month = (int(year) == current_year and i+1 == current_month)
+                    prev_month_index = i - 1 if i > 0 and is_current_month else prev_month_index
+                    is_future_month = (int(year) > current_year) or (int(year) == current_year and i+1 > current_month)
+                    days_count=monthly_attendance.get(i+1, {}).get("days_count", 0)
+                    item = ActivityBeneficiaryMonthType(
+                    year=year,
+                    month=month,
+                    is_current_month=is_current_month,
+                    is_future_month=is_future_month,
+                    days_count=days_count,
+                    )  # 'day' utilisé pour le nom du mois
+                    activity_beneficiary_months.append(item)
+                activity_beneficiaries.append(
+                    ActivityBeneficiaryType(
+                        year=year,
+                        beneficiary=beneficiary,
+                        days_count=sum(m.days_count for m in activity_beneficiary_months),
+                        activity_beneficiary_months=activity_beneficiary_months
+                        )
+                    )
+
+            activity_beneficiary_establishments.append(
+                ActivityBeneficiaryEstablishmentType(
+                    months=settings.MONTHS,
+                    year=year,
+                    establishment=establishment,
+                    activity_beneficiaries=activity_beneficiaries,
+                    )
+                )
+
+        return activity_beneficiary_establishments
 
     def resolve_activity_synthesis(instance, info, **kwargs):
         user = info.context.user

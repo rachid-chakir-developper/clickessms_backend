@@ -150,7 +150,7 @@ class UserQuery(graphene.ObjectType):
     def resolve_users(root, info, user_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         users = User.objects.filter(company__id=id_company) if id_company else User.objects.filter(company=company)
         if user_filter:
@@ -176,7 +176,7 @@ class UserQuery(graphene.ObjectType):
     def resolve_contacts(root, info, user_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         users = User.objects.filter(~Q(id=user.id), company__id=id_company) if id_company else User.objects.filter(~Q(id=user.id), company=company)
         if user_filter:

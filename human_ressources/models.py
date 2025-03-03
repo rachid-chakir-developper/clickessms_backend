@@ -493,7 +493,7 @@ class Beneficiary(models.Model):
         return number
 
     def __str__(self):
-        return self.email
+        return str(self.id)
 
 # Create your models here.
 class BeneficiaryAdmissionDocument(models.Model):
@@ -749,9 +749,86 @@ class BeneficiaryEntry(models.Model):
         establishments_ids = establishments or queryset.values_list('establishments', flat=True).distinct()
         for establishment in establishments_ids:
             if establishment.id not in monthly_data:
-                monthly_data[establishment.id] = {month: {"presences": []} for month in range(1, 13)}
+                    monthly_data[establishment.id] = {month: {"presences": []} for month in range(1, 13)}
 
         return {est_id: dict(months) for est_id, months in monthly_data.items()}
+
+    @classmethod
+    def monthly_beneficiary_attendance(cls, year, establishments=None, company=None):
+        year = int(year)
+        start_of_year = make_aware(datetime(year, 1, 1, 0, 0, 0))
+        end_of_year = make_aware(datetime(year, 12, 31, 23, 59, 59))
+
+        queryset = cls.objects.filter(
+            Q(release_date__isnull=True) | Q(release_date__gt=start_of_year),
+            entry_date__lte=end_of_year
+        )
+
+        if company:
+            queryset = queryset.filter(beneficiary__company=company)
+
+        if establishments:
+            queryset = queryset.filter(establishments__in=establishments)
+
+        # Dictionnaire pour structurer les données
+        monthly_data = defaultdict(lambda: defaultdict(list))
+
+        # Pour chaque mois de l'année
+        for month in range(1, 13):
+            start_of_month = make_aware(datetime(year, month, 1, 0, 0, 0))
+            if month == 12:
+                end_of_month = make_aware(datetime(year + 1, 1, 1, 0, 0, 0)) - timedelta(seconds=1)
+            else:
+                end_of_month = make_aware(datetime(year, month + 1, 1, 0, 0, 0)) - timedelta(seconds=1)
+
+            # Filtrer les présences pour ce mois
+            presences = queryset.filter(
+                Q(release_date__isnull=True) | Q(release_date__gte=start_of_month),
+                entry_date__lte=end_of_month
+            ).order_by('beneficiary__last_name', 'beneficiary__first_name')
+
+            # Traitement des présences pour chaque bénéficiaire et établissement
+            for presence in presences:
+                # Calcul du nombre de jours de présence
+                days_count = (min(presence.release_date or end_of_month, end_of_month) - max(presence.entry_date, start_of_month)).days + 1
+                for establishment in presence.establishments.all():
+                    monthly_data[establishment.id][presence.beneficiary.id].append({
+                        "month": month,
+                        "days_count": days_count
+                    })
+
+        # Structure de résultat final
+        result = {}
+
+        # Organiser les données dans la structure souhaitée
+        for establishment_id, beneficiaries in monthly_data.items():
+            establishment_data = []
+
+            for beneficiary_id, presences in beneficiaries.items():
+                # Organiser les présences mensuelles pour chaque bénéficiaire
+                monthly_attendance = {month: {"days_count": 0} for month in range(1, 13)}
+                for presence in presences:
+                    month = presence["month"]
+                    monthly_attendance[month] = {"days_count": presence["days_count"]}
+
+                # Ajouter chaque bénéficiaire avec ses mois de présence
+                beneficiary = Beneficiary.objects.get(id=beneficiary_id)
+                establishment_data.append({
+                    "beneficiary": beneficiary,
+                    "monthly_attendance": monthly_attendance
+                })
+
+            # Ajouter les bénéficiaires pour cet établissement
+            result[establishment_id] = establishment_data
+
+        # Ajout des établissements sans bénéficiaires
+        if establishments:
+            for establishment_id in establishments:
+                if establishment_id not in result:
+                    result[establishment_id] = []
+
+        return result
+
 
     @classmethod
     def count_present_beneficiaries(cls, year, month, establishments=None, company=None):
