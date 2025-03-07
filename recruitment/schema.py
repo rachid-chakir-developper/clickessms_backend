@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from recruitment.models import JobPosition, JobCandidate
+from recruitment.models import JobPosition, JobPosting, JobCandidate
 from medias.models import Folder, File
 from medias.schema import MediaInput
 
@@ -17,6 +17,15 @@ class JobPositionType(DjangoObjectType):
 
 class JobPositionNodeType(graphene.ObjectType):
     nodes = graphene.List(JobPositionType)
+    total_count = graphene.Int()
+
+class JobPostingType(DjangoObjectType):
+    class Meta:
+        model = JobPosting
+        fields = "__all__"
+
+class JobPostingNodeType(graphene.ObjectType):
+    nodes = graphene.List(JobPostingType)
     total_count = graphene.Int()
 
 class JobCandidateType(DjangoObjectType):
@@ -45,6 +54,7 @@ class JobPositionFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    order_by = graphene.String(required=False)
 
 class JobPositionInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -52,6 +62,7 @@ class JobPositionInput(graphene.InputObjectType):
     title = graphene.String(required=True)
     sector = graphene.String(required=True)
     contract_type = graphene.String(required=True)
+    hiring_date = graphene.DateTime(required=False)
     duration = graphene.String(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
@@ -59,10 +70,32 @@ class JobPositionInput(graphene.InputObjectType):
     employee_id = graphene.Int(name="employee", required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
 
+class JobPostingFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    order_by = graphene.String(required=False)
+
+class JobPostingInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    title = graphene.String(required=True)
+    description = graphene.String()
+    expiration_date = graphene.Date()
+    job_platform_id = graphene.Int(name="jobPlatform", required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    is_published = graphene.Boolean()
+    is_active = graphene.Boolean(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    job_position_id = graphene.Int(name="jobPosition", required=False)
+
 class JobCandidateFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    job_positions = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class JobCandidateInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -84,6 +117,8 @@ class JobCandidateInput(graphene.InputObjectType):
 class RecruitmentQuery(graphene.ObjectType):
     job_positions = graphene.Field(JobPositionNodeType, job_position_filter= JobPositionFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     job_position = graphene.Field(JobPositionType, id = graphene.ID())
+    job_postings = graphene.Field(JobPostingNodeType, job_posting_filter= JobPostingFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    job_posting = graphene.Field(JobPostingType, id = graphene.ID())
     job_candidates = graphene.Field(JobCandidateNodeType, job_candidate_filter= JobCandidateFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     job_candidate = graphene.Field(JobCandidateType, id = graphene.ID())
     def resolve_job_positions(root, info, job_position_filter=None, id_company=None, offset=None, limit=None, page=None):
@@ -92,17 +127,21 @@ class RecruitmentQuery(graphene.ObjectType):
         company = user.the_current_company
         total_count = 0
         job_positions = JobPosition.objects.filter(company__id=id_company) if id_company else JobPosition.objects.filter(company=company)
+        the_order_by = '-created_at'
         if job_position_filter:
             keyword = job_position_filter.get('keyword', '')
             starting_date_time = job_position_filter.get('starting_date_time')
             ending_date_time = job_position_filter.get('ending_date_time')
+            order_by = job_position_filter.get('order_by')
             if keyword:
                 job_positions = job_positions.filter(Q(title__icontains=keyword))
             if starting_date_time:
                 job_positions = job_positions.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 job_positions = job_positions.filter(created_at__lte=ending_date_time)
-        job_positions = job_positions.order_by('-created_at')
+            if order_by:
+                the_order_by = order_by
+        job_positions = job_positions.order_by(the_order_by).distinct()
         total_count = job_positions.count()
         if page:
             offset = limit * (page - 1)
@@ -117,23 +156,65 @@ class RecruitmentQuery(graphene.ObjectType):
         except JobPosition.DoesNotExist:
             job_position = None
         return job_position
+    def resolve_job_postings(root, info, job_posting_filter=None, id_company=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        job_postings = JobPosting.objects.filter(company__id=id_company) if id_company else JobPosting.objects.filter(company=company)
+        the_order_by = '-created_at'
+        if job_posting_filter:
+            keyword = job_posting_filter.get('keyword', '')
+            starting_date_time = job_posting_filter.get('starting_date_time')
+            ending_date_time = job_posting_filter.get('ending_date_time')
+            order_by = job_posting_filter.get('order_by')
+            if keyword:
+                job_postings = job_postings.filter(Q(title__icontains=keyword))
+            if starting_date_time:
+                job_postings = job_postings.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                job_postings = job_postings.filter(created_at__lte=ending_date_time)
+            if order_by:
+                the_order_by = order_by
+        job_postings = job_postings.order_by(the_order_by).distinct()
+        total_count = job_postings.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            job_postings = job_postings[offset:offset + limit]
+        return JobPostingNodeType(nodes=job_postings, total_count=total_count)
+
+    def resolve_job_posting(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            job_posting = JobPosting.objects.get(pk=id)
+        except JobPosting.DoesNotExist:
+            job_posting = None
+        return job_posting
     def resolve_job_candidates(root, info, job_candidate_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
         total_count = 0
         job_candidates = JobCandidate.objects.filter(company__id=id_company) if id_company else JobCandidate.objects.filter(company=company)
+        the_order_by = '-created_at'
         if job_candidate_filter:
             keyword = job_candidate_filter.get('keyword', '')
             starting_date_time = job_candidate_filter.get('starting_date_time')
             ending_date_time = job_candidate_filter.get('ending_date_time')
+            job_positions = job_candidate_filter.get('job_positions')
+            order_by = job_candidate_filter.get('order_by')
             if keyword:
                 job_candidates = job_candidates.filter(Q(title__icontains=keyword))
+            if job_positions:
+                job_candidates = job_candidates.filter(job_position__id__in=job_positions)
             if starting_date_time:
                 job_candidates = job_candidates.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 job_candidates = job_candidates.filter(created_at__lte=ending_date_time)
-        job_candidates = job_candidates.order_by('-created_at')
+            if order_by:
+                the_order_by = order_by
+        job_candidates = job_candidates.order_by(the_order_by).distinct()
         total_count = job_candidates.count()
         if page:
             offset = limit * (page - 1)
@@ -214,6 +295,74 @@ class DeleteJobPosition(graphene.Mutation):
         return DeleteJobPosition(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
+
+#***************************************************************************
+
+class CreateJobPosting(graphene.Mutation):
+    class Arguments:
+        job_posting_data = JobPostingInput(required=True)
+
+    job_posting = graphene.Field(JobPostingType)
+
+    def mutate(root, info, job_posting_data=None):
+        creator = info.context.user
+        job_posting = JobPosting(**job_posting_data)
+        job_posting.creator = creator
+        job_posting.company = creator.the_current_company
+        folder = Folder.objects.create(name=str(job_posting.id)+'_'+job_posting.title,creator=creator)
+        job_posting.folder = folder
+        job_posting.save()
+        if not job_posting.employee:
+            job_posting.employee = creator.get_employee_in_company()
+        job_posting.save()
+        return CreateJobPosting(job_posting=job_posting)
+
+class UpdateJobPosting(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        job_posting_data = JobPostingInput(required=True)
+
+    job_posting = graphene.Field(JobPostingType)
+
+    def mutate(root, info, id, job_posting_data=None):
+        creator = info.context.user
+        JobPosting.objects.filter(pk=id).update(**job_posting_data)
+        job_posting = JobPosting.objects.get(pk=id)
+        if not job_posting.folder or job_posting.folder is None:
+            folder = Folder.objects.create(name=str(job_posting.id)+'_'+job_posting.title,creator=creator)
+            JobPosting.objects.filter(pk=id).update(folder=folder)
+        if not job_posting.employee:
+            job_posting.employee = creator.get_employee_in_company()
+            job_posting.save()
+        return UpdateJobPosting(job_posting=job_posting)
+
+class DeleteJobPosting(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    job_posting = graphene.Field(JobPostingType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            job_posting = JobPosting.objects.get(pk=id)
+            job_posting.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteJobPosting(deleted=deleted, success=success, message=message, id=id)
+
+#************************************************************************
+#***************************************************************************
+
 #***************************************************************************
 
 class CreateJobCandidate(graphene.Mutation):
@@ -367,12 +516,17 @@ class DeleteJobCandidate(graphene.Mutation):
         else:
             message = "Vous n'êtes pas un Superuser."
         return DeleteJobCandidate(deleted=deleted, success=success, message=message, id=id)
+        
 #*******************************************************************************************************************************
 
 class RecruitmentMutation(graphene.ObjectType):
     create_job_position = CreateJobPosition.Field()
     update_job_position = UpdateJobPosition.Field()
     delete_job_position = DeleteJobPosition.Field()
+
+    create_job_posting = CreateJobPosting.Field()
+    update_job_posting = UpdateJobPosting.Field()
+    delete_job_posting = DeleteJobPosting.Field()
 
     create_job_candidate = CreateJobCandidate.Field()
     update_job_candidate = UpdateJobCandidate.Field()

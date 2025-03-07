@@ -19,6 +19,7 @@ class JobPosition(models.Model):
 	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, related_name='job_positions', null=True)
 	sector = models.CharField(max_length=255)
 	contract_type = models.CharField(max_length=50, choices=CONTRACT_TYPES, default= "CDI")
+	hiring_date = models.DateField(null=True, blank=True)
 	duration = models.CharField(max_length=50, null=True, blank=True)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
@@ -33,6 +34,31 @@ class JobPosition(models.Model):
 
 	def __str__(self):
 		return f"{self.title}"
+
+class JobPosting(models.Model):
+	number = models.CharField(max_length=255, editable=False, null=True)
+	job_position = models.ForeignKey(
+		'JobPosition', on_delete=models.CASCADE, related_name='job_postings'
+	)
+	title = models.CharField(max_length=255)
+	description = models.TextField()
+	publication_date = models.DateField(auto_now_add=True)
+	expiration_date = models.DateField(null=True, blank=True)
+	job_platforms = models.ManyToManyField('data_management.JobPlatform', related_name='job_postings')
+	is_published = models.BooleanField(default=False)
+	description = models.TextField(default='', null=True)
+	observation = models.TextField(default='', null=True)
+	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='job_postings', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_job_postings', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='creator_job_postings', null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return f"{self.title}"
+
 
 class JobCandidate(models.Model):
 	number = models.CharField(max_length=255, editable=False, null=True)
