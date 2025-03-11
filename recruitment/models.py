@@ -41,11 +41,8 @@ class JobPosting(models.Model):
 		'JobPosition', on_delete=models.CASCADE, related_name='job_postings'
 	)
 	title = models.CharField(max_length=255)
-	description = models.TextField()
 	publication_date = models.DateField(auto_now_add=True)
 	expiration_date = models.DateField(null=True, blank=True)
-	job_platforms = models.ManyToManyField('data_management.JobPlatform', related_name='job_postings')
-	is_published = models.BooleanField(default=False)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
@@ -58,6 +55,17 @@ class JobPosting(models.Model):
 
 	def __str__(self):
 		return f"{self.title}"
+
+class JobPostingPlatform(models.Model):
+	job_posting = models.ForeignKey(JobPosting, on_delete=models.SET_NULL, null=True, related_name='job_platforms')
+	job_platform = models.ForeignKey('data_management.JobPlatform', on_delete=models.SET_NULL, null=True)
+	post_link = models.URLField(max_length=255, null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return f"{self.id}"
 
 
 class JobCandidate(models.Model):
@@ -74,12 +82,48 @@ class JobCandidate(models.Model):
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
 	rating = models.PositiveIntegerField(default=0)
-	job_position = models.ForeignKey(JobPosition, on_delete=models.SET_NULL, null=True, blank=True)
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='job_candidates', null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_job_candidates', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='creator_job_candidates', null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return self.first_name
+
+class JobCandidateApplication(models.Model):
+	STATUS_CHOICES = [
+		('PENDING', 'En attente'),  # Le candidat a postulé, en cours d'examen.
+		('INTERESTED', 'Intéressant'),  # Le profil nous intéresse, mais pas encore d'entretien prévu.
+		('INTERVIEW', 'Entretien prévu'),  # Un entretien a été planifié avec le candidat.
+		('OFFERED', 'Offre envoyée'),  # Une offre d'emploi a été envoyée au candidat.
+		('REJECTED', 'Rejeté'),  # Le candidat n'a pas été retenu.
+		('ACCEPTED', 'Accepté'),  # Le candidat a accepté l'offre et va rejoindre l'entreprise.
+	]
+	number = models.CharField(max_length=255, editable=False, null=True)
+	first_name = models.CharField(max_length=255)
+	last_name = models.CharField(max_length=255)
+	email = models.EmailField()
+	phone = models.CharField(max_length=20)
+	job_title = models.CharField(max_length=255)
+	availability_date = models.DateField(null=True, blank=True)
+	candidate = models.ForeignKey(JobCandidate, on_delete=models.SET_NULL, null=True)
+	job_platform = models.ForeignKey('data_management.JobPlatform', on_delete=models.SET_NULL, null=True)
+	cv = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='cv_job_candidate_applications', null=True)
+	cover_letter = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='cover_letter_job_candidate_applications', null=True)
+	description = models.TextField(default='', null=True)
+	observation = models.TextField(default='', null=True)
+	rating = models.PositiveIntegerField(default=0)
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+	job_position = models.ForeignKey(JobPosition, on_delete=models.SET_NULL, null=True, blank=True)
+	is_active = models.BooleanField(default=True, null=True)
+	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='job_candidate_applications', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_job_candidate_applications', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='creator_candidate_applications', null=True)
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
