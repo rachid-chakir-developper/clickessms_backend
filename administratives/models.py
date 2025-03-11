@@ -192,8 +192,46 @@ class Letter(models.Model):
 
 		return number
 		
+	def setSender(self, sender_data=None, creator=None):
+		if sender_data:
+			sender = LetterSender.objects.create(
+				letter=self,
+				name=sender_data.get('name', ''),
+				sender_type=sender_data.get('type', ''),
+				other_sender=sender_data.get('otherSender', ''),
+				creator=creator
+			)
+			
+			if sender_data.get('type') == 'PARTNER' and sender_data.get('partner_id'):
+				sender.partner_id = sender_data.get('partner_id')
+			elif sender_data.get('type') == 'SUPPLIER' and sender_data.get('supplier_id'):
+				sender.supplier_id = sender_data.get('supplier_id')
+			elif sender_data.get('type') == 'FINANCIER' and sender_data.get('financier_id'):
+				sender.financier_id = sender_data.get('financier_id')
+			elif sender_data.get('type') == 'EMPLOYEE' and sender_data.get('employee_id'):
+				sender.employee_id = sender_data.get('employee_id')
+				
+			sender.save()
+		
 	def __str__(self):
 		return self.title
+		
+# Create your models here.
+class LetterSender(models.Model):
+	name = models.CharField(max_length=255, null=True)
+	sender_type = models.CharField(max_length=255, null=True)
+	other_sender = models.CharField(max_length=255, null=True)
+	letter = models.ForeignKey(Letter, on_delete=models.SET_NULL, null=True, related_name='senders')
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='letter_employee_senders', null=True)
+	partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, related_name='letter_partner_senders', null=True)
+	supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='letter_supplier_senders', null=True)
+	financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, related_name='letter_financier_senders', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='letter_sender_former', null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+	
+	def __str__(self):
+		return self.name or f"Expéditeur {self.id}"
 		
 # Create your models here.
 class LetterEstablishment(models.Model):
