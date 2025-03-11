@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'activities',
     'qualities',
     'administratives',
+    'recruitment',
     'finance',
     'governance',
     'sce',

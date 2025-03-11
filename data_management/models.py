@@ -228,6 +228,10 @@ class ProfessionalStatus(DataModel):
 	def __str__(self):
 		return str(self.id)
 
+class JobPlatform(DataModel):
+	def __str__(self):
+		return str(self.id)
+
 class AccountingNature(DataModel):
 	starting_date = models.DateField(null=True)
 	ending_date = models.DateField(null=True)

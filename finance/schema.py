@@ -540,8 +540,6 @@ class FinanceQuery(graphene.ObjectType):
             if keyword:
                 bank_accounts = bank_accounts.filter(
                     Q(name__icontains=keyword)
-                    | Q(registration_number__icontains=keyword)
-                    | Q(driver_name__icontains=keyword)
                 )
             if starting_date_time:
                 bank_accounts = bank_accounts.filter(created_at__gte=starting_date_time)
