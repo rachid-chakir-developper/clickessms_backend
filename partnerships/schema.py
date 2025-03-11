@@ -6,8 +6,14 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from partnerships.models import Partner, Financier
+from partnerships.models import Partner, Financier, PartnerEstablishment
 from medias.models import Folder, File
+from companies.models import Establishment
+
+class PartnerEstablishmentType(DjangoObjectType):
+    class Meta:
+        model = PartnerEstablishment
+        fields = "__all__"
 
 class PartnerType(DjangoObjectType):
     class Meta:
@@ -70,6 +76,7 @@ class PartnerInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class FinancierFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
@@ -182,9 +189,23 @@ class CreatePartner(graphene.Mutation):
 
     def mutate(root, info, photo=None, cover_image=None,  partner_data=None):
         creator = info.context.user
-        partner = Partner(**partner_data)
+        
+        # Extraire les établissements de partner_data
+        establishment_ids = []
+        partner_data_dict = {}
+        
+        if hasattr(partner_data, 'establishments') and partner_data.establishments:
+            establishment_ids = partner_data.establishments
+            # Convertir partner_data en dictionnaire en excluant establishments
+            partner_data_dict = {k: v for k, v in partner_data.items() if k != 'establishments'}
+        else:
+            # Si pas d'établissements, utiliser tous les champs
+            partner_data_dict = {k: v for k, v in partner_data.items()}
+            
+        partner = Partner(**partner_data_dict)
         partner.creator = creator
         partner.company = creator.current_company if creator.current_company is not None else creator.company
+        
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if photo and isinstance(photo, UploadedFile):
@@ -204,10 +225,22 @@ class CreatePartner(graphene.Mutation):
                 cover_image_file.image = cover_image
                 cover_image_file.save()
                 partner.cover_image = cover_image_file
+        
         partner.save()
         folder = Folder.objects.create(name=str(partner.id)+'_'+partner.name,creator=creator)
         partner.folder = folder
         partner.save()
+        
+        # Ajouter les établissements
+        if establishment_ids:
+            establishments = Establishment.objects.filter(id__in=establishment_ids)
+            for establishment in establishments:
+                PartnerEstablishment.objects.create(
+                    partner=partner,
+                    establishment=establishment,
+                    creator=creator
+                )
+                
         return CreatePartner(partner=partner)
 
 class UpdatePartner(graphene.Mutation):
@@ -221,8 +254,24 @@ class UpdatePartner(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None,  partner_data=None):
         creator = info.context.user
-        Partner.objects.filter(pk=id).update(**partner_data)
+        
+        # Extraire les établissements de partner_data
+        establishment_ids = []
+        if hasattr(partner_data, 'establishments') and partner_data.establishments:
+            establishment_ids = partner_data.establishments
+            # Convertir partner_data en dictionnaire pour pouvoir supprimer establishments
+            partner_data_dict = {k: v for k, v in partner_data.items()}
+            if 'establishments' in partner_data_dict:
+                del partner_data_dict['establishments']
+            
+            # Mettre à jour le partenaire sans les établissements
+            Partner.objects.filter(pk=id).update(**partner_data_dict)
+        else:
+            # Si pas d'établissements, mettre à jour normalement
+            Partner.objects.filter(pk=id).update(**partner_data)
+            
         partner = Partner.objects.get(pk=id)
+        
         if not partner.folder or partner.folder is None:
             folder = Folder.objects.create(name=str(partner.id)+'_'+partner.name,creator=creator)
             Partner.objects.filter(pk=id).update(folder=folder)
@@ -252,6 +301,28 @@ class UpdatePartner(graphene.Mutation):
                 cover_image_file.save()
                 partner.cover_image = cover_image_file
             partner.save()
+            
+        # Mettre à jour les établissements
+        # Supprimer les relations existantes qui ne sont plus dans la liste
+        PartnerEstablishment.objects.filter(partner=partner).exclude(establishment__id__in=establishment_ids).delete()
+        
+        # Ajouter les nouveaux établissements
+        if establishment_ids:
+            existing_establishment_ids = PartnerEstablishment.objects.filter(
+                partner=partner, 
+                establishment__id__in=establishment_ids
+            ).values_list('establishment__id', flat=True)
+            
+            new_establishment_ids = [eid for eid in establishment_ids if eid not in existing_establishment_ids]
+            establishments = Establishment.objects.filter(id__in=new_establishment_ids)
+            
+            for establishment in establishments:
+                PartnerEstablishment.objects.create(
+                    partner=partner,
+                    establishment=establishment,
+                    creator=creator
+                )
+                
         partner = Partner.objects.get(pk=id)
         return UpdatePartner(partner=partner)
 

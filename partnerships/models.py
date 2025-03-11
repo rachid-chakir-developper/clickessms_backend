@@ -68,7 +68,7 @@ class Partner(models.Model):
 	    return number
         
 	def __str__(self):
-		return self.email
+		return self.name
 
 # Create your models here.
 class Financier(models.Model):
@@ -138,3 +138,14 @@ class Financier(models.Model):
         
 	def __str__(self):
 		return self.email
+
+# Nouveau modèle pour la relation entre partenaires et établissements
+class PartnerEstablishment(models.Model):
+	partner = models.ForeignKey(Partner, on_delete=models.SET_NULL, null=True, related_name='establishments')
+	establishment = models.ForeignKey('companies.Establishment', on_delete=models.SET_NULL, null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+	
+	def __str__(self):
+		return f"{self.partner.name} - {self.establishment.name if self.establishment else 'N/A'}"

@@ -1,12 +1,12 @@
 import graphene
 from graphene_django import DjangoObjectType
 from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
-from graphql_jwt.decorators import login_required
+from graphql_jwt.decorators import login_required 
 from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from administratives.models import Call, Caller, CallEstablishment, CallEmployee, CallBeneficiary, Letter, LetterEstablishment, LetterEmployee, LetterBeneficiary, Meeting, MeetingEstablishment, MeetingParticipant,  MeetingBeneficiary, MeetingDecision, MeetingReviewPoint, FrameDocument
+from administratives.models import Call, Caller, CallEstablishment, CallEmployee, CallBeneficiary, Letter, LetterEstablishment, LetterEmployee, LetterBeneficiary, LetterSender, Meeting, MeetingEstablishment, MeetingParticipant,  MeetingBeneficiary, MeetingDecision, MeetingReviewPoint, FrameDocument
 from data_management.models import MeetingReason, TypeMeeting
 from medias.models import Folder, File
 from companies.models import Establishment
@@ -72,13 +72,23 @@ class LetterBeneficiaryType(DjangoObjectType):
         model = LetterBeneficiary
         fields = "__all__"
 
+class LetterSenderType(DjangoObjectType):
+    class Meta:
+        model = LetterSender
+        fields = "__all__"
+
 class LetterType(DjangoObjectType):
     class Meta:
         model = Letter
         fields = "__all__"
     document = graphene.String()
+    sender = graphene.Field(LetterSenderType)
+    
     def resolve_document( instance, info, **kwargs ):
         return instance.document and info.context.build_absolute_uri(instance.document.file.url)
+        
+    def resolve_sender(instance, info, **kwargs):
+        return instance.senders.first() if instance.senders.exists() else None
 
 class LetterNodeType(graphene.ObjectType):
     nodes = graphene.List(LetterType)
@@ -173,6 +183,16 @@ class CallerInput(graphene.InputObjectType):
     establishment_id = graphene.Int(name="establishment", required=False)
     phone_number_id = graphene.Int(name="phoneNumber", required=False)
 
+class SenderInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    name = graphene.String(required=False)
+    type = graphene.String(required=False)
+    other_sender = graphene.String(required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    partner_id = graphene.Int(name="partner", required=False)
+    supplier_id = graphene.Int(name="supplier", required=False)
+    financier_id = graphene.Int(name="financier", required=False)
+
 class CallInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -204,6 +224,7 @@ class LetterInput(graphene.InputObjectType):
     establishments = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)
     beneficiaries = graphene.List(graphene.Int, required=False)
+    sender = SenderInput(required=False)
 
 class MeetingDecisionInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -637,58 +658,57 @@ class CreateLetter(graphene.Mutation):
     letter = graphene.Field(LetterType)
 
     def mutate(root, info, document=None, letter_data=None):
-        creator = info.context.user
-        establishment_ids = letter_data.pop("establishments")
-        employee_ids = letter_data.pop("employees")
-        beneficiary_ids = letter_data.pop("beneficiaries")
-        letter = Letter(**letter_data)
-        letter.creator = creator
-        letter.company = creator.the_current_company
-        if info.context.FILES:
-            # file1 = info.context.FILES['1']
-            if document and isinstance(document, UploadedFile):
-                document_file = letter.document
-                if not document_file:
-                    document_file = File()
-                    document_file.creator = creator
-                document_file.file = document
-                document_file.save()
-                letter.document = document_file
-        letter.save()
-        folder = Folder.objects.create(name=str(letter.id)+'_'+letter.title,creator=creator)
-        letter.folder = folder
-        establishments = Establishment.objects.filter(id__in=establishment_ids)
-        for establishment in establishments:
-            try:
-                letter_establishment = LetterEstablishment.objects.get(establishment__id=establishment.id, letter__id=letter.id)
-            except LetterEstablishment.DoesNotExist:
-                LetterEstablishment.objects.create(
+        user = info.context.user
+        if not user.is_authenticated:
+            raise Exception("Authentication credentials were not provided")
+        try:
+            letter = Letter()
+            letter.title = letter_data.title
+            letter.letter_type = letter_data.letter_type
+            letter.entry_date_time = letter_data.entry_date_time
+            letter.description = letter_data.description
+            letter.observation = letter_data.observation
+            letter.is_active = letter_data.is_active
+            letter.creator = user
+            if hasattr(letter_data, 'employee') and letter_data.employee:
+                letter.employee_id = letter_data.employee
+            if document:
+                file = File(file=document)
+                file.save()
+                letter.document = file
+            letter.save()
+            
+            # Handle sender
+            if hasattr(letter_data, 'sender') and letter_data.sender:
+                letter.setSender(letter_data.sender, user)
+                
+            if hasattr(letter_data, 'establishments') and letter_data.establishments:
+                for establishment_id in letter_data.establishments:
+                    letter_establishment = LetterEstablishment(
                         letter=letter,
-                        establishment=establishment,
-                        creator=creator
+                        establishment_id=establishment_id,
+                        creator=user
                     )
-        employees = Employee.objects.filter(id__in=employee_ids)
-        for employee in employees:
-            try:
-                letter_employee = LetterEmployee.objects.get(employee__id=employee.id, letter__id=letter.id)
-            except LetterEmployee.DoesNotExist:
-                LetterEmployee.objects.create(
+                    letter_establishment.save()
+            if hasattr(letter_data, 'employees') and letter_data.employees:
+                for employee_id in letter_data.employees:
+                    letter_employee = LetterEmployee(
                         letter=letter,
-                        employee=employee,
-                        creator=creator
+                        employee_id=employee_id,
+                        creator=user
                     )
-        beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
-        for beneficiary in beneficiaries:
-            try:
-                letter_beneficiary = LetterBeneficiary.objects.get(beneficiary__id=beneficiary.id, letter__id=letter.id)
-            except LetterBeneficiary.DoesNotExist:
-                LetterBeneficiary.objects.create(
+                    letter_employee.save()
+            if hasattr(letter_data, 'beneficiaries') and letter_data.beneficiaries:
+                for beneficiary_id in letter_data.beneficiaries:
+                    letter_beneficiary = LetterBeneficiary(
                         letter=letter,
-                        beneficiary=beneficiary,
-                        creator=creator
+                        beneficiary_id=beneficiary_id,
+                        creator=user
                     )
-        letter.save()
-        return CreateLetter(letter=letter)
+                    letter_beneficiary.save()
+            return CreateLetter(letter=letter)
+        except Exception as e:
+            raise Exception(str(e))
 
 class UpdateLetter(graphene.Mutation):
     class Arguments:
@@ -699,63 +719,62 @@ class UpdateLetter(graphene.Mutation):
     letter = graphene.Field(LetterType)
 
     def mutate(root, info, id, document=None, letter_data=None):
-        creator = info.context.user
-        establishment_ids = letter_data.pop("establishments")
-        employee_ids = letter_data.pop("employees")
-        beneficiary_ids = letter_data.pop("beneficiaries")
-        Letter.objects.filter(pk=id).update(**letter_data)
-        letter = Letter.objects.get(pk=id)
-        if not letter.folder or letter.folder is None:
-            folder = Folder.objects.create(name=str(letter.id)+'_'+letter.title,creator=creator)
-            Letter.objects.filter(pk=id).update(folder=folder)
-        if not document and letter.document:
-            document_file = letter.document
-            document_file.delete()
-        if info.context.FILES:
-            # file1 = info.context.FILES['1']
-            if document and isinstance(document, UploadedFile):
-                document_file = letter.document
-                if not document_file:
-                    document_file = File()
-                    document_file.creator = creator
-                document_file.file = document
-                document_file.save()
-                letter.document = document_file
+        user = info.context.user
+        if not user.is_authenticated:
+            raise Exception("Authentication credentials were not provided")
+        try:
+            letter = Letter.objects.get(pk=id)
+            letter.title = letter_data.title
+            letter.letter_type = letter_data.letter_type
+            letter.entry_date_time = letter_data.entry_date_time
+            letter.description = letter_data.description
+            letter.observation = letter_data.observation
+            letter.is_active = letter_data.is_active
+            if hasattr(letter_data, 'employee') and letter_data.employee:
+                letter.employee_id = letter_data.employee
+            if document:
+                file = File(file=document)
+                file.save()
+                letter.document = file
             letter.save()
-        LetterEstablishment.objects.filter(letter=letter).exclude(establishment__id__in=establishment_ids).delete()
-        establishments = Establishment.objects.filter(id__in=establishment_ids)
-        for establishment in establishments:
-            try:
-                letter_establishment = LetterEstablishment.objects.get(establishment__id=establishment.id, letter__id=letter.id)
-            except LetterEstablishment.DoesNotExist:
-                LetterEstablishment.objects.create(
+            
+            # Handle sender - first remove existing senders
+            letter.senders.all().delete()
+            if hasattr(letter_data, 'sender') and letter_data.sender:
+                letter.setSender(letter_data.sender, user)
+                
+            # Remove existing relationships
+            letter.establishments.all().delete()
+            letter.employees.all().delete()
+            letter.beneficiaries.all().delete()
+            
+            if hasattr(letter_data, 'establishments') and letter_data.establishments:
+                for establishment_id in letter_data.establishments:
+                    letter_establishment = LetterEstablishment(
                         letter=letter,
-                        establishment=establishment,
-                        creator=creator
+                        establishment_id=establishment_id,
+                        creator=user
                     )
-        LetterEmployee.objects.filter(letter=letter).exclude(employee__id__in=employee_ids).delete()
-        employees = Employee.objects.filter(id__in=employee_ids)
-        for employee in employees:
-            try:
-                letter_employee = LetterEmployee.objects.get(employee__id=employee.id, letter__id=letter.id)
-            except LetterEmployee.DoesNotExist:
-                LetterEmployee.objects.create(
+                    letter_establishment.save()
+            if hasattr(letter_data, 'employees') and letter_data.employees:
+                for employee_id in letter_data.employees:
+                    letter_employee = LetterEmployee(
                         letter=letter,
-                        employee=employee,
-                        creator=creator
+                        employee_id=employee_id,
+                        creator=user
                     )
-        LetterBeneficiary.objects.filter(letter=letter).exclude(beneficiary__id__in=beneficiary_ids).delete()
-        beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
-        for beneficiary in beneficiaries:
-            try:
-                letter_beneficiary = LetterBeneficiary.objects.get(beneficiary__id=beneficiary.id, letter__id=letter.id)
-            except LetterBeneficiary.DoesNotExist:
-                LetterBeneficiary.objects.create(
+                    letter_employee.save()
+            if hasattr(letter_data, 'beneficiaries') and letter_data.beneficiaries:
+                for beneficiary_id in letter_data.beneficiaries:
+                    letter_beneficiary = LetterBeneficiary(
                         letter=letter,
-                        beneficiary=beneficiary,
-                        creator=creator
+                        beneficiary_id=beneficiary_id,
+                        creator=user
                     )
-        return UpdateLetter(letter=letter)
+                    letter_beneficiary.save()
+            return UpdateLetter(letter=letter)
+        except Exception as e:
+            raise Exception(str(e))
 
 class UpdateLetterState(graphene.Mutation):
     class Arguments:

@@ -1162,3 +1162,56 @@ class CareerEntry(models.Model):
 
     class Meta:
         ordering = ['starting_date']
+
+class Advance(models.Model):
+    """
+    Modèle représentant une demande d'acompte faite par un employé.
+    """
+    STATUS_CHOICES = [
+        ("PENDING", "En attente"),
+        ("APPROVED", "Approuvé"),
+        ("REJECTED", "Rejeté"),
+        ("MODIFIED", "Modifié"),
+    ]
+    
+    number = models.CharField(max_length=255, editable=False, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    month = models.DateField(help_text="Mois pour lequel l'acompte est demandé")
+    reason = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    comments = models.TextField(blank=True, null=True, help_text="Commentaires de la RH")
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.CASCADE, related_name='advances')
+    validated_by = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='validated_advances', null=True, blank=True)
+    validation_date = models.DateTimeField(null=True, blank=True)
+    company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_advances', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='advance_former', null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+    def save(self, *args, **kwargs):
+        # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini
+        if not self.number:
+            self.number = self.generate_unique_number()
+
+        super(Advance, self).save(*args, **kwargs)
+
+    def generate_unique_number(self):
+        # Utilisation de la date et de l'heure actuelles pour générer un numéro unique
+        current_time = datetime.now()
+        number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+        number_prefix = 'AC'  # Préfixe pour Acompte
+        number = f'{number_prefix}{number_suffix}'
+
+        # Vérifier s'il est unique dans la base de données
+        while Advance.objects.filter(number=number).exists():
+            number_suffix = current_time.strftime("%Y%m%d%H%M%S")
+            number = f'{number_prefix}{number_suffix}'
+
+        return number
+    
+    class Meta:
+        ordering = ['-created_at']  # Tri par date de création décroissante
+        
+    def __str__(self):
+        return f"Acompte {self.number} - {self.employee.first_name} {self.employee.last_name} - {self.amount} €"
