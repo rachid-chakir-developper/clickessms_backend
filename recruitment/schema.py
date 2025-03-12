@@ -168,9 +168,47 @@ class JobCandidateApplicationInput(graphene.InputObjectType):
     rating = graphene.Int(required=False)
     status = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
-    candidate_id = graphene.Int(name="candidate", required=False)
+    job_candidate_id = graphene.Int(name="jobCandidate", required=False)
     employee_id = graphene.Int(name="employee", required=False)
     job_position_id = graphene.Int(name="jobPosition", required=False)
+
+class JobCandidateApplicationInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    first_name = graphene.String(required=True)
+    last_name = graphene.String(required=True)
+    email = graphene.String(required=True)
+    phone = graphene.String(required=False)
+    job_title = graphene.String(required=True)
+    availability_date = graphene.DateTime(required=False)
+    job_platform_id = graphene.Int(name="jobPlatform", required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    rating = graphene.Int(required=False)
+    status = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    job_candidate_id = graphene.Int(name="jobCandidate", required=False)
+    employee_id = graphene.Int(name="employee", required=False)
+    job_position_id = graphene.Int(name="jobPosition", required=False)
+
+class GenerateJobCandidateApplicationInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    first_name = graphene.String(required=False)
+    last_name = graphene.String(required=False)
+    email = graphene.String(required=False)
+    phone = graphene.String(required=False)
+    job_title = graphene.String(required=False)
+    availability_date = graphene.DateTime(required=False)
+    job_platform_id = graphene.Int(name="jobPlatform", required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    rating = graphene.Int(required=False)
+    status = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    job_candidate_id = graphene.Int(name="jobCandidate", required=True)
+    employee_id = graphene.Int(name="employee", required=False)
+    job_positions = graphene.List(graphene.Int, required=True)
 
 class RecruitmentQuery(graphene.ObjectType):
     job_positions = graphene.Field(JobPositionNodeType, job_position_filter= JobPositionFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -270,7 +308,7 @@ class RecruitmentQuery(graphene.ObjectType):
             if keyword:
                 job_candidates = job_candidates.filter(Q(title__icontains=keyword))
             if job_positions:
-                job_candidates = job_candidates.filter(job_position__id__in=job_positions)
+                job_candidates = job_candidates.filter(job_candidate_applications__job_position__id__in=job_positions)
             if starting_date_time:
                 job_candidates = job_candidates.filter(created_at__gte=starting_date_time)
             if ending_date_time:
@@ -762,57 +800,83 @@ class UpdateJobCandidateApplicationFields(graphene.Mutation):
 
 class GenerateJobCandidateApplication(graphene.Mutation):
     class Arguments:
-        candidate_id = graphene.ID(required=True)
-        job_position_id = graphene.ID(required=True)
+        generate_job_candidate_application_data = GenerateJobCandidateApplicationInput(required=True)
 
-    job_candidate_application = graphene.Field(JobCandidateApplicationType)
+    job_candidate_applications = graphene.List(JobCandidateApplicationType)
+    success = graphene.Boolean()
+    message = graphene.String()
 
-    def mutate(self, info, candidate_id, job_position_id):
+    def mutate(self, info, generate_job_candidate_application_data=None):
         creator = info.context.user
-
-        # Vérifier si le candidat existe
+        company = creator.the_current_company
+        job_candidate_id = generate_job_candidate_application_data.pop("job_candidate_id", None)
+        job_position_ids = generate_job_candidate_application_data.pop("job_positions", None)
+        job_candidate_applications = []
         try:
-            candidate = JobCandidate.objects.get(id=candidate_id, is_deleted=False)
-        except JobCandidate.DoesNotExist:
-            raise Exception("Candidat non trouvé.")
+            # Vérifier si le candidat existe
+            try:
+                job_candidate = JobCandidate.objects.get(id=job_candidate_id, is_deleted=False)
+            except JobCandidate.DoesNotExist:
+                return GenerateJobCandidateApplication(job_candidate_applications=job_candidate_applications, success=False, message="Candidat non trouvé.")
 
-        # Vérifier si le poste existe
-        try:
-            job_position = JobPosition.objects.get(id=job_position_id)
-        except JobPosition.DoesNotExist:
-            raise Exception("Poste non trouvé.")
+            # Vérifier si les postes existent
+            job_positions = JobPosition.objects.filter(id__in=job_position_ids)
+            if not job_positions.exists():
+                return GenerateJobCandidateApplication(job_candidate_applications=job_candidate_applications, success=False, message="Fiche(s) non trouvée(s).")
 
-        # Vérifier si une application existe déjà pour ce poste
-        existing_application = JobCandidateApplication.objects.filter(
-            candidate=candidate,
-            job_position=job_position,
-        ).first()
+            # Vérifier et mettre à jour les candidatures existantes
+            existing_applications = JobCandidateApplication.objects.filter(
+                job_candidate=job_candidate, 
+                job_position__in=job_positions
+            )
 
-        if existing_application:
-            raise Exception("Une candidature pour ce poste existe déjà.")
+            # Mise à jour des candidatures existantes
+            if existing_applications.exists():
+                existing_applications.update(**generate_job_candidate_application_data)
 
-        # Créer la nouvelle candidature
-        job_candidate_application = JobCandidateApplication.objects.create(
-            first_name=candidate.first_name,
-            last_name=candidate.last_name,
-            email=candidate.email,
-            phone=candidate.phone,
-            job_title=candidate.job_title,
-            availability_date=candidate.availability_date,
-            candidate=candidate,
-            job_platform=candidate.job_platform,
-            cv=candidate.cv,
-            cover_letter=candidate.cover_letter,
-            description=candidate.description,
-            observation=candidate.observation,
-            rating=candidate.rating,
-            job_position=job_position,
-            employee=candidate.employee,
-            company=candidate.company,
-            creator=creator,
-        )
+            # Créer les nouvelles candidatures
+            existing_positions = set(existing_applications.values_list("job_position_id", flat=True))
 
-        return GenerateJobCandidateApplication(job_candidate_application=job_candidate_application)
+            new_applications = [
+                JobCandidateApplication(
+                    first_name=job_candidate.first_name,
+                    last_name=job_candidate.last_name,
+                    email=job_candidate.email,
+                    phone=job_candidate.phone,
+                    job_title=job_candidate.job_title,
+                    availability_date=job_candidate.availability_date,
+                    job_candidate=job_candidate,
+                    job_platform=job_candidate.job_platform,
+                    cv=job_candidate.cv,
+                    cover_letter=job_candidate.cover_letter,
+                    description=job_candidate.description,
+                    observation=job_candidate.observation,
+                    rating=job_candidate.rating,
+                    job_position=job_position,
+                    employee=job_candidate.employee,
+                    company=job_candidate.company,
+                    creator=creator,
+                )
+                for job_position in job_positions if job_position.id not in existing_positions
+            ]
+
+            if new_applications:
+                JobCandidateApplication.objects.bulk_create(new_applications)
+
+            # Combiner les candidatures existantes et les nouvelles
+            job_candidate_applications = JobCandidateApplication.objects.filter(
+                job_candidate=job_candidate, 
+                job_position__in=job_positions
+            )
+
+            return GenerateJobCandidateApplication(
+                job_candidate_applications=job_candidate_applications,
+                success=True,
+                message="Candidature(s) générée(s) avec succès."
+            )
+
+        except Exception as e:
+            return GenerateJobCandidateApplication(job_candidate_applications=job_candidate_applications, success=False, message=f"Une erreur s'est produite : {str(e)}")
 
 class DeleteJobCandidateApplication(graphene.Mutation):
     class Arguments:

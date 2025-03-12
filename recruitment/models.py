@@ -110,7 +110,7 @@ class JobCandidateApplication(models.Model):
 	phone = models.CharField(max_length=20)
 	job_title = models.CharField(max_length=255)
 	availability_date = models.DateField(null=True, blank=True)
-	candidate = models.ForeignKey(JobCandidate, on_delete=models.SET_NULL, null=True)
+	job_candidate = models.ForeignKey(JobCandidate, on_delete=models.SET_NULL, related_name='job_candidate_applications', null=True)
 	job_platform = models.ForeignKey('data_management.JobPlatform', on_delete=models.SET_NULL, null=True)
 	cv = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='cv_job_candidate_applications', null=True)
 	cover_letter = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='cover_letter_job_candidate_applications', null=True)
