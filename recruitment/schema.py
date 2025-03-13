@@ -172,6 +172,11 @@ class JobCandidateApplicationInput(graphene.InputObjectType):
     employee_id = graphene.Int(name="employee", required=False)
     job_position_id = graphene.Int(name="jobPosition", required=False)
 
+class JobCandidateApplicationFieldInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    is_active = graphene.Boolean(required=False)
+    status = graphene.String(required=False)
+    
 class JobCandidateApplicationInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -774,7 +779,7 @@ class UpdateJobCandidateApplication(graphene.Mutation):
 class UpdateJobCandidateApplicationFields(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
-        job_candidate_application_data = JobCandidateApplicationInput(required=True)
+        job_candidate_application_data = JobCandidateApplicationFieldInput(required=True)
 
     job_candidate_application = graphene.Field(JobCandidateApplicationType)
     done = graphene.Boolean()
