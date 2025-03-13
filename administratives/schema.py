@@ -261,6 +261,8 @@ class MeetingInput(graphene.InputObjectType):
     other_reasons = graphene.String(required=False)
     meeting_decisions = graphene.List(MeetingDecisionInput, required=False)
     meeting_review_points = graphene.List(MeetingReviewPointInput, required=False)
+    job_candidate_id = graphene.Int(name="jobCandidate", required=False)
+    job_position_id = graphene.Int(name="jobPosition", required=False)
 
 class FrameDocumentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)

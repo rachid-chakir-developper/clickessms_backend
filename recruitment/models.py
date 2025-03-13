@@ -67,9 +67,15 @@ class JobPostingPlatform(models.Model):
 	def __str__(self):
 		return f"{self.id}"
 
-
+GENDERS = [
+	("MALE", "Homme"),
+	("FEMALE", "Femme"),
+	("NOT_SPECIFIED", "Non spécifié"),
+]
 class JobCandidate(models.Model):
 	number = models.CharField(max_length=255, editable=False, null=True)
+	gender = models.CharField(max_length=50, choices=GENDERS, default="NOT_SPECIFIED", null=True, blank=True)
+	preferred_name = models.CharField(max_length=255, null=True)
 	first_name = models.CharField(max_length=255)
 	last_name = models.CharField(max_length=255)
 	email = models.EmailField()
@@ -104,6 +110,8 @@ class JobCandidateApplication(models.Model):
 		('ACCEPTED', 'Accepté'),  # Le candidat a accepté l'offre et va rejoindre l'entreprise.
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
+	gender = models.CharField(max_length=50, choices=GENDERS, default="NOT_SPECIFIED", null=True, blank=True)
+	preferred_name = models.CharField(max_length=255, null=True)
 	first_name = models.CharField(max_length=255)
 	last_name = models.CharField(max_length=255)
 	email = models.EmailField()

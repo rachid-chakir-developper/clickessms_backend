@@ -133,6 +133,8 @@ class JobCandidateFilterInput(graphene.InputObjectType):
 class JobCandidateInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
+    gender = graphene.String(required=False)
+    preferred_name = graphene.String(required=False)
     first_name = graphene.String(required=True)
     last_name = graphene.String(required=True)
     email = graphene.String(required=True)
@@ -156,6 +158,8 @@ class JobCandidateApplicationFilterInput(graphene.InputObjectType):
 class JobCandidateApplicationInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
+    gender = graphene.String(required=False)
+    preferred_name = graphene.String(required=False)
     first_name = graphene.String(required=True)
     last_name = graphene.String(required=True)
     email = graphene.String(required=True)
@@ -176,7 +180,7 @@ class JobCandidateApplicationFieldInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     is_active = graphene.Boolean(required=False)
     status = graphene.String(required=False)
-    
+
 class JobCandidateApplicationInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -311,7 +315,11 @@ class RecruitmentQuery(graphene.ObjectType):
             job_positions = job_candidate_filter.get('job_positions')
             order_by = job_candidate_filter.get('order_by')
             if keyword:
-                job_candidates = job_candidates.filter(Q(title__icontains=keyword))
+                job_candidates = job_candidates.filter(
+                    Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | 
+                    Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword) | 
+                    Q(phone__icontains=keyword) | Q(job_title__icontains=keyword)
+                )
             if job_positions:
                 job_candidates = job_candidates.filter(job_candidate_applications__job_position__id__in=job_positions)
             if starting_date_time:
@@ -349,7 +357,11 @@ class RecruitmentQuery(graphene.ObjectType):
             job_positions = job_candidate_application_filter.get('job_positions')
             order_by = job_candidate_application_filter.get('order_by')
             if keyword:
-                job_candidate_applications = job_candidate_applications.filter(Q(title__icontains=keyword))
+                job_candidate_applications = job_candidate_applications.filter(
+                    Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | 
+                    Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword) | 
+                    Q(phone__icontains=keyword) | Q(job_title__icontains=keyword)
+                )
             if job_positions:
                 job_candidate_applications = job_candidate_applications.filter(job_position__id__in=job_positions)
             if starting_date_time:
@@ -844,6 +856,8 @@ class GenerateJobCandidateApplication(graphene.Mutation):
 
             new_applications = [
                 JobCandidateApplication(
+                    gender=job_candidate.gender,
+                    preferred_name=job_candidate.preferred_name,
                     first_name=job_candidate.first_name,
                     last_name=job_candidate.last_name,
                     email=job_candidate.email,

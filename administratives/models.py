@@ -273,6 +273,7 @@ class Meeting(models.Model):
 		('PV_SCE', 'Procès-Verbal cse'),
 		('SIMPLE', 'Réunion Simple'),
 		('INTERVIEW', 'Entretien'),
+		('CANDIDATE_INTERVIEW', 'Entretien Candidat'),
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	title = models.CharField(max_length=255, null=True)
@@ -290,6 +291,8 @@ class Meeting(models.Model):
 	notes = models.TextField(default='', null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	job_candidate = models.ForeignKey('recruitment.JobCandidate', on_delete=models.SET_NULL, related_name='job_candidate_meetings', null=True)
+	job_position = models.ForeignKey('recruitment.JobPosition', on_delete=models.SET_NULL, related_name='job_position_meetings', null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_meetings', null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_meeting_beneficiarys', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='meeting_former', null=True)
@@ -421,6 +424,7 @@ class MeetingParticipant(models.Model):
 
 	def __str__(self):
 		return str(self.id)
+		
 # Create your models here.
 class MeetingBeneficiary(models.Model):
 	meeting = models.ForeignKey(Meeting, on_delete=models.SET_NULL, null=True, related_name='beneficiaries')
