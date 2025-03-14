@@ -6,7 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from recruitment.models import JobPosition, JobPosting, JobPostingPlatform, JobCandidate, JobCandidateApplication
+from recruitment.models import JobPosition, JobPosting, JobPostingPlatform, JobCandidate, JobCandidateApplication, JobCandidateInformationSheet
 from medias.models import Folder, File
 from medias.schema import MediaInput
 
@@ -76,6 +76,30 @@ class JobCandidateApplicationType(DjangoObjectType):
 
 class JobCandidateApplicationNodeType(graphene.ObjectType):
     nodes = graphene.List(JobCandidateApplicationType)
+    total_count = graphene.Int()
+
+
+
+class JobCandidateInformationSheetType(DjangoObjectType):
+    class Meta:
+        model = JobCandidateInformationSheet
+        fields = "__all__"
+
+    cv = graphene.String()
+    cover_letter = graphene.String()
+
+    def resolve_cv(instance, info, **kwargs):
+        return instance.cv and info.context.build_absolute_uri(
+            instance.cv.file.url
+        )
+
+    def resolve_cover_letter(instance, info, **kwargs):
+        return instance.cover_letter and info.context.build_absolute_uri(
+            instance.cover_letter.file.url
+        )
+
+class JobCandidateInformationSheetNodeType(graphene.ObjectType):
+    nodes = graphene.List(JobCandidateInformationSheetType)
     total_count = graphene.Int()
 
 class JobPositionFilterInput(graphene.InputObjectType):
@@ -152,6 +176,7 @@ class JobCandidateApplicationFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    job_candidates = graphene.List(graphene.Int, required=False)
     job_positions = graphene.List(graphene.Int, required=False)
     order_by = graphene.String(required=False)
 
@@ -181,9 +206,38 @@ class JobCandidateApplicationFieldInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     status = graphene.String(required=False)
 
-class JobCandidateApplicationInput(graphene.InputObjectType):
+class GenerateJobCandidateApplicationInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
+    first_name = graphene.String(required=False)
+    last_name = graphene.String(required=False)
+    email = graphene.String(required=False)
+    phone = graphene.String(required=False)
+    job_title = graphene.String(required=False)
+    availability_date = graphene.DateTime(required=False)
+    job_platform_id = graphene.Int(name="jobPlatform", required=False)
+    description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    rating = graphene.Int(required=False)
+    status = graphene.String(required=False)
+    is_active = graphene.Boolean(required=False)
+    job_candidate_id = graphene.Int(name="jobCandidate", required=True)
+    employee_id = graphene.Int(name="employee", required=False)
+    job_positions = graphene.List(graphene.Int, required=True)
+
+class JobCandidateInformationSheetFilterInput(graphene.InputObjectType):
+    keyword = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    job_candidates = graphene.List(graphene.Int, required=False)
+    job_positions = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
+
+class JobCandidateInformationSheetInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    gender = graphene.String(required=False)
+    preferred_name = graphene.String(required=False)
     first_name = graphene.String(required=True)
     last_name = graphene.String(required=True)
     email = graphene.String(required=True)
@@ -200,7 +254,12 @@ class JobCandidateApplicationInput(graphene.InputObjectType):
     employee_id = graphene.Int(name="employee", required=False)
     job_position_id = graphene.Int(name="jobPosition", required=False)
 
-class GenerateJobCandidateApplicationInput(graphene.InputObjectType):
+class JobCandidateInformationSheetFieldInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    is_active = graphene.Boolean(required=False)
+    status = graphene.String(required=False)
+
+class GenerateJobCandidateInformationSheetInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     first_name = graphene.String(required=False)
@@ -228,6 +287,8 @@ class RecruitmentQuery(graphene.ObjectType):
     job_candidate = graphene.Field(JobCandidateType, id = graphene.ID())
     job_candidate_applications = graphene.Field(JobCandidateApplicationNodeType, job_candidate_application_filter= JobCandidateApplicationFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     job_candidate_application = graphene.Field(JobCandidateApplicationType, id = graphene.ID())
+    job_candidate_information_sheets = graphene.Field(JobCandidateInformationSheetNodeType, job_candidate_information_sheet_filter= JobCandidateInformationSheetFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
+    job_candidate_information_sheet = graphene.Field(JobCandidateInformationSheetType, id = graphene.ID())
     def resolve_job_positions(root, info, job_position_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -354,6 +415,7 @@ class RecruitmentQuery(graphene.ObjectType):
             keyword = job_candidate_application_filter.get('keyword', '')
             starting_date_time = job_candidate_application_filter.get('starting_date_time')
             ending_date_time = job_candidate_application_filter.get('ending_date_time')
+            job_candidates = job_candidate_application_filter.get('job_candidates')
             job_positions = job_candidate_application_filter.get('job_positions')
             order_by = job_candidate_application_filter.get('order_by')
             if keyword:
@@ -362,6 +424,8 @@ class RecruitmentQuery(graphene.ObjectType):
                     Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword) | 
                     Q(phone__icontains=keyword) | Q(job_title__icontains=keyword)
                 )
+            if job_candidates:
+                job_candidate_applications = job_candidate_applications.filter(job_candidate__id__in=job_candidates)
             if job_positions:
                 job_candidate_applications = job_candidate_applications.filter(job_position__id__in=job_positions)
             if starting_date_time:
@@ -385,6 +449,51 @@ class RecruitmentQuery(graphene.ObjectType):
         except JobCandidateApplication.DoesNotExist:
             job_candidate_application = None
         return job_candidate_application
+    def resolve_job_candidate_information_sheets(root, info, job_candidate_information_sheet_filter=None, id_company=None, offset=None, limit=None, page=None):
+        # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
+        total_count = 0
+        job_candidate_information_sheets = JobCandidateInformationSheet.objects.filter(company__id=id_company) if id_company else JobCandidateInformationSheet.objects.filter(company=company)
+        the_order_by = '-created_at'
+        if job_candidate_information_sheet_filter:
+            keyword = job_candidate_information_sheet_filter.get('keyword', '')
+            starting_date_time = job_candidate_information_sheet_filter.get('starting_date_time')
+            ending_date_time = job_candidate_information_sheet_filter.get('ending_date_time')
+            job_candidates = job_candidate_information_sheet_filter.get('job_candidates')
+            job_positions = job_candidate_information_sheet_filter.get('job_positions')
+            order_by = job_candidate_information_sheet_filter.get('order_by')
+            if keyword:
+                job_candidate_information_sheets = job_candidate_information_sheets.filter(
+                    Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | 
+                    Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword) | 
+                    Q(phone__icontains=keyword) | Q(job_title__icontains=keyword)
+                )
+            if job_candidates:
+                job_candidate_information_sheets = job_candidate_information_sheets.filter(job_candidate__id__in=job_candidates)
+            if job_positions:
+                job_candidate_information_sheets = job_candidate_information_sheets.filter(job_position__id__in=job_positions)
+            if starting_date_time:
+                job_candidate_information_sheets = job_candidate_information_sheets.filter(created_at__gte=starting_date_time)
+            if ending_date_time:
+                job_candidate_information_sheets = job_candidate_information_sheets.filter(created_at__lte=ending_date_time)
+            if order_by:
+                the_order_by = order_by
+        job_candidate_information_sheets = job_candidate_information_sheets.order_by(the_order_by).distinct()
+        total_count = job_candidate_information_sheets.count()
+        if page:
+            offset = limit * (page - 1)
+        if offset is not None and limit is not None:
+            job_candidate_information_sheets = job_candidate_information_sheets[offset:offset + limit]
+        return JobCandidateInformationSheetNodeType(nodes=job_candidate_information_sheets, total_count=total_count)
+
+    def resolve_job_candidate_information_sheet(root, info, id):
+        # We can easily optimize query count in the resolve method
+        try:
+            job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
+        except JobCandidateInformationSheet.DoesNotExist:
+            job_candidate_information_sheet = None
+        return job_candidate_information_sheet
 
 #***************************************************************************
 
@@ -922,6 +1031,237 @@ class DeleteJobCandidateApplication(graphene.Mutation):
         return DeleteJobCandidateApplication(deleted=deleted, success=success, message=message, id=id)
         
 #*******************************************************************************************************************************
+#***************************************************************************
+
+class CreateJobCandidateInformationSheet(graphene.Mutation):
+    class Arguments:
+        job_candidate_information_sheet_data = JobCandidateInformationSheetInput(required=True)
+        cv = Upload(required=False)
+        cover_letter = Upload(required=False)
+        files = graphene.List(MediaInput, required=False)
+
+    job_candidate_information_sheet = graphene.Field(JobCandidateInformationSheetType)
+
+    def mutate(root, info, cv=None, cover_letter=None, files=None, job_candidate_information_sheet_data=None):
+        creator = info.context.user
+        job_candidate_information_sheet = JobCandidateInformationSheet(**job_candidate_information_sheet_data)
+        job_candidate_information_sheet.creator = creator
+        job_candidate_information_sheet.company = creator.the_current_company
+        folder = Folder.objects.create(name=str(job_candidate_information_sheet.id)+'_'+job_candidate_information_sheet.first_name,creator=creator)
+        job_candidate_information_sheet.folder = folder
+        job_candidate_information_sheet.save()
+        if not job_candidate_information_sheet.employee:
+            job_candidate_information_sheet.employee = creator.get_employee_in_company()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if cv and isinstance(cv, UploadedFile):
+                cv_file = job_candidate_information_sheet.cv
+                if not cv_file:
+                    cv_file = File()
+                    cv_file.creator = creator
+                    cv_file.folder = job_candidate_information_sheet.folder
+                cv_file.file = cv
+                cv_file.save()
+                job_candidate_information_sheet.cv = cv_file
+            # file1 = info.context.FILES['1']
+            if cover_letter and isinstance(cover_letter, UploadedFile):
+                cover_letter_file = job_candidate_information_sheet.cover_letter
+                if not cover_letter_file:
+                    cover_letter_file = File()
+                    cover_letter_file.creator = creator
+                    cover_letter_file.folder = job_candidate_information_sheet.folder
+                cover_letter_file.file = cover_letter
+                cover_letter_file.save()
+                job_candidate_information_sheet.cover_letter = cover_letter_file
+        job_candidate_information_sheet.save()
+        return CreateJobCandidateInformationSheet(job_candidate_information_sheet=job_candidate_information_sheet)
+
+class UpdateJobCandidateInformationSheet(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        job_candidate_information_sheet_data = JobCandidateInformationSheetInput(required=True)
+        cv = Upload(required=False)
+        cover_letter = Upload(required=False)
+        files = graphene.List(MediaInput, required=False)
+
+    job_candidate_information_sheet = graphene.Field(JobCandidateInformationSheetType)
+
+    def mutate(root, info, id, cv=None, cover_letter=None, files=None, job_candidate_information_sheet_data=None):
+        creator = info.context.user
+        JobCandidateInformationSheet.objects.filter(pk=id).update(**job_candidate_information_sheet_data)
+        job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
+        if not job_candidate_information_sheet.folder or job_candidate_information_sheet.folder is None:
+            folder = Folder.objects.create(name=str(job_candidate_information_sheet.id)+'_'+job_candidate_information_sheet.first_name,creator=creator)
+            UpdateJob.objects.filter(pk=id).update(folder=folder)
+        if not job_candidate_information_sheet.employee:
+            job_candidate_information_sheet.employee = creator.get_employee_in_company()
+            job_candidate_information_sheet.save()
+        if not cv and job_candidate_information_sheet.cv:
+            cv_file = job_candidate_information_sheet.cv
+            cv_file.delete()
+        if not cover_letter and job_candidate_information_sheet.cover_letter:
+            cover_letter_file = job_candidate_information_sheet.cover_letter
+            cover_letter_file.delete()
+        if info.context.FILES:
+            # file1 = info.context.FILES['1']
+            if cv and isinstance(cv, UploadedFile):
+                cv_file = job_candidate_information_sheet.cv
+                if not cv_file:
+                    cv_file = File()
+                    cv_file.creator = creator
+                    cv_file.folder = job_candidate_information_sheet.folder
+                cv_file.file = cv
+                cv_file.save()
+                job_candidate_information_sheet.cv = cv_file
+            # file1 = info.context.FILES['1']
+            if cover_letter and isinstance(cover_letter, UploadedFile):
+                cover_letter_file = job_candidate_information_sheet.cover_letter
+                if not cover_letter_file:
+                    cover_letter_file = File()
+                    cover_letter_file.creator = creator
+                    cover_letter_file.folder = job_candidate_information_sheet.folder
+                cover_letter_file.file = cover_letter
+                cover_letter_file.save()
+                job_candidate_information_sheet.cover_letter = cover_letter_file
+        job_candidate_information_sheet.save()
+        return UpdateJobCandidateInformationSheet(job_candidate_information_sheet=job_candidate_information_sheet)
+
+class UpdateJobCandidateInformationSheetFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        job_candidate_information_sheet_data = JobCandidateInformationSheetFieldInput(required=True)
+
+    job_candidate_information_sheet = graphene.Field(JobCandidateInformationSheetType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, job_candidate_information_sheet_data=None):
+        creator = info.context.user
+        done = True
+        success = True
+        job_candidate_information_sheet = None
+        message = ''
+        try:
+            job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
+            JobCandidateInformationSheet.objects.filter(pk=id).update(**job_candidate_information_sheet_data)
+            job_candidate_information_sheet.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            job_candidate_information_sheet=None
+            message = "Une erreur s'est produite."
+        return UpdateJobCandidateInformationSheetFields(done=done, success=success, message=message, job_candidate_information_sheet=job_candidate_information_sheet)
+
+class GenerateJobCandidateInformationSheet(graphene.Mutation):
+    class Arguments:
+        generate_job_candidate_information_sheet_data = GenerateJobCandidateInformationSheetInput(required=True)
+
+    job_candidate_information_sheets = graphene.List(JobCandidateInformationSheetType)
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(self, info, generate_job_candidate_information_sheet_data=None):
+        creator = info.context.user
+        company = creator.the_current_company
+        job_candidate_id = generate_job_candidate_information_sheet_data.pop("job_candidate_id", None)
+        job_position_ids = generate_job_candidate_information_sheet_data.pop("job_positions", None)
+        job_candidate_information_sheets = []
+        try:
+            # Vérifier si le candidat existe
+            try:
+                job_candidate = JobCandidate.objects.get(id=job_candidate_id, is_deleted=False)
+            except JobCandidate.DoesNotExist:
+                return GenerateJobCandidateInformationSheet(job_candidate_information_sheets=job_candidate_information_sheets, success=False, message="Candidat non trouvé.")
+
+            # Vérifier si les postes existent
+            job_positions = JobPosition.objects.filter(id__in=job_position_ids)
+            if not job_positions.exists():
+                return GenerateJobCandidateInformationSheet(job_candidate_information_sheets=job_candidate_information_sheets, success=False, message="Fiche(s) non trouvée(s).")
+
+            # Vérifier et mettre à jour les candidatures existantes
+            existing_applications = JobCandidateInformationSheet.objects.filter(
+                job_candidate=job_candidate, 
+                job_position__in=job_positions
+            )
+
+            # Mise à jour des candidatures existantes
+            if existing_applications.exists():
+                existing_applications.update(**generate_job_candidate_information_sheet_data)
+
+            # Créer les nouvelles candidatures
+            existing_positions = set(existing_applications.values_list("job_position_id", flat=True))
+
+            new_applications = [
+                JobCandidateInformationSheet(
+                    gender=job_candidate.gender,
+                    preferred_name=job_candidate.preferred_name,
+                    first_name=job_candidate.first_name,
+                    last_name=job_candidate.last_name,
+                    email=job_candidate.email,
+                    phone=job_candidate.phone,
+                    job_title=job_candidate.job_title,
+                    availability_date=job_candidate.availability_date,
+                    job_candidate=job_candidate,
+                    job_platform=job_candidate.job_platform,
+                    cv=job_candidate.cv,
+                    cover_letter=job_candidate.cover_letter,
+                    description=job_candidate.description,
+                    observation=job_candidate.observation,
+                    rating=job_candidate.rating,
+                    job_position=job_position,
+                    employee=job_candidate.employee,
+                    company=job_candidate.company,
+                    creator=creator,
+                )
+                for job_position in job_positions if job_position.id not in existing_positions
+            ]
+
+            if new_applications:
+                JobCandidateInformationSheet.objects.bulk_create(new_applications)
+
+            # Combiner les candidatures existantes et les nouvelles
+            job_candidate_information_sheets = JobCandidateInformationSheet.objects.filter(
+                job_candidate=job_candidate, 
+                job_position__in=job_positions
+            )
+
+            return GenerateJobCandidateInformationSheet(
+                job_candidate_information_sheets=job_candidate_information_sheets,
+                success=True,
+                message="Candidature(s) générée(s) avec succès."
+            )
+
+        except Exception as e:
+            return GenerateJobCandidateInformationSheet(job_candidate_information_sheets=job_candidate_information_sheets, success=False, message=f"Une erreur s'est produite : {str(e)}")
+
+class DeleteJobCandidateInformationSheet(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    job_candidate_information_sheet = graphene.Field(JobCandidateInformationSheetType)
+    id = graphene.ID()
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+        if current_user.is_superuser:
+            job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
+            job_candidate_information_sheet.delete()
+            deleted = True
+            success = True
+        else:
+            message = "Vous n'êtes pas un Superuser."
+        return DeleteJobCandidateInformationSheet(deleted=deleted, success=success, message=message, id=id)
+        
+#*******************************************************************************************************************************
+#*******************************************************************************************************************************
+
 class RecruitmentMutation(graphene.ObjectType):
     create_job_position = CreateJobPosition.Field()
     update_job_position = UpdateJobPosition.Field()
@@ -940,4 +1280,10 @@ class RecruitmentMutation(graphene.ObjectType):
     update_job_candidate_application_fields = UpdateJobCandidateApplicationFields.Field()
     generate_job_candidate_application = GenerateJobCandidateApplication.Field()
     delete_job_candidate_application = DeleteJobCandidateApplication.Field()
+
+    create_job_candidate_information_sheet = CreateJobCandidateInformationSheet.Field()
+    update_job_candidate_information_sheet = UpdateJobCandidateInformationSheet.Field()
+    update_job_candidate_information_sheet_fields = UpdateJobCandidateInformationSheetFields.Field()
+    generate_job_candidate_information_sheet = GenerateJobCandidateInformationSheet.Field()
+    delete_job_candidate_information_sheet = DeleteJobCandidateInformationSheet.Field()
     

@@ -138,3 +138,36 @@ class JobCandidateApplication(models.Model):
 
 	def __str__(self):
 		return self.first_name
+
+class JobCandidateInformationSheet(models.Model):
+	STATUS_CHOICES = [
+		('PENDING', 'En attente'),
+		('REJECTED', 'Rejeté'),
+		('ACCEPTED', 'Accepté'),
+	]
+	number = models.CharField(max_length=255, editable=False, null=True)
+	gender = models.CharField(max_length=50, choices=GENDERS, default="NOT_SPECIFIED", null=True, blank=True)
+	preferred_name = models.CharField(max_length=255, null=True)
+	first_name = models.CharField(max_length=255)
+	last_name = models.CharField(max_length=255)
+	email = models.EmailField()
+	phone = models.CharField(max_length=20)
+	job_title = models.CharField(max_length=255)
+	job_candidate = models.ForeignKey(JobCandidate, on_delete=models.SET_NULL, related_name='job_candidate_information_sheets', null=True)
+	cv = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='cv_job_candidate_information_sheets', null=True)
+	cover_letter = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='cover_letter_job_candidate_information_sheets', null=True)
+	description = models.TextField(default='', null=True)
+	observation = models.TextField(default='', null=True)
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+	job_position = models.ForeignKey(JobPosition, on_delete=models.SET_NULL, null=True, blank=True)
+	is_active = models.BooleanField(default=True, null=True)
+	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='job_candidate_information_sheets', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_job_candidate_information_sheets', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='creator_candidate_information_sheets', null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def __str__(self):
+		return self.first_name
