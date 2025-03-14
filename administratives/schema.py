@@ -841,19 +841,19 @@ class CreateMeeting(graphene.Mutation):
 
     def mutate(root, info, meeting_data=None):
         creator = info.context.user
-        establishment_ids = meeting_data.pop("establishments")
-        beneficiary_ids = meeting_data.pop("beneficiaries")
-        participants_ids = meeting_data.pop("participants")
-        absent_participants_ids = meeting_data.pop("absent_participants")
-        reason_ids = meeting_data.pop("reasons") if 'reasons' in meeting_data else None
-        meeting_type_ids = meeting_data.pop("meeting_types")
-        meeting_decisions = meeting_data.pop("meeting_decisions")
-        meeting_review_points = meeting_data.pop("meeting_review_points")
+        establishment_ids = meeting_data.pop("establishments", None)
+        beneficiary_ids = meeting_data.pop("beneficiaries", None)
+        participants_ids = meeting_data.pop("participants", None)
+        absent_participants_ids = meeting_data.pop("absent_participants", None)
+        reason_ids = meeting_data.pop("reasons", None)
+        meeting_type_ids = meeting_data.pop("meeting_types", None)
+        meeting_decisions = meeting_data.pop("meeting_decisions", None)
+        meeting_review_points = meeting_data.pop("meeting_review_points", None)
         meeting = Meeting(**meeting_data)
         meeting.creator = creator
         meeting.company = creator.the_current_company
         meeting.save()
-        folder = Folder.objects.create(name=str(meeting.id)+'_'+meeting.title,creator=creator)
+        folder = Folder.objects.create(name=str(meeting.id)+'_',creator=creator)
         meeting.folder = folder
         if not meeting.employee:
             meeting.employee = creator.get_employee_in_company()
@@ -866,59 +866,62 @@ class CreateMeeting(graphene.Mutation):
             meeting_types = TypeMeeting.objects.filter(id__in=meeting_type_ids)
             meeting.meeting_types.set(meeting_types)
         
-        establishments = Establishment.objects.filter(id__in=establishment_ids)
-        for establishment in establishments:
-            try:
-                meeting_establishment = MeetingEstablishment.objects.get(establishment__id=establishment.id, meeting__id=meeting.id)
-            except MeetingEstablishment.DoesNotExist:
-                MeetingEstablishment.objects.create(
-                        meeting=meeting,
-                        establishment=establishment,
-                        creator=creator
-                    )
-
-        employees = Employee.objects.filter(id__in=participants_ids)
-        for employee in employees:
-            try:
-                meeting_participant = MeetingParticipant.objects.get(employee__id=employee.id, meeting__id=meeting.id)
-            except MeetingParticipant.DoesNotExist:
-                MeetingParticipant.objects.create(
-                        meeting=meeting,
-                        employee=employee,
-                        creator=creator
-                    )
-        beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
-        for beneficiary in beneficiaries:
-            try:
-                meeting_beneficiaries = MeetingBeneficiary.objects.get(beneficiary__id=beneficiary.id, meeting__id=meeting.id)
-            except MeetingBeneficiary.DoesNotExist:
-                MeetingBeneficiary.objects.create(
-                        meeting=meeting,
-                        beneficiary=beneficiary,
-                        creator=creator
-                    )
-        for item in meeting_decisions:
-            employees_ids = item.pop("employees") if "employees" in item else None
-            for_voters_ids = item.pop("for_voters") if "for_voters" in item else None
-            against_voters_ids = item.pop("against_voters") if "against_voters" in item else None
-            meeting_decision = MeetingDecision(**item)
-            meeting_decision.meeting = meeting
-            meeting_decision.save()
-            if employees_ids and employees_ids is not None:
-                meeting_decision.employees.set(employees_ids)
-                for employee in meeting_decision.employees.all():
-                    employee_user = employee.user
-                    if employee_user:
-                        notify_employee_meeting_decision(sender=creator, recipient=employee_user, meeting_decision=meeting_decision)
-            if for_voters_ids and for_voters_ids is not None:
-                meeting_decision.for_voters.set(for_voters_ids)
-            if against_voters_ids and against_voters_ids is not None:
-                meeting_decision.against_voters.set(against_voters_ids)
-
-        for item in meeting_review_points:
-            meeting_review_point = MeetingReviewPoint(**item)
-            meeting_review_point.meeting = meeting
-            meeting_review_point.save()
+        if establishment_ids is not None:
+            establishments = Establishment.objects.filter(id__in=establishment_ids)
+            for establishment in establishments:
+                try:
+                    meeting_establishment = MeetingEstablishment.objects.get(establishment__id=establishment.id, meeting__id=meeting.id)
+                except MeetingEstablishment.DoesNotExist:
+                    MeetingEstablishment.objects.create(
+                            meeting=meeting,
+                            establishment=establishment,
+                            creator=creator
+                        )
+        if participants_ids is not None:     
+            employees = Employee.objects.filter(id__in=participants_ids)
+            for employee in employees:
+                try:
+                    meeting_participant = MeetingParticipant.objects.get(employee__id=employee.id, meeting__id=meeting.id)
+                except MeetingParticipant.DoesNotExist:
+                    MeetingParticipant.objects.create(
+                            meeting=meeting,
+                            employee=employee,
+                            creator=creator
+                        )
+        if beneficiary_ids is not None: 
+            beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
+            for beneficiary in beneficiaries:
+                try:
+                    meeting_beneficiaries = MeetingBeneficiary.objects.get(beneficiary__id=beneficiary.id, meeting__id=meeting.id)
+                except MeetingBeneficiary.DoesNotExist:
+                    MeetingBeneficiary.objects.create(
+                            meeting=meeting,
+                            beneficiary=beneficiary,
+                            creator=creator
+                        )
+        if meeting_decisions is not None:
+            for item in meeting_decisions:
+                employees_ids = item.pop("employees") if "employees" in item else None
+                for_voters_ids = item.pop("for_voters") if "for_voters" in item else None
+                against_voters_ids = item.pop("against_voters") if "against_voters" in item else None
+                meeting_decision = MeetingDecision(**item)
+                meeting_decision.meeting = meeting
+                meeting_decision.save()
+                if employees_ids and employees_ids is not None:
+                    meeting_decision.employees.set(employees_ids)
+                    for employee in meeting_decision.employees.all():
+                        employee_user = employee.user
+                        if employee_user:
+                            notify_employee_meeting_decision(sender=creator, recipient=employee_user, meeting_decision=meeting_decision)
+                if for_voters_ids and for_voters_ids is not None:
+                    meeting_decision.for_voters.set(for_voters_ids)
+                if against_voters_ids and against_voters_ids is not None:
+                    meeting_decision.against_voters.set(against_voters_ids)
+        if meeting_review_points is not None:
+            for item in meeting_review_points:
+                meeting_review_point = MeetingReviewPoint(**item)
+                meeting_review_point.meeting = meeting
+                meeting_review_point.save()
 
         meeting.save()
         return CreateMeeting(meeting=meeting)
@@ -932,18 +935,18 @@ class UpdateMeeting(graphene.Mutation):
 
     def mutate(root, info, id, image=None, meeting_data=None):
         creator = info.context.user
-        establishment_ids = meeting_data.pop("establishments")
-        beneficiary_ids = meeting_data.pop("beneficiaries")
-        participants_ids = meeting_data.pop("participants")
-        absent_participants_ids = meeting_data.pop("absent_participants")
-        reason_ids = meeting_data.pop("reasons") if 'reasons' in meeting_data else None
-        meeting_type_ids = meeting_data.pop("meeting_types")
-        meeting_decisions = meeting_data.pop("meeting_decisions")
-        meeting_review_points = meeting_data.pop("meeting_review_points")
+        establishment_ids = meeting_data.pop("establishments", None)
+        beneficiary_ids = meeting_data.pop("beneficiaries", None)
+        participants_ids = meeting_data.pop("participants", None)
+        absent_participants_ids = meeting_data.pop("absent_participants", None)
+        reason_ids = meeting_data.pop("reasons", None)
+        meeting_type_ids = meeting_data.pop("meeting_types", None)
+        meeting_decisions = meeting_data.pop("meeting_decisions", None)
+        meeting_review_points = meeting_data.pop("meeting_review_points", None)
         Meeting.objects.filter(pk=id).update(**meeting_data)
         meeting = Meeting.objects.get(pk=id)
         if not meeting.folder or meeting.folder is None:
-            folder = Folder.objects.create(name=str(meeting.id)+'_'+meeting.title,creator=creator)
+            folder = Folder.objects.create(name=str(meeting.id)+'_',creator=creator)
             Meeting.objects.filter(pk=id).update(folder=folder)
         if not meeting.employee:
             meeting.employee = creator.get_employee_in_company()
@@ -959,78 +962,81 @@ class UpdateMeeting(graphene.Mutation):
             meeting_types = TypeMeeting.objects.filter(id__in=meeting_type_ids)
             meeting.meeting_types.set(meeting_types)
 
-        MeetingEstablishment.objects.filter(meeting=meeting).exclude(establishment__id__in=establishment_ids).delete()
-        establishments = Establishment.objects.filter(id__in=establishment_ids)
-        for establishment in establishments:
-            try:
-                meeting_establishment = MeetingEstablishment.objects.get(establishment__id=establishment.id, meeting__id=meeting.id)
-            except MeetingEstablishment.DoesNotExist:
-                MeetingEstablishment.objects.create(
-                        meeting=meeting,
-                        establishment=establishment,
-                        creator=creator
-                    )
+        if establishment_ids is not None:
+            MeetingEstablishment.objects.filter(meeting=meeting).exclude(establishment__id__in=establishment_ids).delete()
+            establishments = Establishment.objects.filter(id__in=establishment_ids)
+            for establishment in establishments:
+                try:
+                    meeting_establishment = MeetingEstablishment.objects.get(establishment__id=establishment.id, meeting__id=meeting.id)
+                except MeetingEstablishment.DoesNotExist:
+                    MeetingEstablishment.objects.create(
+                            meeting=meeting,
+                            establishment=establishment,
+                            creator=creator
+                        )
+        if participants_ids is not None:
+            MeetingParticipant.objects.filter(meeting=meeting).exclude(employee__id__in=participants_ids).delete()
+            employees = Employee.objects.filter(id__in=participants_ids)
+            for employee in employees:
+                try:
+                    meeting_participant = MeetingParticipant.objects.get(employee__id=employee.id, meeting__id=meeting.id)
+                except MeetingParticipant.DoesNotExist:
+                    MeetingParticipant.objects.create(
+                            meeting=meeting,
+                            employee=employee,
+                            creator=creator
+                        )
+        if beneficiary_ids is not None:
+            MeetingBeneficiary.objects.filter(meeting=meeting).exclude(beneficiary__id__in=beneficiary_ids).delete()
+            beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
+            for beneficiary in beneficiaries:
+                try:
+                    meeting_beneficiaries = MeetingBeneficiary.objects.get(beneficiary__id=beneficiary.id, meeting__id=meeting.id)
+                except MeetingBeneficiary.DoesNotExist:
+                    MeetingBeneficiary.objects.create(
+                            meeting=meeting,
+                            beneficiary=beneficiary,
+                            creator=creator
+                        )
+        if meeting_decisions is not None:
+            meeting_decision_ids = [item.id for item in meeting_decisions if item.id is not None]
+            MeetingDecision.objects.filter(meeting=meeting).exclude(id__in=meeting_decision_ids).delete()
+            for item in meeting_decisions:
+                employees_ids = item.pop("employees") if "employees" in item else None
+                for_voters_ids = item.pop("for_voters") if "for_voters" in item else None
+                against_voters_ids = item.pop("against_voters") if "against_voters" in item else None
+                if id in item or 'id' in item:
+                    meeting_decision = MeetingDecision.objects.get(pk=item.id)
+                    for key, value in item.items():
+                        setattr(meeting_decision, key, value)
+                    meeting_decision.save()
+                    meeting_decision.refresh_from_db()
+                else:
+                    meeting_decision = MeetingDecision(**item)
+                    meeting_decision.meeting = meeting
+                    meeting_decision.save()
+                if employees_ids and employees_ids is not None:
+                    meeting_decision.employees.set(employees_ids)
+                    meeting_decision.save()
+                    for employee in meeting_decision.employees.all():
+                        employee_user = employee.user
+                        if employee_user:
+                            notify_employee_meeting_decision(sender=creator, recipient=employee_user, meeting_decision=meeting_decision)
+                if for_voters_ids and for_voters_ids is not None:
+                    meeting_decision.for_voters.set(for_voters_ids)
+                if against_voters_ids and against_voters_ids is not None:
+                    meeting_decision.against_voters.set(against_voters_ids)
 
-        MeetingParticipant.objects.filter(meeting=meeting).exclude(employee__id__in=participants_ids).delete()
-        employees = Employee.objects.filter(id__in=participants_ids)
-        for employee in employees:
-            try:
-                meeting_participant = MeetingParticipant.objects.get(employee__id=employee.id, meeting__id=meeting.id)
-            except MeetingParticipant.DoesNotExist:
-                MeetingParticipant.objects.create(
-                        meeting=meeting,
-                        employee=employee,
-                        creator=creator
-                    )
-        MeetingBeneficiary.objects.filter(meeting=meeting).exclude(beneficiary__id__in=beneficiary_ids).delete()
-        beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
-        for beneficiary in beneficiaries:
-            try:
-                meeting_beneficiaries = MeetingBeneficiary.objects.get(beneficiary__id=beneficiary.id, meeting__id=meeting.id)
-            except MeetingBeneficiary.DoesNotExist:
-                MeetingBeneficiary.objects.create(
-                        meeting=meeting,
-                        beneficiary=beneficiary,
-                        creator=creator
-                    )
-
-        meeting_decision_ids = [item.id for item in meeting_decisions if item.id is not None]
-        MeetingDecision.objects.filter(meeting=meeting).exclude(id__in=meeting_decision_ids).delete()
-        for item in meeting_decisions:
-            employees_ids = item.pop("employees") if "employees" in item else None
-            for_voters_ids = item.pop("for_voters") if "for_voters" in item else None
-            against_voters_ids = item.pop("against_voters") if "against_voters" in item else None
-            if id in item or 'id' in item:
-                meeting_decision = MeetingDecision.objects.get(pk=item.id)
-                for key, value in item.items():
-                    setattr(meeting_decision, key, value)
-                meeting_decision.save()
-                meeting_decision.refresh_from_db()
-            else:
-                meeting_decision = MeetingDecision(**item)
-                meeting_decision.meeting = meeting
-                meeting_decision.save()
-            if employees_ids and employees_ids is not None:
-                meeting_decision.employees.set(employees_ids)
-                meeting_decision.save()
-                for employee in meeting_decision.employees.all():
-                    employee_user = employee.user
-                    if employee_user:
-                        notify_employee_meeting_decision(sender=creator, recipient=employee_user, meeting_decision=meeting_decision)
-            if for_voters_ids and for_voters_ids is not None:
-                meeting_decision.for_voters.set(for_voters_ids)
-            if against_voters_ids and against_voters_ids is not None:
-                meeting_decision.against_voters.set(against_voters_ids)
-
-        meeting_review_point_ids = [item.id for item in meeting_review_points if item.id is not None]
-        MeetingReviewPoint.objects.filter(meeting=meeting).exclude(id__in=meeting_review_point_ids).delete()
-        for item in meeting_review_points:
-            if id in item or 'id' in item:
-                MeetingReviewPoint.objects.filter(pk=item.id).update(**item)
-            else:
-                meeting_review_point = MeetingReviewPoint(**item)
-                meeting_review_point.meeting = meeting
-                meeting_review_point.save()
+        if meeting_review_points is not None:
+            meeting_review_point_ids = [item.id for item in meeting_review_points if item.id is not None]
+            MeetingReviewPoint.objects.filter(meeting=meeting).exclude(id__in=meeting_review_point_ids).delete()
+            for item in meeting_review_points:
+                if id in item or 'id' in item:
+                    MeetingReviewPoint.objects.filter(pk=item.id).update(**item)
+                else:
+                    meeting_review_point = MeetingReviewPoint(**item)
+                    meeting_review_point.meeting = meeting
+                    meeting_review_point.save()
 
         return UpdateMeeting(meeting=meeting)
 
