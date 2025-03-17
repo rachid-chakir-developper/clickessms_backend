@@ -97,10 +97,12 @@ class DocumentRecord(models.Model):
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='document_records', null=True)
+	job_candidate_information_sheet = models.ForeignKey('recruitment.JobCandidateInformationSheet', on_delete=models.SET_NULL, related_name='document_records', null=True)
 	name = models.CharField(max_length=255)
 	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='document_records', null=True)
 	document_type = models.ForeignKey('data_management.DocumentType', on_delete=models.SET_NULL, related_name='document_records', null=True)
 	beneficiary_document_type = models.ForeignKey('data_management.BeneficiaryDocumentType', on_delete=models.SET_NULL, related_name='document_records', null=True)
+	job_candidate_document_type = models.ForeignKey('data_management.JobCandidateDocumentType', on_delete=models.SET_NULL, related_name='document_records', null=True)
 	starting_date = models.DateField(null=True)
 	ending_date = models.DateField(null=True)
 	description = models.TextField(default='', null=True)

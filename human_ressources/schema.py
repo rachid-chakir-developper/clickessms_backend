@@ -11,7 +11,7 @@ from medias.models import Folder, File, DocumentRecord
 from data_management.models import EmployeeMission, AddressBookEntry
 from companies.models import Establishment
 from accounts.models import User
-from medias.schema import MediaInput
+from medias.schema import MediaInput, DocumentRecordInput
 
 from data_management.schema import CustomFieldValueInput
 from data_management.utils import CustomFieldEntityBase
@@ -279,17 +279,6 @@ class CareerEntryType(DjangoObjectType):
         model = CareerEntry
         fields = "__all__"
 
-class DocumentRecordType(DjangoObjectType):
-    class Meta:
-        model = DocumentRecord
-        fields = "__all__"
-    document = graphene.String()
-    expiration_status = graphene.String()
-    def resolve_document( instance, info, **kwargs ):
-        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
-    def resolve_expiration_status( instance, info, **kwargs ):
-        return instance.expiration_status
-
 class EmployeeContractEstablishmentType(DjangoObjectType):
     class Meta:
         model = EmployeeContractEstablishment
@@ -521,19 +510,6 @@ class CareerEntryInput(graphene.InputObjectType):
     professional_status_id = graphene.Int(name="professionalStatus", required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
 
-class DocumentRecordInput(graphene.InputObjectType):
-    id = graphene.ID(required=False)
-    name = graphene.String(required=False)
-    document = Upload(required=False)
-    starting_date = graphene.DateTime(required=False)
-    ending_date = graphene.DateTime(required=False)
-    description = graphene.String(required=False)
-    is_notification_enabled = graphene.Boolean(required=False)
-    notification_period_unit = graphene.String(required=False)
-    notification_period_value = graphene.Int(required=False)
-    is_active = graphene.Boolean(required=False)
-    beneficiary_document_type_id = graphene.Int(name="beneficiaryDocumentType", required=False)
-    beneficiary_id = graphene.Int(name="beneficiary", required=False)
 
 class AddressBookEntryInput(graphene.InputObjectType):
     id = graphene.ID(required=False)

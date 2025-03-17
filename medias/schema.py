@@ -8,13 +8,41 @@ from django.utils.html import escape, mark_safe
 import re
 from datetime import date, datetime
 
-from medias.models import Folder, File, ContractTemplate
+from medias.models import DocumentRecord, Folder, File, ContractTemplate
 from human_ressources.models import EmployeeContract
 
 class ChildrenFolderType(DjangoObjectType):
 	class Meta:
 		model = Folder
 		fields = "__all__"
+
+class DocumentRecordType(DjangoObjectType):
+    class Meta:
+        model = DocumentRecord
+        fields = "__all__"
+    document = graphene.String()
+    expiration_status = graphene.String()
+    def resolve_document( instance, info, **kwargs ):
+        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
+    def resolve_expiration_status( instance, info, **kwargs ):
+        return instance.expiration_status
+
+
+class DocumentRecordInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    name = graphene.String(required=False)
+    document = Upload(required=False)
+    starting_date = graphene.DateTime(required=False)
+    ending_date = graphene.DateTime(required=False)
+    description = graphene.String(required=False)
+    is_notification_enabled = graphene.Boolean(required=False)
+    notification_period_unit = graphene.String(required=False)
+    notification_period_value = graphene.Int(required=False)
+    is_active = graphene.Boolean(required=False)
+    beneficiary_document_type_id = graphene.Int(name="beneficiaryDocumentType", required=False)
+    beneficiary_id = graphene.Int(name="beneficiary", required=False)
+    job_candidate_document_type_id = graphene.Int(name="jobCandidateDocumentType", required=False)
+    job_candidate_information_sheet_id = graphene.Int(name="jobCandidateInformationSheet", required=False)
 
 class MediaInput(graphene.InputObjectType):
 	id = graphene.ID(required=False)

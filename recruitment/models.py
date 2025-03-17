@@ -1,7 +1,15 @@
 from django.db import models
+import uuid
+from django.utils.timezone import now
+from datetime import timedelta
 
 # Create your models here.
 class JobPosition(models.Model):
+	STATUS_CHOICES = [
+		('PENDING', 'En attente'),
+		('REJECTED', 'Rejeté'),
+		('ACCEPTED', 'Accepté'),
+	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	CONTRACT_TYPES = [
 		("CDI", "CDI"),
@@ -23,6 +31,7 @@ class JobPosition(models.Model):
 	duration = models.CharField(max_length=50, null=True, blank=True)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='job_positions', null=True)
@@ -154,10 +163,11 @@ class JobCandidateInformationSheet(models.Model):
 	phone = models.CharField(max_length=20)
 	job_title = models.CharField(max_length=255)
 	job_candidate = models.ForeignKey(JobCandidate, on_delete=models.SET_NULL, related_name='job_candidate_information_sheets', null=True)
-	cv = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='cv_job_candidate_information_sheets', null=True)
-	cover_letter = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='cover_letter_job_candidate_information_sheets', null=True)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
+	message = models.TextField(default='', null=True)
+	access_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
+	token_expiration = models.DateTimeField(blank=True, null=True)
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
 	job_position = models.ForeignKey(JobPosition, on_delete=models.SET_NULL, null=True, blank=True)
 	is_active = models.BooleanField(default=True, null=True)
@@ -168,6 +178,11 @@ class JobCandidateInformationSheet(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def generate_access_token(self):
+		self.access_token = uuid.uuid4().hex  # Génère un token unique
+		self.token_expiration = now() + timedelta(days=15)  # Expire dans 2 jours
+		self.save()
 
 	def __str__(self):
 		return self.first_name
