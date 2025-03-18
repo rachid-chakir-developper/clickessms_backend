@@ -135,27 +135,27 @@ ASGI_APPLICATION = "clickessms_backend.asgi.application"
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 #DEV
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-#PROD
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'roberp_db',
-        'USER' : 'roberp',
-        'PASSWORD' : 'roberp01/@X',
-        'HOST' : 'localhost',
-        'PORT' : '',
-        'OPTION':{
-                'init_command' : "SET sql_mode='STRICT_TRANS_TABLES'"
-                }
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+#PROD
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'roberp_db',
+#         'USER' : 'roberp',
+#         'PASSWORD' : 'roberp01/@X',
+#         'HOST' : 'localhost',
+#         'PORT' : '',
+#         'OPTION':{
+#                 'init_command' : "SET sql_mode='STRICT_TRANS_TABLES'"
+#                 }
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -257,12 +257,24 @@ CHANNEL_LAYERS = {
 #     },
 # }
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "localhost"  # Serveur SMTP local
+EMAIL_PORT = 8025  # Le port que tu as spécifié
+EMAIL_USE_TLS = False  # Pas besoin de chiffrement pour localhost
+EMAIL_USE_SSL = False  # Pas besoin de SSL non plus
+EMAIL_HOST_USER = ""  # Pas besoin d'authentification
+EMAIL_HOST_PASSWORD = ""  # Pas de mot de passe
+DEFAULT_FROM_EMAIL = "noreply@localhost"  # Email par défaut
+
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+FRONTEND_SITE_URL = "https://app.roberp.fr"
 
 FCM_KEY = "AAAAcZ-1XUU:APA91bG4oSUn39sLzHC7hEOC87TAgGUSRTDmWPkZR5DQRul-cbw9StMHRXMtHpCpDXrk7Eys5BIhaD2-gCtM2NJutbfpSJL7Y1cbzEzbkGVYXCzrd0FfNqOkiRzO5Gf7ili1yOhV4dpQ"
 

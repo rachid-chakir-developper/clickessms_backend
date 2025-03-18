@@ -9,6 +9,8 @@ from works.models import TaskAction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from the_mailer.services.recruitment_services import send_interview_invitation
+
 # Create your models here.
 class Call(models.Model):
 	CALL_TYPES = [
@@ -299,6 +301,10 @@ class Meeting(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def send_mail_invitation_to_candidat(self):
+		"""Utilise the_mailer pour envoyer un email d'invitation au candidat"""
+		return send_interview_invitation(self)
 	
 	def save(self, *args, **kwargs):
 		# Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini

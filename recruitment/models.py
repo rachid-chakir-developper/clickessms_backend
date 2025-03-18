@@ -1,7 +1,9 @@
 from django.db import models
 import uuid
+from django.conf import settings
 from django.utils.timezone import now
 from datetime import timedelta
+from the_mailer.services.recruitment_services import send_application_interest_email, send_application_rejection_email, send_application_acceptance_email, send_job_candidate_information_sheet_email
 
 # Create your models here.
 class JobPosition(models.Model):
@@ -140,10 +142,22 @@ class JobCandidateApplication(models.Model):
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='job_candidate_applications', null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_job_candidate_applications', null=True)
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='creator_candidate_applications', null=True)
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='creator_job_candidate_applications', null=True)
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def send_application_interest_email(self):
+		"""Envoie un email pour que le candidat remplisse sa fiche de renseignement."""
+		return send_application_interest_email(self)
+
+	def send_application_rejection_email(self):
+		"""Refuse la candidature et envoie un email de refus."""
+		return send_application_rejection_email(self)
+
+	def send_application_acceptance_email(self):
+		"""Accepte la candidature et envoie un email d'acceptation avec un lien de formulaire."""
+		return send_application_acceptance_email(self)
 
 	def __str__(self):
 		return self.first_name
@@ -179,10 +193,18 @@ class JobCandidateInformationSheet(models.Model):
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 
+	def send_job_candidate_information_sheet_email(self):
+		"""Envoie un email pour que le candidat remplisse sa fiche de renseignement."""
+		return send_job_candidate_information_sheet_email(self)
+
 	def generate_access_token(self):
 		self.access_token = uuid.uuid4().hex  # Génère un token unique
 		self.token_expiration = now() + timedelta(days=15)  # Expire dans 2 jours
 		self.save()
+
+	def get_access_link(self):
+		"""Construit le lien d'accès au formulaire."""
+		return f"{settings.FRONTEND_SITE_URL}/offline/ressources-humaines/recrutement/fiche-renseignement/{self.access_token}"
 
 	def __str__(self):
 		return self.first_name
