@@ -5,6 +5,7 @@ from graphql_auth import mutations
 
 from accounts.schema import UserQuery, UserMutation, UserSubscription, UserType
 from medias.schema import MediasQuery, MediasMutation
+from the_mailer.schema import TheMailerQuery, TheMailerMutation
 from data_management.schema import DataQuery, DataMutation
 from searching.schema import SearchQuery
 from dashboard.schema import DashboardQuery, DashboardMutation
@@ -61,7 +62,7 @@ class AuthMutation(graphene.ObjectType):
    update_account = mutations.UpdateAccount.Field()
    password_change = mutations.PasswordChange.Field()
 
-class Query(MeQuery, UserQuery, MediasQuery, DataQuery, SearchQuery, DashboardQuery,
+class Query(MeQuery, UserQuery, MediasQuery, TheMailerQuery, DataQuery, SearchQuery, DashboardQuery,
     CompanyQuery, HumanRessourcesQuery, RecruitmentQuery, StocksQuery, ComputersQuery,
     VehiclesQuery, PartnershipsQuery, PurchasesQuery, SalesQuery, WorksQuery,
     CommentsQuery, NotificationsQuery, ChatQuery, LoansQuery, ActivitiesQuery,
@@ -70,7 +71,7 @@ class Query(MeQuery, UserQuery, MediasQuery, DataQuery, SearchQuery, DashboardQu
     graphene.ObjectType):
     pass
 
-class Mutation(AuthMutation, UserMutation, MediasMutation, DataMutation, DashboardMutation,
+class Mutation(AuthMutation, UserMutation, MediasMutation, TheMailerMutation, DataMutation, DashboardMutation,
     CompanyMutation, HumanRessourcesMutation, RecruitmentMutation, StocksMutation, ComputersMutation,
     VehiclesMutation, PartnershipsMutation, PurchasesMutation, SalesMutation, WorksMutation,
     CommentsMutation, NotificationsMutation, ChatMutation, LoansMutation, ActivitiesMutation,

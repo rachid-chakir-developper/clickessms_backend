@@ -3,7 +3,7 @@ import uuid
 from django.conf import settings
 from django.utils.timezone import now
 from datetime import timedelta
-from the_mailer.services.recruitment_services import send_application_interest_email, send_application_rejection_email, send_application_acceptance_email, send_job_candidate_information_sheet_email
+from the_mailer.services.recruitment_services import get_default_sent_email, send_application_interest_email, send_application_rejection_email, send_application_acceptance_email, send_job_candidate_information_sheet_email
 
 # Create your models here.
 class JobPosition(models.Model):
@@ -146,6 +146,10 @@ class JobCandidateApplication(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def get_default_sent_email(self):
+		"""Appelle le service pour récupérer l'email par défaut."""
+		return get_default_sent_email(self)
 
 	def send_application_interest_email(self):
 		"""Envoie un email pour que le candidat remplisse sa fiche de renseignement."""
