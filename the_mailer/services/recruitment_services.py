@@ -2,6 +2,8 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 
+from the_mailer.services.mail_services import send_this_email
+
 def send_interview_invitation(meeting):
     """Envoie un email d'invitation à un entretien pour un candidat."""
 
@@ -16,7 +18,6 @@ def send_interview_invitation(meeting):
             return False  # Pas d'email, pas d'envoi
 
         subject = "Invitation à un entretien"
-        from_email = settings.DEFAULT_FROM_EMAIL
         to_email = [candidat.email]
 
         # Charger le template HTML
@@ -27,13 +28,7 @@ def send_interview_invitation(meeting):
             "interview_location": meeting.video_call_link or "Lieu précisé ultérieurement"
         })
 
-        # Création de l'email
-        email = EmailMultiAlternatives(subject, "Votre client email ne supporte pas les emails HTML.", from_email, to_email)
-        email.attach_alternative(html_content, "text/html")
-
-        # Envoi de l'email
-        email.send()
-        return True  # Email envoyé avec succès
+        return send_this_email(subject=subject, html_content=html_content, to_email=to_email)  # Email envoyé 
     except Exception as e:
         return False
 
@@ -53,7 +48,6 @@ def send_job_candidate_information_sheet_email(candidate_sheet):
             return False
 
         subject = "Complétez votre fiche de renseignement"
-        from_email = settings.DEFAULT_FROM_EMAIL
         to_email = [candidate_sheet.email]
 
         html_content = render_to_string("recruitment/job_candidate_information_sheet_invitation.html", {
@@ -75,12 +69,8 @@ def send_job_candidate_information_sheet_email(candidate_sheet):
         Cordialement,
         L'équipe RH
         """
+        return send_this_email(subject=subject, html_content=html_content, to_email=to_email)
 
-        email = EmailMultiAlternatives(subject, text_content, from_email, to_email)
-        email.attach_alternative(html_content, "text/html")
-
-        email.send()
-        return True  # Email envoyé avec succès
     except Exception as e:
         return False
 
@@ -95,7 +85,6 @@ def send_application_interest_email(job_candidate_application):
             return False  # Pas d'email, pas d'envoi
 
         subject = "Votre candidature nous intéresse"
-        from_email = settings.DEFAULT_FROM_EMAIL
         to_email = [job_candidate_application.email]
 
         # Charger le template HTML
@@ -103,13 +92,8 @@ def send_application_interest_email(job_candidate_application):
             "first_name": job_candidate_application.first_name
         })
 
-        # Création de l'email
-        email = EmailMultiAlternatives(subject, "Votre client email ne supporte pas les emails HTML.", from_email, to_email)
-        email.attach_alternative(html_content, "text/html")
 
-        # Envoi de l'email
-        email.send()
-        return True  # Email envoyé avec succès
+        return send_this_email(subject=subject, html_content=html_content, to_email=to_email)  # Email envoyé
     except Exception as e:
         return False
 
@@ -123,7 +107,6 @@ def send_application_rejection_email(job_candidate_application):
             return False  # Pas d'email, pas d'envoi
 
         subject = "Statut de votre candidature"
-        from_email = settings.DEFAULT_FROM_EMAIL
         to_email = [job_candidate_application.email]
 
         html_content = render_to_string("recruitment/application_rejected.html", {
@@ -131,17 +114,14 @@ def send_application_rejection_email(job_candidate_application):
             "job_title": job_candidate_application.job_title
         })
 
-        email = EmailMultiAlternatives(subject, "Votre client email ne supporte pas les emails HTML.", from_email, to_email)
-        email.attach_alternative(html_content, "text/html")
-        email.send()
-        
-        return True  # Email envoyé avec succès
+
+        return send_this_email(subject=subject, html_content=html_content, to_email=to_email)  # Email envoyé
     except Exception as e:
         return False
 
 
 
-def send_application_acceptance_email(job_candidate_application):
+def send_application_acceptance_email(job_candidate_application,):
     
     """Envoie un email au candidat pour l'informer que sa candidature a été acceptée."""
     try:
@@ -149,7 +129,6 @@ def send_application_acceptance_email(job_candidate_application):
             return False  # Pas d'email, pas d'envoi
 
         subject = "Votre candidature a été acceptée"
-        from_email = settings.DEFAULT_FROM_EMAIL
         to_email = [job_candidate_application.email]
 
         html_content = render_to_string("recruitment/application_accepted.html", {
@@ -157,35 +136,61 @@ def send_application_acceptance_email(job_candidate_application):
             "job_title": job_candidate_application.job_title,
         })
 
-        email = EmailMultiAlternatives(subject, "Votre client email ne supporte pas les emails HTML.", from_email, to_email)
-        email.attach_alternative(html_content, "text/html")
-        email.send()
-        
-        return True  # Email envoyé avec succès
+
+        return send_this_email(subject=subject, html_content=html_content, to_email=to_email)  # Email envoyé
     except Exception as e:
         return False
 
 def get_default_sent_email(job_candidate_application):
     """Retourne les informations de l'email à envoyer selon le statut de la candidature."""
+    try:
+        if job_candidate_application.status == "REJECTED":
+            subject = "Statut de votre candidature"
+            body = render_to_string("recruitment/application_rejected.html", {
+                "first_name": job_candidate_application.first_name,
+                "job_title": job_candidate_application.job_title
+            })
 
-    if job_candidate_application.status == "REJECTED":
-        subject = "Statut de votre candidature"
-        body = render_to_string("recruitment/application_rejected.html", {
-            "first_name": job_candidate_application.first_name,
-            "job_title": job_candidate_application.job_title
-        })
+        elif job_candidate_application.status == "INTERESTED":
+            subject = "Votre candidature nous intéresse"
+            body = render_to_string("recruitment/application_interest.html", {
+                "first_name": job_candidate_application.first_name,
+            })
 
-    elif job_candidate_application.status == "ACCEPTED":
-        subject = "Votre candidature a été acceptée"
-        body = render_to_string("recruitment/application_accepted.html", {
-            "first_name": job_candidate_application.first_name,
-            "job_title": job_candidate_application.job_title,
-        })
+        elif job_candidate_application.status == "ACCEPTED":
+            job_position = job_candidate_application.job_position
+            job_candidate = job_candidate_application.job_candidate
+            job_candidate_information_sheet = job_candidate.job_candidate_information_sheets.filter(job_position=job_position).order_by('-created_at').first()
+            job_candidate_information_sheet.generate_access_token()
+            access_link = job_candidate_information_sheet.get_access_link()
+            expiration_date = job_candidate_information_sheet.token_expiration.strftime('%d/%m/%Y') if job_candidate_information_sheet.token_expiration else ''
+            subject = "Complétez votre fiche de renseignement"
+            body = render_to_string("recruitment/application_accepted.html", {
+                "first_name": job_candidate_information_sheet.first_name,
+                "job_title": job_candidate_information_sheet.job_position.title,
+                "access_link": access_link,
+                "expiration_date": expiration_date,
+            })
 
-    else:
-        return "", "", ""  # Pas d'email par défaut si la candidature est en attente
+        elif job_candidate_application.status == "INTERVIEW":
+            job_position = job_candidate_application.job_position
+            job_candidate = job_candidate_application.job_candidate
+            meeting = job_candidate.job_candidate_meetings.filter(job_position=job_position).order_by('-created_at').first()
+            candidat = meeting.job_candidate
+            subject = "Votre candidature a été acceptée"
+            body = render_to_string("recruitment/interview_invitation.html", {
+                "first_name": candidat.first_name,  # Prénom du candidat
+                "interview_date": meeting.starting_date_time.date(),
+                "interview_time": meeting.starting_date_time.time(),
+                "interview_location": meeting.video_call_link or "Lieu précisé ultérieurement"
+            })
 
-    return job_candidate_application.email, subject, body
+        else:
+            return "", "", ""  # Pas d'email par défaut si la candidature est en attente
+
+        return job_candidate_application.email, subject, body
+    except Exception as e:
+        raise e
 
 
 

@@ -924,7 +924,7 @@ class CreateMeeting(graphene.Mutation):
                 meeting_review_point.save()
 
         meeting.save()
-        meeting.send_mail_invitation_to_candidat()
+        # meeting.send_mail_invitation_to_candidat()
         return CreateMeeting(meeting=meeting)
 
 class UpdateMeeting(graphene.Mutation):

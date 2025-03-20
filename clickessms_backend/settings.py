@@ -135,27 +135,27 @@ ASGI_APPLICATION = "clickessms_backend.asgi.application"
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 #DEV
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
-#PROD
 # DATABASES = {
 #     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'roberp_db',
-#         'USER' : 'roberp',
-#         'PASSWORD' : 'roberp01/@X',
-#         'HOST' : 'localhost',
-#         'PORT' : '',
-#         'OPTION':{
-#                 'init_command' : "SET sql_mode='STRICT_TRANS_TABLES'"
-#                 }
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
+
+#PROD
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'roberp_db',
+        'USER' : 'roberp',
+        'PASSWORD' : 'roberp01/@X',
+        'HOST' : 'localhost',
+        'PORT' : '',
+        'OPTION':{
+                'init_command' : "SET sql_mode='STRICT_TRANS_TABLES'"
+                }
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -258,14 +258,23 @@ CHANNEL_LAYERS = {
 # }
 
 # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# EMAIL_HOST = "localhost"  # Serveur SMTP local
+# EMAIL_PORT = 8025  # Le port que tu as spécifié
+# EMAIL_USE_TLS = False  # Pas besoin de chiffrement pour localhost
+# EMAIL_USE_SSL = False  # Pas besoin de SSL non plus
+# EMAIL_HOST_USER = ""  # Pas besoin d'authentification
+# EMAIL_HOST_PASSWORD = ""  # Pas de mot de passe
+# DEFAULT_FROM_EMAIL = "noreply@localhost"  # Email par défaut
+
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "localhost"  # Serveur SMTP local
-EMAIL_PORT = 8025  # Le port que tu as spécifié
-EMAIL_USE_TLS = False  # Pas besoin de chiffrement pour localhost
-EMAIL_USE_SSL = False  # Pas besoin de SSL non plus
-EMAIL_HOST_USER = ""  # Pas besoin d'authentification
-EMAIL_HOST_PASSWORD = ""  # Pas de mot de passe
-DEFAULT_FROM_EMAIL = "noreply@localhost"  # Email par défaut
+EMAIL_HOST = "smtp.gmail.com"  # Ou smtp.office365.com, smtp.mailtrap.io, etc.
+EMAIL_PORT = 587  # 465 pour SSL, 25 ou 587 pour TLS
+EMAIL_USE_TLS = True  # Ou False si tu utilises SSL
+EMAIL_USE_SSL = False  # False si TLS est activé
+EMAIL_HOST_USER = "systeme.roberp@gmail.com"  # Ton adresse email
+EMAIL_HOST_PASSWORD = "ykio ysav uztv bxia"  # Ton mot de passe SMTP ou clé API si besoin
+DEFAULT_FROM_EMAIL = f"ROBERP <{EMAIL_HOST_USER}>"  # Expéditeur par défaut
 
 
 

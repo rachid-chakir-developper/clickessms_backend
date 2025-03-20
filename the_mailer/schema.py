@@ -11,6 +11,8 @@ from medias.models import Folder, File
 from medias.schema import MediaInput
 from recruitment.models import JobCandidateApplication
 
+from the_mailer.services.mail_services import send_this_email
+
 class SentEmailType(DjangoObjectType):
 	class Meta:
 		model = SentEmail
@@ -86,28 +88,23 @@ class TheMailerQuery(graphene.ObjectType):
 		"""Récupère l'email par défaut à envoyer en fonction du statut de la candidature."""
 		
 		# Initialisation d'un email vide
-		default_sent_email = DefaultSentEmailType(recipient='hhh', subject='', body='')
+		default_sent_email = DefaultSentEmailType(recipient='', subject='', body='')
 
 		if default_sent_email_filter:
-			print('****************default_sent_email_filter**********')
-			print(default_sent_email_filter)
 			job_candidate_application_id = default_sent_email_filter.get('job_candidate_application')
 
 			if job_candidate_application_id:
-				print('****************job_candidate_application_id**********')
-				print(job_candidate_application_id)
 				try:
 					job_candidate_application = JobCandidateApplication.objects.get(pk=job_candidate_application_id)
 					recipient, subject, body = job_candidate_application.get_default_sent_email()
 
-					print('****************heeerrrr11**********')
 					# Mise à jour de l'email par défaut avec les valeurs récupérées
 					default_sent_email.recipient = recipient
 					default_sent_email.subject = subject
 					default_sent_email.body = body
 
 				except JobCandidateApplication.DoesNotExist:
-					print(f'****************DoesNotExist********** ')
+					pass
 
 		return default_sent_email
 
@@ -132,8 +129,21 @@ class SendTheEmail(graphene.Mutation):
 		success = False
 		message = ''
 		try:
-			sent = True
-			success = True
+			subject = sent_email_data.get('subject', '')
+			body = sent_email_data.get('body', '')
+			recipient= sent_email_data.get('recipient', '')
+			company = creator.the_current_company
+			employee = creator.get_employee_in_company()
+			reply_to_email = employee.email if employee.email else creator.email
+			success = send_this_email(
+				subject=subject,
+				html_content=body,
+				from_name=company.name,
+				from_email=company.email if company.email else reply_to_email,
+				to_email=[recipient],
+				reply_to_email=[reply_to_email]
+			)
+			sent = success
 		except Exception as e:
 			message = "Une erreur est survenue lors de l'envoi."
 		return SendTheEmail(sent=sent, success=success, message=message, sent_email=sent_email)

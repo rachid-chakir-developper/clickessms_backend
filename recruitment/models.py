@@ -183,7 +183,7 @@ class JobCandidateInformationSheet(models.Model):
 	job_candidate = models.ForeignKey(JobCandidate, on_delete=models.SET_NULL, related_name='job_candidate_information_sheets', null=True)
 	description = models.TextField(default='', null=True)
 	observation = models.TextField(default='', null=True)
-	message = models.TextField(default='', null=True)
+	comment = models.TextField(default='', null=True)
 	access_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
 	token_expiration = models.DateTimeField(blank=True, null=True)
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")

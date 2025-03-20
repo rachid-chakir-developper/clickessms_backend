@@ -247,7 +247,7 @@ class JobCandidateInformationSheetInput(graphene.InputObjectType):
     job_platform_id = graphene.Int(name="jobPlatform", required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
-    message = graphene.String(required=False)
+    comment = graphene.String(required=False)
     status = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     job_candidate_id = graphene.Int(name="jobCandidate", required=False)
@@ -272,6 +272,7 @@ class GenerateJobCandidateInformationSheetInput(graphene.InputObjectType):
     job_platform_id = graphene.Int(name="jobPlatform", required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    comment = graphene.String(required=False)
     rating = graphene.Int(required=False)
     status = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
@@ -918,14 +919,14 @@ class UpdateJobCandidateApplicationFields(graphene.Mutation):
             job_candidate_application = JobCandidateApplication.objects.get(pk=id)
             JobCandidateApplication.objects.filter(pk=id).update(**job_candidate_application_data)
             job_candidate_application.refresh_from_db()
-            if 'status' in job_candidate_application_data:
-                if job_candidate_application.status == 'INTERESTED':
-                    job_candidate_application.send_application_interest_email()
-                elif job_candidate_application.status == 'REJECTED':
-                    job_candidate_application.send_application_rejection_email()
-                elif job_candidate_application.status == 'ACCEPTED':
-                    job_candidate_application.send_application_acceptance_email()
-                job_candidate_application.refresh_from_db()
+            # if 'status' in job_candidate_application_data:
+            #     if job_candidate_application.status == 'INTERESTED':
+            #         job_candidate_application.send_application_interest_email()
+            #     elif job_candidate_application.status == 'REJECTED':
+            #         job_candidate_application.send_application_rejection_email()
+            #     elif job_candidate_application.status == 'ACCEPTED':
+            #         job_candidate_application.send_application_acceptance_email()
+            #     job_candidate_application.refresh_from_db()
         except Exception as e:
             done = False
             success = False
@@ -1070,7 +1071,7 @@ class CreateJobCandidateInformationSheet(graphene.Mutation):
                 
             if job_candidate_information_sheet:
                 if message:
-                    job_candidate_information_sheet.message = message
+                    job_candidate_information_sheet.comment = comment
                     job_candidate_information_sheet.save()
             else:
                 job_candidate_information_sheet = JobCandidateInformationSheet(**job_candidate_information_sheet_data)
@@ -1109,7 +1110,7 @@ class CreateJobCandidateInformationSheet(graphene.Mutation):
                             document_file.save()
                             document_record.document = document_file
                         document_record.save()
-            job_candidate_information_sheet.send_job_candidate_information_sheet_email()
+            # job_candidate_information_sheet.send_job_candidate_information_sheet_email()
 
         except Exception as e:
             raise e
