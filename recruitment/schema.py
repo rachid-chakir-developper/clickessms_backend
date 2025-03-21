@@ -290,7 +290,7 @@ class RecruitmentQuery(graphene.ObjectType):
     job_candidate_applications = graphene.Field(JobCandidateApplicationNodeType, job_candidate_application_filter= JobCandidateApplicationFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     job_candidate_application = graphene.Field(JobCandidateApplicationType, id = graphene.ID())
     job_candidate_information_sheets = graphene.Field(JobCandidateInformationSheetNodeType, job_candidate_information_sheet_filter= JobCandidateInformationSheetFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
-    job_candidate_information_sheet = graphene.Field(JobCandidateInformationSheetType, id = graphene.ID(), access_token= graphene.String(required=False))
+    job_candidate_information_sheet = graphene.Field(JobCandidateInformationSheetType, id = graphene.ID(required=False), access_token= graphene.String(required=False))
     def resolve_job_positions(root, info, job_position_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -489,7 +489,7 @@ class RecruitmentQuery(graphene.ObjectType):
             job_candidate_information_sheets = job_candidate_information_sheets[offset:offset + limit]
         return JobCandidateInformationSheetNodeType(nodes=job_candidate_information_sheets, total_count=total_count)
 
-    def resolve_job_candidate_information_sheet(root, info, id, access_token=None):
+    def resolve_job_candidate_information_sheet(root, info, id=None, access_token=None):
         # We can easily optimize query count in the resolve method
         try:
             job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)

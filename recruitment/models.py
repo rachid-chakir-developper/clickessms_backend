@@ -1,4 +1,5 @@
 from django.db import models
+import jwt
 import uuid
 from django.conf import settings
 from django.utils.timezone import now
@@ -137,7 +138,7 @@ class JobCandidateApplication(models.Model):
 	observation = models.TextField(default='', null=True)
 	rating = models.PositiveIntegerField(default=0)
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
-	job_position = models.ForeignKey(JobPosition, on_delete=models.SET_NULL, null=True, blank=True)
+	job_position = models.ForeignKey(JobPosition, on_delete=models.SET_NULL, null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='job_candidate_applications', null=True)
@@ -187,7 +188,7 @@ class JobCandidateInformationSheet(models.Model):
 	access_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
 	token_expiration = models.DateTimeField(blank=True, null=True)
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
-	job_position = models.ForeignKey(JobPosition, on_delete=models.SET_NULL, null=True, blank=True)
+	job_position = models.ForeignKey(JobPosition, on_delete=models.SET_NULL, null=True)
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='job_candidate_information_sheets', null=True)
@@ -202,9 +203,28 @@ class JobCandidateInformationSheet(models.Model):
 		return send_job_candidate_information_sheet_email(self)
 
 	def generate_access_token(self):
-		self.access_token = uuid.uuid4().hex  # Génère un token unique
-		self.token_expiration = now() + timedelta(days=15)  # Expire dans 2 jours
-		self.save()
+		"""
+		Génère un JWT contenant l'id du candidat et de la candidature.
+		"""
+		try:
+			payload = {
+				"id": self.id,
+				"exp": now() + timedelta(days=15),  # Converti en timestamp UNIX
+				"jti": uuid.uuid4().hex  # Identifiant unique du token
+			}
+
+			# Génération du token JWT
+			token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+
+			# Sauvegarde dans le modèle
+			self.access_token = token
+			self.token_expiration = now() + timedelta(days=15)
+			self.save()
+
+			return token  # Retourne le token
+		except Exception as e:
+			print(e)
+			raise e
 
 	def get_access_link(self):
 		"""Construit le lien d'accès au formulaire."""
