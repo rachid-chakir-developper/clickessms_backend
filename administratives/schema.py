@@ -639,8 +639,8 @@ class DeleteCall(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            call = Call.objects.get(pk=id)
+        call = Call.objects.get(pk=id)
+        if current_user.is_superuser or call.creator==current_user:
             call.delete()
             deleted = True
             success = True
@@ -822,8 +822,8 @@ class DeleteLetter(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            letter = Letter.objects.get(pk=id)
+        letter = Letter.objects.get(pk=id)
+        if current_user.is_superuser or letter.creator==current_user:
             letter.delete()
             deleted = True
             success = True
