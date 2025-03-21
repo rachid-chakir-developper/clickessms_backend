@@ -672,6 +672,8 @@ class CreateLetter(graphene.Mutation):
             letter.observation = letter_data.observation
             letter.is_active = letter_data.is_active
             letter.creator = user
+            company = user.the_current_company
+            letter.company = company
             if hasattr(letter_data, 'employee') and letter_data.employee:
                 letter.employee_id = letter_data.employee
             if document:
