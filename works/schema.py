@@ -108,6 +108,11 @@ class TaskType(DjangoObjectType):
         model = Task
         fields = "__all__"
 
+    def resolve_employee(instance, info, **kwargs):
+        if not instance.employee:
+            return instance.creator.get_employee_in_company()
+        return instance.employee
+
 class TaskNodeType(graphene.ObjectType):
     nodes = graphene.List(TaskType)
     total_count = graphene.Int()
@@ -233,7 +238,7 @@ class WorksQuery(graphene.ObjectType):
     def resolve_tasks(root, info, task_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         tasks = Task.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_facility():
@@ -252,7 +257,7 @@ class WorksQuery(graphene.ObjectType):
             order_by = task_filter.get('order_by')
             if list_type:
                 if list_type != 'ALL':
-                    tasks = Task.objects.filter(company=company)
+                    tasks = Task.objects.filter(company=company, is_deleted=False)
                 if list_type == 'MY_TASKS':
                     tasks = tasks.filter(workers__employee=user.get_employee_in_company(), status__in=['TO_DO', 'IN_PROGRESS', 'COMPLETED'])
                 elif list_type == 'MY_TASK_REQUESTS':
@@ -460,6 +465,8 @@ class CreateTask(graphene.Mutation):
         task.save()
         folder = Folder.objects.create(name=str(task.id)+'_'+task.name,creator=creator)
         task.folder = folder
+        if not task.employee:
+            task.employee = creator.get_employee_in_company()
         task.save()
         employees = Employee.objects.filter(id__in=worker_ids)
         for employee in employees:
