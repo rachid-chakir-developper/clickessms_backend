@@ -6,6 +6,7 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
+from accounts.utils import decode_access_token
 from recruitment.models import JobPosition, JobPosting, JobPostingPlatform, JobCandidate, JobCandidateApplication, JobCandidateInformationSheet
 from medias.models import Folder, File, DocumentRecord
 from medias.schema import MediaInput, DocumentRecordInput
@@ -490,12 +491,32 @@ class RecruitmentQuery(graphene.ObjectType):
         return JobCandidateInformationSheetNodeType(nodes=job_candidate_information_sheets, total_count=total_count)
 
     def resolve_job_candidate_information_sheet(root, info, id=None, access_token=None):
-        # We can easily optimize query count in the resolve method
-        try:
-            job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
-        except JobCandidateInformationSheet.DoesNotExist:
-            job_candidate_information_sheet = None
-        return job_candidate_information_sheet
+        """
+        Récupère une fiche candidat à partir de l'ID ou d'un token JWT valide.
+        """
+        # Si un token est fourni, on le vérifie
+        if access_token:
+            # Décodage du token
+            payload = decode_access_token(access_token)
+            candidate_id = payload.get("id")
+            if not candidate_id:
+                raise ValueError("Token invalide, ID de fiche renseignement manquant.")
+
+            # Récupération de la fiche candidate
+            job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=candidate_id)
+            return job_candidate_information_sheet
+
+        # Si un ID est fourni sans token
+        elif id:
+            try:
+                return JobCandidateInformationSheet.objects.get(pk=id)
+            except JobCandidateInformationSheet.DoesNotExist:
+                raise ValueError("Fiche candidat non trouvée.")
+
+        # Si aucun ID ni token n'est fourni
+        else:
+            raise ValueError("Veuillez fournir un ID ou un token d'accès valide.")
+
 
 #***************************************************************************
 
@@ -1118,13 +1139,17 @@ class CreateJobCandidateInformationSheet(graphene.Mutation):
 
 class UpdateJobCandidateInformationSheet(graphene.Mutation):
     class Arguments:
-        id = graphene.ID()
+        id = graphene.ID(required=False)
+        access_token= graphene.String(required=False)
         job_candidate_information_sheet_data = JobCandidateInformationSheetInput(required=True)
 
     job_candidate_information_sheet = graphene.Field(JobCandidateInformationSheetType)
 
-    def mutate(root, info, id, job_candidate_information_sheet_data=None):
+    def mutate(root, info, id=None, access_token=None, job_candidate_information_sheet_data=None):
         creator = info.context.user
+        if access_token:
+            payload = decode_access_token(access_token)
+            id = payload.get("id")
         document_records = job_candidate_information_sheet_data.pop("document_records", None)
         JobCandidateInformationSheet.objects.filter(pk=id).update(**job_candidate_information_sheet_data)
         job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
@@ -1135,7 +1160,6 @@ class UpdateJobCandidateInformationSheet(graphene.Mutation):
             job_candidate_information_sheet.employee = creator.get_employee_in_company()
             job_candidate_information_sheet.save()
         job_candidate_information_sheet.save()
-
         if document_records is not None:
             document_record_ids = [item.id for item in document_records if item.id is not None]
             DocumentRecord.objects.filter(job_candidate_information_sheet=job_candidate_information_sheet).exclude(id__in=document_record_ids).delete()
@@ -1166,7 +1190,8 @@ class UpdateJobCandidateInformationSheet(graphene.Mutation):
 
 class UpdateJobCandidateInformationSheetFields(graphene.Mutation):
     class Arguments:
-        id = graphene.ID()
+        id = graphene.ID(required=False)
+        access_token= graphene.String(required=False)
         job_candidate_information_sheet_data = JobCandidateInformationSheetFieldInput(required=True)
 
     job_candidate_information_sheet = graphene.Field(JobCandidateInformationSheetType)
@@ -1174,8 +1199,11 @@ class UpdateJobCandidateInformationSheetFields(graphene.Mutation):
     success = graphene.Boolean()
     message = graphene.String()
 
-    def mutate(root, info, id, job_candidate_information_sheet_data=None):
+    def mutate(root, info, id=None, access_token=None, job_candidate_information_sheet_data=None):
         creator = info.context.user
+        if access_token:
+            payload = decode_access_token(access_token)
+            id = payload.get("id")
         done = True
         success = True
         job_candidate_information_sheet = None

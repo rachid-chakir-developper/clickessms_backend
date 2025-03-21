@@ -106,6 +106,8 @@ class DocumentRecord(models.Model):
 	starting_date = models.DateField(null=True)
 	ending_date = models.DateField(null=True)
 	description = models.TextField(default='', null=True)
+	observation = models.TextField(default='', null=True)
+	comment = models.TextField(default='', null=True)
 	is_notification_enabled = models.BooleanField(default=True, null=True)
 	notification_period_unit = models.CharField(max_length=50, choices=NOTIFICATION_PERIOD_UNITS, default= "MONTH")
 	notification_period_value = models.PositiveIntegerField(default=1, null=True)

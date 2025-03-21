@@ -170,6 +170,7 @@ class JobCandidateApplication(models.Model):
 class JobCandidateInformationSheet(models.Model):
 	STATUS_CHOICES = [
 		('PENDING', 'En attente'),
+		('SENT', 'Envoyé'),
 		('REJECTED', 'Rejeté'),
 		('ACCEPTED', 'Accepté'),
 	]
@@ -209,12 +210,16 @@ class JobCandidateInformationSheet(models.Model):
 		try:
 			payload = {
 				"id": self.id,
-				"exp": now() + timedelta(days=15),  # Converti en timestamp UNIX
+				"exp": now().timestamp() + timedelta(days=15).total_seconds(),  # Timestamp UNIX
 				"jti": uuid.uuid4().hex  # Identifiant unique du token
 			}
 
 			# Génération du token JWT
 			token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+
+			# Vérifie si le token est en bytes et le convertit en string
+			if isinstance(token, bytes):
+				token = token.decode("utf-8")
 
 			# Sauvegarde dans le modèle
 			self.access_token = token

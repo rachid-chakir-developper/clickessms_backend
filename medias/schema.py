@@ -35,6 +35,8 @@ class DocumentRecordInput(graphene.InputObjectType):
     starting_date = graphene.DateTime(required=False)
     ending_date = graphene.DateTime(required=False)
     description = graphene.String(required=False)
+    observation = graphene.String(required=False)
+    comment = graphene.String(required=False)
     is_notification_enabled = graphene.Boolean(required=False)
     notification_period_unit = graphene.String(required=False)
     notification_period_value = graphene.Int(required=False)
