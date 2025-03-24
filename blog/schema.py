@@ -48,10 +48,7 @@ class BlogQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        if user.is_member_of_sce():
-            posts = Post.objects.filter(company__id=id_company, is_deleted=False) if id_company else Post.objects.filter(company=company, is_deleted=False)
-        else:
-            posts = Post.objects.filter(company__id=id_company, is_deleted=False, creator=user)
+        posts = Post.objects.filter(company__id=id_company, is_deleted=False) if id_company else Post.objects.filter(company=company, is_deleted=False)
         if post_filter:
             keyword = post_filter.get('keyword', '')
             starting_date_time = post_filter.get('starting_date_time')
@@ -90,6 +87,8 @@ class CreatePost(graphene.Mutation):
 
     def mutate(root, info, image=None, files=None, post_data=None):
         creator = info.context.user
+        if not creator.can_manage_sce():
+            raise ValueError("Vous devez être président du CSE pour effectuer cette action.")
         post = Post(**post_data)
         post.creator = creator
         post.company = creator.the_current_company
@@ -132,6 +131,8 @@ class UpdatePost(graphene.Mutation):
 
     def mutate(root, info, id, image=None, files=None, post_data=None):
         creator = info.context.user
+        if not creator.can_manage_sce():
+            raise ValueError("Vous devez être président du CSE pour effectuer cette action.")
         Post.objects.filter(pk=id).update(**post_data)
         post = Post.objects.get(pk=id)
         if not image and post.image:

@@ -67,10 +67,7 @@ class SceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        if user.is_member_of_sce():
-            sce_members = SceMember.objects.filter(company__id=id_company, is_deleted=False) if id_company else SceMember.objects.filter(company=company, is_deleted=False)
-        else:
-            sce_members = SceMember.objects.filter(company__id=id_company,creator=user, is_deleted=False)
+        sce_members = SceMember.objects.filter(company__id=id_company, is_deleted=False) if id_company else SceMember.objects.filter(company=company, is_deleted=False)
         if sce_member_filter:
             keyword = sce_member_filter.get('keyword', '')
             starting_date_time = sce_member_filter.get('starting_date_time')
@@ -101,10 +98,7 @@ class SceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        if user.is_member_of_sce():
-            sce_benefits = SceBenefit.objects.filter(company__id=id_company, is_deleted=False) if id_company else SceBenefit.objects.filter(company=company, is_deleted=False)
-        else:
-            sce_benefits = SceBenefit.objects.filter(company=company, creator=user, is_deleted=False)
+        sce_benefits = SceBenefit.objects.filter(company__id=id_company, is_deleted=False) if id_company else SceBenefit.objects.filter(company=company, is_deleted=False)
         if sce_benefit_filter:
             keyword = sce_benefit_filter.get('keyword', '')
             starting_date_time = sce_benefit_filter.get('starting_date_time')
