@@ -50,17 +50,41 @@ class Register(mutations.Register):
         user = info.context.user
         return cls(user=user)
 
+class CustomPasswordChange(mutations.PasswordChange):
+    user = graphene.Field(UserType)
+
+    @classmethod
+    def mutate(cls, root, info, **kwargs):
+        user = info.context.user
+
+        # Vérifier si l'utilisateur a déjà changé son mot de passe
+        if not user.is_must_change_password:
+            raise Exception("Vous avez déjà changé votre mot de passe.")
+
+        # Exécuter la mutation d'origine
+        response = super().mutate(root, info, **kwargs)
+
+        # Si le changement est réussi, mettre à jour is_must_change_password
+        if response.success:
+            user.is_must_change_password = False
+            user.save()
+
+        return response
+
 class AuthMutation(graphene.ObjectType):
-   # register = mutations.Register.Field()
-   register = Register.Field()
-   verify_account = mutations.VerifyAccount.Field()
-   # token_auth = mutations.ObtainJSONWebToken.Field()
-   token_auth = ObtainJSONWebToken.Field()
-   verify_token = mutations.VerifyToken.Field()
-   refresh_token = mutations.RefreshToken.Field()
-   revoke_token = mutations.RevokeToken.Field()
-   update_account = mutations.UpdateAccount.Field()
-   password_change = mutations.PasswordChange.Field()
+    # register = mutations.Register.Field()
+    register = Register.Field()
+    verify_account = mutations.VerifyAccount.Field()
+    # token_auth = mutations.ObtainJSONWebToken.Field()
+    token_auth = ObtainJSONWebToken.Field()
+    verify_token = mutations.VerifyToken.Field()
+    refresh_token = mutations.RefreshToken.Field()
+    revoke_token = mutations.RevokeToken.Field()
+    update_account = mutations.UpdateAccount.Field()
+    # Mot de passe standard (permet à tout utilisateur de changer son mot de passe)
+    password_change = mutations.PasswordChange.Field()
+    # Changement de mot de passe obligatoire (désactive is_must_change_password après exécution)
+    first_password_change = CustomPasswordChange.Field()
 
 class Query(MeQuery, UserQuery, MediasQuery, TheMailerQuery, DataQuery, SearchQuery, DashboardQuery,
     CompanyQuery, HumanRessourcesQuery, RecruitmentQuery, StocksQuery, ComputersQuery,

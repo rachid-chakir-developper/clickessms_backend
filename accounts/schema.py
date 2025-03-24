@@ -117,6 +117,7 @@ class UserInput(graphene.InputObjectType):
     password2 = graphene.String(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    is_must_change_password = graphene.Boolean(required=False)
     is_active = graphene.Boolean(required=False)
     is_cgu_accepted = graphene.Boolean(required=False)
     roles = graphene.List(graphene.String, required=False)

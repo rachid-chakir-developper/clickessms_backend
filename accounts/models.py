@@ -37,6 +37,7 @@ class User(AbstractUser):
     email = models.EmailField(max_length=254, null=True)
     is_cgu_accepted = models.BooleanField(null=True)
     is_online = models.BooleanField(default=False, null=True)
+    is_must_change_password = models.BooleanField(default=True, null=True)
     number_current_connexions = models.PositiveIntegerField(default=0, null=True)
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
@@ -216,8 +217,30 @@ class User(AbstractUser):
     def can_manage_sce(self, user=None):
         if self.is_superuser:
             return True
-        roles = ['SUPER_ADMIN', 'ADMIN' ,'SCE_MANAGER']
-        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+
+        # Rôles autorisés pour gérer le SCE
+        roles = ['SUPER_ADMIN', 'ADMIN', 'SCE_MANAGER']
+
+        # Si un utilisateur est passé en paramètre, obtenir son employé
+        employe = user.get_employee_in_company() if user else self.get_employee_in_company()
+
+        # Vérifie si l'utilisateur a l'un des rôles autorisés dans la société
+        can_manage_roles = (user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles))
+
+        # Vérifie également si l'employé peut gérer le SCE
+        can_manage_employee_sce = employe and employe.can_manage_sce() if employe else False
+
+        return can_manage_roles or can_manage_employee_sce
+    def is_member_of_sce(self, user=None):
+        """
+        Vérifie si l'utilisateur est membre du SCE en fonction de ses rôles.
+        """
+        if self.is_superuser:
+            return True
+
+        employe = user.get_employee_in_company() if user else self.get_employee_in_company()
+        
+        return employe and employe.is_member_of_sce()
     def can_manage_quality(self, user=None):
         if self.is_superuser:
             return True

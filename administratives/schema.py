@@ -292,9 +292,9 @@ class AdministrativesQuery(graphene.ObjectType):
     def resolve_calls(root, info, call_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
-        calls = Call.objects.filter(company=company)
+        calls = Call.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_administration():
             if user.is_manager():
                 calls = calls.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -331,9 +331,9 @@ class AdministrativesQuery(graphene.ObjectType):
     def resolve_letters(root, info, letter_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
-        letters = Letter.objects.filter(company=company)
+        letters = Letter.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_administration():
             if user.is_manager():
                 letters = letters.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -371,9 +371,9 @@ class AdministrativesQuery(graphene.ObjectType):
     def resolve_meetings(root, info, meeting_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
-        meetings = Meeting.objects.filter(company=company)
+        meetings = Meeting.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_administration() and not user.can_manage_human_ressources():
             if user.is_manager():
                 meetings = meetings.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -387,6 +387,11 @@ class AdministrativesQuery(graphene.ObjectType):
             meeting_mode = meeting_filter.get('meeting_mode', 'SIMPLE')
             if meeting_mode == 'INTERVIEW':
                 if user.is_admin():
+                    meetings = Meeting.objects.filter(company=company)
+                else:
+                    meetings = meetings.filter(Q(participants__employee=user.get_employee_in_company()) | Q(creator=user))
+            if meeting_mode == 'PV_SCE':
+                if user.is_member_of_sce():
                     meetings = Meeting.objects.filter(company=company)
                 else:
                     meetings = meetings.filter(Q(participants__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -421,11 +426,14 @@ class AdministrativesQuery(graphene.ObjectType):
     ):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = (
-            user.current_company if user.current_company is not None else user.company
-        )
+        company = user.the_current_company
         total_count = 0
-        frame_documents = FrameDocument.objects.filter(company=company)
+        frame_documents = FrameDocument.objects.filter(company=company, is_deleted=False)
+        if not user.can_manage_administration():
+            if user.is_manager():
+                frame_documents = frame_documents.filter(Q(establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+            else:
+                frame_documents = frame_documents.filter(creator=user)
         the_order_by = '-created_at'
         if frame_document_filter:
             keyword = frame_document_filter.get("keyword", "")
@@ -1058,16 +1066,18 @@ class DeleteMeeting(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            meeting = Meeting.objects.get(pk=id)
-            meeting.delete()
+        meeting = Meeting.objects.get(pk=id)
+        if current_user.is_superuser or (meeting.meeting_mode=='PV_SCE' and current_user.can_manage_sce()) or (meeting.creator == current_user):
+            # meeting = Meeting.objects.get(pk=id)
+            # meeting.delete()
+            Meeting.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
             message = "Vous n'êtes pas un Superuser."
         return DeleteMeeting(deleted=deleted, success=success, message=message, id=id)
 
-#************************************************************************
+# ************************************************************************
 # ************************************************************************
 
 
@@ -1080,6 +1090,8 @@ class CreateFrameDocument(graphene.Mutation):
 
     def mutate(root, info, document=None, frame_document_data=None):
         creator = info.context.user
+        if not creator.can_manage_administration():
+            raise ValueError("Vous devez être responsable administartif pour effectuer cette action.")
         establishment_ids = frame_document_data.pop("establishments", None)
         frame_document = FrameDocument(**frame_document_data)
         frame_document.creator = creator
@@ -1110,6 +1122,8 @@ class UpdateFrameDocument(graphene.Mutation):
 
     def mutate(root, info, id, document=None, frame_document_data=None):
         creator = info.context.user
+        if not creator.can_manage_administration():
+            raise ValueError("Vous devez être responsable administartif pour effectuer cette action.")
         establishment_ids = frame_document_data.pop("establishments", None)
         FrameDocument.objects.filter(pk=id).update(**frame_document_data)
         frame_document = FrameDocument.objects.get(pk=id)
@@ -1131,7 +1145,6 @@ class UpdateFrameDocument(graphene.Mutation):
             frame_document.save()
         return UpdateFrameDocument(frame_document=frame_document)
 
-
 class DeleteFrameDocument(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -1145,15 +1158,17 @@ class DeleteFrameDocument(graphene.Mutation):
     def mutate(root, info, id):
         deleted = False
         success = False
-        message = ""
+        message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            frame_document = FrameDocument.objects.get(pk=id)
-            frame_document.delete()
+        frame_document = FrameDocument.objects.get(pk=id)
+        if current_user.is_superuser or current_user.can_manage_administration() or (frame_document.creator == current_user):
+            # frame_document = FrameDocument.objects.get(pk=id)
+            # frame_document.delete()
+            FrameDocument.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteFrameDocument(deleted=deleted, success=success, message=message, id=id)
 
 

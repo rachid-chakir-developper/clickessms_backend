@@ -48,7 +48,10 @@ class BlogQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        posts = Post.objects.filter(company__id=id_company) if id_company else Post.objects.filter(company=company)
+        if user.is_member_of_sce():
+            posts = Post.objects.filter(company__id=id_company, is_deleted=False) if id_company else Post.objects.filter(company=company, is_deleted=False)
+        else:
+            posts = Post.objects.filter(company__id=id_company, is_deleted=False, creator=user)
         if post_filter:
             keyword = post_filter.get('keyword', '')
             starting_date_time = post_filter.get('starting_date_time')
@@ -206,13 +209,15 @@ class DeletePost(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            post = Post.objects.get(pk=id)
-            post.delete()
+        post = Post.objects.get(pk=id)
+        if current_user.is_superuser or current_user.can_manage_sce() or (post.creator == current_user):
+            # post = Post.objects.get(pk=id)
+            # post.delete()
+            Post.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeletePost(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************

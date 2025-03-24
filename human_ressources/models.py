@@ -103,6 +103,17 @@ class Employee(models.Model):
         if roles:
             roles.insert(0, 'MEMBER_IN_SCE')
         return roles
+    def can_manage_sce(self):
+        """
+        Vérifie si l'employé peut gérer le SCE en fonction de son rôle.
+        """
+        # Rôles autorisés pour gérer le SCE
+        roles_autorises = ['PRESIDENT']
+        
+        # Vérifie si l'employé est un membre SCE avec l'un des rôles autorisés
+        return self.sce_members.filter(is_active=True, is_deleted=False, role__in=roles_autorises).exists()
+    def is_member_of_sce(self):
+        return self.sce_members.filter(is_active=True, is_deleted=False).exists()
     @property
     def current_contract(self):
         current_time = timezone.now()

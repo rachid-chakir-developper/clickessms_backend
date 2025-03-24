@@ -158,6 +158,11 @@ class CompanyMediaInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     sce_shop_url = graphene.String(required=False)
     blog_url = graphene.String(required=False)
+    collective_agreement_url = graphene.String(required=False)
+    company_agreement_url = graphene.String(required=False)
+    labor_law_url = graphene.String(required=False)
+    associations_foundations_code_url = graphene.String(required=False)
+    safc_code_url = graphene.String(required=False)
 
 
 class ActivityAuthorizationInput(graphene.InputObjectType):

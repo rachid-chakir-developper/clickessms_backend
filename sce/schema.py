@@ -65,9 +65,12 @@ class SceQuery(graphene.ObjectType):
     def resolve_sce_members(root, info, sce_member_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
-        sce_members = SceMember.objects.filter(company__id=id_company) if id_company else SceMember.objects.filter(company=company)
+        if user.is_member_of_sce():
+            sce_members = SceMember.objects.filter(company__id=id_company, is_deleted=False) if id_company else SceMember.objects.filter(company=company, is_deleted=False)
+        else:
+            sce_members = SceMember.objects.filter(company__id=id_company,creator=user, is_deleted=False)
         if sce_member_filter:
             keyword = sce_member_filter.get('keyword', '')
             starting_date_time = sce_member_filter.get('starting_date_time')
@@ -96,9 +99,12 @@ class SceQuery(graphene.ObjectType):
     def resolve_sce_benefits(root, info, sce_benefit_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
-        sce_benefits = SceBenefit.objects.filter(company__id=id_company) if id_company else SceBenefit.objects.filter(company=company)
+        if user.is_member_of_sce():
+            sce_benefits = SceBenefit.objects.filter(company__id=id_company, is_deleted=False) if id_company else SceBenefit.objects.filter(company=company, is_deleted=False)
+        else:
+            sce_benefits = SceBenefit.objects.filter(company=company, creator=user, is_deleted=False)
         if sce_benefit_filter:
             keyword = sce_benefit_filter.get('keyword', '')
             starting_date_time = sce_benefit_filter.get('starting_date_time')
@@ -133,6 +139,8 @@ class CreateSceMember(graphene.Mutation):
 
     def mutate(root, info, sce_member_data=None):
         creator = info.context.user
+        if not creator.can_manage_sce():
+            raise ValueError("Vous devez être président du CSE pour effectuer cette action.")
         sce_member = None
         try:
             sce_member = SceMember.objects.get(employee__id=sce_member_data.employee_id)
@@ -140,7 +148,7 @@ class CreateSceMember(graphene.Mutation):
         except SceMember.DoesNotExist:
             sce_member = SceMember(**sce_member_data)
             sce_member.creator = creator
-            sce_member.company = creator.current_company if creator.current_company is not None else creator.company
+            sce_member.company = creator.the_current_company
             sce_member.save()
             folder = Folder.objects.create(name=str(sce_member.id)+'_'+sce_member.employee.first_name+'-'+sce_member.employee.last_name,creator=creator)
             sce_member.folder = folder
@@ -156,6 +164,8 @@ class UpdateSceMember(graphene.Mutation):
 
     def mutate(root, info, id, sce_member_data=None):
         creator = info.context.user
+        if not creator.can_manage_sce():
+            raise ValueError("Vous devez être président du CSE pour effectuer cette action.")
         SceMember.objects.filter(pk=id).update(**sce_member_data)
         sce_member = SceMember.objects.get(pk=id)
         if not sce_member.folder or sce_member.folder is None:
@@ -175,6 +185,8 @@ class UpdateSceMemberState(graphene.Mutation):
 
     def mutate(root, info, id, sce_member_fields=None):
         creator = info.context.user
+        if not creator.can_manage_sce():
+            raise ValueError("Vous devez être président du CSE pour effectuer cette action.")
         done = True
         success = True
         sce_member = None
@@ -205,13 +217,15 @@ class DeleteSceMember(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            sce_member = SceMember.objects.get(pk=id)
-            sce_member.delete()
+        sce_member = SceMember.objects.get(pk=id)
+        if current_user.is_superuser or current_user.can_manage_sce() or (sce_member.creator == current_user):
+            # sce_member = SceMember.objects.get(pk=id)
+            # sce_member.delete()
+            SceMember.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteSceMember(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
@@ -225,9 +239,11 @@ class CreateSceBenefit(graphene.Mutation):
 
     def mutate(root, info, sce_benefit_data=None):
         creator = info.context.user
+        if not creator.can_manage_sce():
+            raise ValueError("Vous devez être président du CSE pour effectuer cette action.")
         sce_benefit = SceBenefit(**sce_benefit_data)
         sce_benefit.creator = creator
-        sce_benefit.company = creator.current_company if creator.current_company is not None else creator.company
+        sce_benefit.company = creator.the_current_company
         sce_benefit.save()
         folder = Folder.objects.create(name=str(sce_benefit.id)+'_'+sce_benefit.title+'-'+sce_benefit.title,creator=creator)
         sce_benefit.folder = folder
@@ -243,6 +259,8 @@ class UpdateSceBenefit(graphene.Mutation):
 
     def mutate(root, info, id, sce_benefit_data=None):
         creator = info.context.user
+        if not creator.can_manage_sce():
+            raise ValueError("Vous devez être président du CSE pour effectuer cette action.")
         SceBenefit.objects.filter(pk=id).update(**sce_benefit_data)
         sce_benefit = SceBenefit.objects.get(pk=id)
         if not sce_benefit.folder or sce_benefit.folder is None:
@@ -262,6 +280,8 @@ class UpdateSceBenefitState(graphene.Mutation):
 
     def mutate(root, info, id, sce_benefit_fields=None):
         creator = info.context.user
+        if not creator.can_manage_sce():
+            raise ValueError("Vous devez être président du CSE pour effectuer cette action.")
         done = True
         success = True
         sce_benefit = None
@@ -292,13 +312,15 @@ class DeleteSceBenefit(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            sce_benefit = SceBenefit.objects.get(pk=id)
-            sce_benefit.delete()
+        sce_benefit = SceBenefit.objects.get(pk=id)
+        if current_user.is_superuser or current_user.can_manage_sce() or (sce_benefit.creator == current_user):
+            # sce_benefit = SceBenefit.objects.get(pk=id)
+            # sce_benefit.delete()
+            SceBenefit.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Impossible de supprimer : vous n'avez pas les droits nécessaires."
         return DeleteSceBenefit(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
