@@ -467,6 +467,7 @@ class BeneficiaryFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     establishments = graphene.List(graphene.Int, required=False)
+    list_type = graphene.String(required=False)
     order_by = graphene.String(required=False)
 
 class BeneficiaryGroupItemType(DjangoObjectType):
@@ -920,7 +921,12 @@ class HumanRessourcesQuery(graphene.ObjectType):
             starting_date_time = beneficiary_filter.get('starting_date_time')
             ending_date_time = beneficiary_filter.get('ending_date_time')
             establishments = beneficiary_filter.get('establishments')
+            list_type = beneficiary_filter.get('list_type') # OUT / ALL
             order_by = beneficiary_filter.get('order_by')
+            if list_type:
+                if list_type == 'OUT':
+                    today = timezone.now().date()
+                    beneficiaries = beneficiaries.filter(beneficiary_entries__release_date__lt=today)
             if keyword:
                 beneficiaries = beneficiaries.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword))
             if starting_date_time:
