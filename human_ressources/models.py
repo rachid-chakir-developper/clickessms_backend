@@ -98,7 +98,7 @@ class Employee(models.Model):
 
     @property
     def sce_roles(self):
-        sce_members = self.sce_members.all()
+        sce_members = self.sce_members.filter(is_deleted=False)
         roles = [f"{sce_member.role}_IN_CSE" for sce_member in sce_members]
         if roles:
             roles.insert(0, 'MEMBER_IN_SCE')
@@ -590,6 +590,7 @@ class BeneficiaryEntry(models.Model):
         queryset = cls.objects.filter(
             Q(entry_date__lt=end_of_year),
             Q(release_date__isnull=True) | Q(release_date__gte=start_of_year),
+            beneficiary__is_deleted=False,
         )
         # Filtrer par société si fourni
         if company:
@@ -683,7 +684,7 @@ class BeneficiaryEntry(models.Model):
             end_date = datetime(year, month + 1, 1)
 
         # Filtrer les données de base par entreprise
-        queryset = cls.objects.filter(beneficiary__company=company)
+        queryset = cls.objects.filter(beneficiary__company=company, beneficiary__is_deleted=False)
 
         if establishments:
             # Filtrer uniquement pour les établissements spécifiés
@@ -722,7 +723,8 @@ class BeneficiaryEntry(models.Model):
         # Filtrer les enregistrements de base
         queryset = cls.objects.filter(
             Q(release_date__isnull=True) | Q(release_date__gt=start_of_year),  # Toujours actifs ou sortis après le début de l'année
-            entry_date__lte=end_of_year  # Entrés avant ou pendant l'année
+            entry_date__lte=end_of_year,  # Entrés avant ou pendant l'année
+            beneficiary__is_deleted=False,
         )
 
         # Filtrer par société si fourni
@@ -774,7 +776,8 @@ class BeneficiaryEntry(models.Model):
 
         queryset = cls.objects.filter(
             Q(release_date__isnull=True) | Q(release_date__gt=start_of_year),
-            entry_date__lte=end_of_year
+            entry_date__lte=end_of_year,
+            beneficiary__is_deleted=False,
         )
 
         if company:
@@ -874,7 +877,7 @@ class BeneficiaryEntry(models.Model):
             end_date = datetime(year, month + 1, 1)
 
         # Filtrer les données de base par entreprise
-        queryset = cls.objects.filter(beneficiary__company=company)
+        queryset = cls.objects.filter(beneficiary__company=company, beneficiary__is_deleted=False)
 
         if establishments:
             # Filtrer uniquement pour les établissements spécifiés
@@ -1057,7 +1060,8 @@ class BeneficiaryAdmission(models.Model):
         queryset = cls.objects.filter(
             reception_date__gte=start_of_year,
             reception_date__lte=end_of_year,
-            status__in=["APPROVED", "REJECTED"]
+            status__in=["APPROVED", "REJECTED"],
+            is_deleted=False,
         )
 
         # Filtrer par société si fourni

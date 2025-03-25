@@ -107,7 +107,7 @@ class DecisionDocumentItem(models.Model):
         end_of_year = make_aware(datetime(year, 12, 31, 23, 59, 59))
 
         # Filtrer les éléments pour l'année donnée
-        queryset = cls.objects.filter(Q(ending_date_time__isnull=True) | Q(ending_date_time__gt=end_of_year), starting_date_time__year__lte=year)
+        queryset = cls.objects.filter(Q(ending_date_time__isnull=True) | Q(ending_date_time__gt=end_of_year), starting_date_time__year__lte=year, decision_document__is_deleted=False)
 
         # if company:
         #     queryset = queryset.filter(decision_document__company=company)
