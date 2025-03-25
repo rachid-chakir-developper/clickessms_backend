@@ -380,6 +380,36 @@ class Beneficiary(models.Model):
     @property
     def age(self):
         """
+        Retourne l'âge du bénéficiaire sous le format :
+        - 'X ans et Y mois'
+        - 'X ans' (si Y mois = 0)
+        - 'Y mois' (si < 1 an)
+        """
+        if self.birth_date:
+            today = date.today()
+            birth_date = self.birth_date.date() if isinstance(self.birth_date, datetime) else self.birth_date
+
+            years = today.year - birth_date.year
+            months = today.month - birth_date.month
+
+            # Ajuster si le mois actuel est avant le mois de naissance
+            if months < 0:
+                years -= 1
+                months += 12
+
+            # Gestion des différents cas d'affichage
+            if years == 0:
+                return f"{months} mois" if months > 0 else "Nouveau-né"
+            elif months == 0:
+                return f"{years} ans"
+            else:
+                return f"{years} ans et {months} mois"
+
+        return None  # Si la date de naissance n'est pas renseignée
+
+    @property
+    def age_exact(self):
+        """
         Calculate and return the beneficiary's age as a float based on the birth_date.
         The age is calculated in years, including fractions of a year.
         """
@@ -956,6 +986,36 @@ class BeneficiaryAdmission(models.Model):
 
     @property
     def age(self):
+        """
+        Retourne l'âge du bénéficiaire sous le format :
+        - 'X ans et Y mois'
+        - 'X ans' (si Y mois = 0)
+        - 'Y mois' (si < 1 an)
+        """
+        if self.birth_date:
+            today = date.today()
+            birth_date = self.birth_date.date() if isinstance(self.birth_date, datetime) else self.birth_date
+
+            years = today.year - birth_date.year
+            months = today.month - birth_date.month
+
+            # Ajuster si le mois actuel est avant le mois de naissance
+            if months < 0:
+                years -= 1
+                months += 12
+
+            # Gestion des différents cas d'affichage
+            if years == 0:
+                return f"{months} mois" if months > 0 else "Nouveau-né"
+            elif months == 0:
+                return f"{years} ans"
+            else:
+                return f"{years} ans et {months} mois"
+
+        return None  # Si la date de naissance n'est pas renseignée
+
+    @property
+    def age_exact(self):
         """
         Calculate and return the beneficiary's age as a float based on the birth_date.
         The age is calculated in years, including fractions of a year.

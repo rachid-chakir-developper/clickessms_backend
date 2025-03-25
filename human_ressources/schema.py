@@ -432,7 +432,7 @@ class BeneficiaryType(DjangoObjectType):
     last_name = graphene.String()
     photo = graphene.String()
     cover_image = graphene.String()
-    age = graphene.Float()
+    age = graphene.String()
     balance_details = graphene.JSONString()
     balance = graphene.Float()
     total_expenses = graphene.Float()
@@ -681,7 +681,7 @@ class BeneficiaryAdmissionType(DjangoObjectType):
     class Meta:
         model = BeneficiaryAdmission
         fields = "__all__"
-    age = graphene.Float()
+    age = graphene.String()
     def resolve_age( instance, info, **kwargs ):
         return instance.age
 
