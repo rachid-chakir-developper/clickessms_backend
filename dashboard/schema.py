@@ -527,7 +527,7 @@ class DashboardActivityType(graphene.ObjectType):
                 dashboard_comment = DashboardComment.objects.filter(establishment=establishment, comment_type='SYNTHESIS_ALL', year=str(year), month=str(i+1)).first()
                 dashboard_comments = DashboardComment.objects.filter(establishment=establishment, comment_type='SYNTHESIS', year=str(year), month=str(i+1))
                 count_available_places = capacity-count_occupied_places_prev_month
-                gap_received=int(dashboard_comment.text) if dashboard_comment else 0
+                gap_received = int(dashboard_comment.text) if dashboard_comment and dashboard_comment.text.isdigit() else 0
                 if gap_received==0:
                     gap_received=count_available_places
                 gap_received=(gap_received-count_received)*days_in_month
@@ -561,7 +561,10 @@ class DashboardActivityType(graphene.ObjectType):
             total_gap_rejected = sum(item.gap_rejected for item in activity_synthesis_month)
             total_canceled = sum(item.count_canceled for item in activity_synthesis_month)
             total_available_places = sum(item.count_available_places for item in activity_synthesis_month)
-            total_dashboard_comment = sum(int(item.dashboard_comment.text) if item.dashboard_comment else 0 for item in activity_synthesis_month)
+            total_dashboard_comment = sum(
+                int(item.dashboard_comment.text) if item.dashboard_comment and item.dashboard_comment.text.isdigit() else 0 
+                for item in activity_synthesis_month
+            )
 
             activity_total_synthesis_month = ActivityTotalSynthesisMonthType(
                 year=year,

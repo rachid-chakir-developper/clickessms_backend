@@ -706,15 +706,15 @@ class DeleteInvoice(graphene.Mutation):
         message = ""
         current_user = info.context.user
         invoice = Invoice.objects.get(pk=id)
-        if (current_user.is_superuser or invoice.creator==current_user) and invoice.status=="DRAFT":
+        if (current_user.is_superuser or current_user.can_manage_finance() or invoice.creator==current_user) and invoice.status=="DRAFT":
             if invoice.status == 'DRAFT':
                 invoice.delete()
                 deleted = True
                 success = True
             else:
-                message = "La facture ne pas être supprimée."
+                message = "La facture ne peut pas être supprimée."
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Vous n'avez pas les droits nécessaires pour effectuer cette action."
         return DeleteInvoice(
             deleted=deleted, success=success, message=message, id=id
         )
