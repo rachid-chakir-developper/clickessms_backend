@@ -927,8 +927,14 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 if list_type == 'OUT':
                     today = timezone.now().date()
                     beneficiaries = beneficiaries.annotate(
-                        last_release_date=Max('beneficiary_entries__release_date')
-                    ).filter(last_release_date__isnull=False, last_release_date__lt=today)
+                        last_release_date=Max('beneficiary_entries__release_date'),
+                        last_entry_date=Max('beneficiary_entries__entry_date')
+                    ).filter(
+                        last_release_date__isnull=False,  # A bien une sortie
+                        last_release_date__lt=today,  # Sorti avant aujourd'hui
+                    ).exclude(
+                        last_entry_date__gt=last_release_date  # Exclure ceux qui sont revenus après leur sortie
+                    )
             if keyword:
                 beneficiaries = beneficiaries.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword))
             if starting_date_time:
