@@ -146,8 +146,10 @@ class ActivitySynthesisMonthType(graphene.ObjectType):
     month = graphene.String()
     year = graphene.String()
     count_received = graphene.Int()
+    gap_received = graphene.Int()
     count_approved = graphene.Int()
     count_rejected = graphene.Int()
+    gap_rejected = graphene.Int()
     count_canceled = graphene.Int()
     capacity = graphene.Int()
     count_occupied_places = graphene.Int()
@@ -162,8 +164,10 @@ class ActivityTotalSynthesisMonthType(graphene.ObjectType):
     month = graphene.String()
     year = graphene.String()
     total_received = graphene.Int()
+    total_gap_received = graphene.Int()
     total_approved = graphene.Int()
     total_rejected = graphene.Int()
+    total_gap_rejected = graphene.Int()
     total_canceled = graphene.Int()
     total_available_places = graphene.Int()
     total_dashboard_comment = graphene.Int()
@@ -513,26 +517,37 @@ class DashboardActivityType(graphene.ObjectType):
             # Initialiser les activity_tracking_month par mois
             activity_synthesis_month = []
             for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
+                days_in_month = monthrange(int(year), i+1)[1]
                 capacity = establishment.get_monthly_capacity(year, i+1)
                 beneficiary_entries = get_item_object(beneficiary_entry_monthly_present_beneficiaries, establishment.id, i+1, 'presences')
                 count_occupied_places= len(beneficiary_entries)
                 count_occupied_places_prev_month = BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[establishment.id], company=company)
+                count_received = get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_received')
+                count_rejected = get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_rejected')
                 dashboard_comment = DashboardComment.objects.filter(establishment=establishment, comment_type='SYNTHESIS_ALL', year=str(year), month=str(i+1)).first()
                 dashboard_comments = DashboardComment.objects.filter(establishment=establishment, comment_type='SYNTHESIS', year=str(year), month=str(i+1))
+                count_available_places = capacity-count_occupied_places_prev_month
+                gap_received=int(dashboard_comment.text) if dashboard_comment else 0
+                if gap_received==0:
+                    gap_received=count_available_places
+                gap_received=(gap_received-count_received)*days_in_month
+                gap_rejected=count_rejected*days_in_month
                 item = ActivitySynthesisMonthType(
                     month=month,
                     year=year,
-                    count_received=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_received'),
+                    count_received=count_received,
+                    gap_received=gap_received,
                     count_approved=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_approved'),
-                    count_rejected=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_rejected'),
+                    count_rejected=count_rejected,
+                    gap_rejected=gap_rejected,
                     count_canceled=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled'),
                     beneficiary_admissions=get_item_object(beneficiary_admission_monthly_admissions, establishment.id, i+1, 'admissions'),
                     dashboard_comment=dashboard_comment,
                     dashboard_comments=dashboard_comments,
                     beneficiary_entries=beneficiary_entries,
                     capacity=capacity,
-                    count_occupied_places = count_occupied_places,
-                    count_available_places = capacity-count_occupied_places_prev_month,
+                    count_occupied_places=count_occupied_places,
+                    count_available_places=count_available_places,
                 )  # 'day' utilisé pour le nom du mois
                 activity_synthesis_month.append(item)
                 month_total = month_totals[i]
@@ -540,8 +555,10 @@ class DashboardActivityType(graphene.ObjectType):
 
             # Calcul des agrégats pour ActivityTrackingAccumulationType
             total_received = sum(item.count_received for item in activity_synthesis_month)
+            total_gap_received = sum(item.gap_received for item in activity_synthesis_month)
             total_approved = sum(item.count_approved for item in activity_synthesis_month)
             total_rejected = sum(item.count_rejected for item in activity_synthesis_month)
+            total_gap_rejected = sum(item.gap_rejected for item in activity_synthesis_month)
             total_canceled = sum(item.count_canceled for item in activity_synthesis_month)
             total_available_places = sum(item.count_available_places for item in activity_synthesis_month)
             total_dashboard_comment = sum(int(item.dashboard_comment.text) if item.dashboard_comment else 0 for item in activity_synthesis_month)
@@ -549,8 +566,10 @@ class DashboardActivityType(graphene.ObjectType):
             activity_total_synthesis_month = ActivityTotalSynthesisMonthType(
                 year=year,
                 total_received=round(total_received, 2),
+                total_gap_received=round(total_gap_received, 2),
                 total_approved=round(total_approved, 2),
                 total_rejected=round(total_rejected, 2),
+                total_gap_rejected=round(total_gap_rejected, 2),
                 total_canceled=round(total_canceled, 2),
                 total_available_places=round(total_available_places, 2),
                 total_dashboard_comment=round(total_dashboard_comment, 2),
