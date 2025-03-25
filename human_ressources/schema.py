@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from django.db.models import Q, Subquery, OuterRef
+from django.db.models import Q, Subquery, OuterRef, Max
 
 from human_ressources.models import CareerEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem, Advance
 from medias.models import Folder, File, DocumentRecord
@@ -926,7 +926,9 @@ class HumanRessourcesQuery(graphene.ObjectType):
             if list_type:
                 if list_type == 'OUT':
                     today = timezone.now().date()
-                    beneficiaries = beneficiaries.filter(beneficiary_entries__release_date__lt=today)
+                    beneficiaries = beneficiaries.annotate(
+                        last_release_date=Max('beneficiary_entries__release_date')
+                    ).filter(last_release_date__lt=today)
             if keyword:
                 beneficiaries = beneficiaries.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword))
             if starting_date_time:
