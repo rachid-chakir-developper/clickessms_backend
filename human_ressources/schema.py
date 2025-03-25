@@ -4,7 +4,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
-from django.db.models import Q, Subquery, OuterRef, Max
+from django.db.models import Q, Subquery, OuterRef, Max, F
 
 from human_ressources.models import CareerEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem, Advance
 from medias.models import Folder, File, DocumentRecord
@@ -930,10 +930,10 @@ class HumanRessourcesQuery(graphene.ObjectType):
                         last_release_date=Max('beneficiary_entries__release_date'),
                         last_entry_date=Max('beneficiary_entries__entry_date')
                     ).filter(
-                        last_release_date__isnull=False,  # A bien une sortie
-                        last_release_date__lt=today,  # Sorti avant aujourd'hui
+                        last_release_date__isnull=False,  # Doit avoir une sortie
+                        last_release_date__lt=today,  # Sorti avant aujourd’hui
                     ).exclude(
-                        last_entry_date__gt=last_release_date  # Exclure ceux qui sont revenus après leur sortie
+                        last_entry_date__gt=F('last_release_date')  # Exclure ceux qui sont revenus après leur dernière sortie
                     )
             if keyword:
                 beneficiaries = beneficiaries.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword))
