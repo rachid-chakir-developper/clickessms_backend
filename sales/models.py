@@ -321,7 +321,7 @@ class InvoiceItem(models.Model):
 		("WEEK", "Semaine"),#
 		("MONTH", "Mois")#
 	]
-	invoice = models.ForeignKey(Invoice, on_delete=models.SET_NULL, null=True, related_name='invoice_items')
+	invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, null=True, related_name='invoice_items')
 	label = models.TextField(default='', null=True)
 	establishment_number = models.CharField(max_length=255, null=True)
 	establishment_name = models.CharField(max_length=255, null=True)
