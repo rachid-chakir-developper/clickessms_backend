@@ -540,27 +540,27 @@ class GenerateInvoice(graphene.Mutation):
                 company.additional_address,  # Complément d'adresse (si présent)
                 f"{company.zip_code} {company.city}",  # Code postal + ville
                 company.country,  # Pays
-                {company.fix} if company.fix else None,  # Téléphone fixe
-                {company.mobile} if company.mobile else None,  # Mobile
-                {company.email} if company.email else None,  # Email
+                f"{company.fix}" if company.fix else None,  # Téléphone fixe
+                f"{company.mobile}" if company.mobile else None,  # Mobile
+                f"{company.email}" if company.email else None,  # Email
             ]))
             establishment_infos = "\n".join(filter(None, [
                 establishment.address,  # Adresse principale
                 establishment.additional_address,  # Complément d'adresse (si présent)
                 f"{establishment.zip_code} {establishment.city}",  # Code postal + ville
                 establishment.country,  # Pays
-                {establishment.fix} if establishment.fix else None,  # Téléphone fixe
-                {establishment.mobile} if establishment.mobile else None,  # Mobile
-                {establishment.email} if establishment.email else None,  # Email
+                f"{establishment.fix}" if establishment.fix else None,  # Téléphone fixe
+                f"{establishment.mobile}" if establishment.mobile else None,  # Mobile
+                f"{establishment.email}" if establishment.email else None,  # Email
             ]))
             client_infos = "\n".join(filter(None, [
                 financier.address,  # Adresse principale
                 establishment.additional_address,  # Complément d'adresse (si présent)
                 f"{financier.zip_code} {financier.city}",  # Code postal + ville
                 financier.country,  # Pays
-                {financier.fix} if financier.fix else None,  # Téléphone fixe
-                {financier.mobile} if financier.mobile else None,  # Mobile
-                {financier.email} if financier.email else None,  # Email
+                f"{financier.fix}" if financier.fix else None,  # Téléphone fixe
+                f"{financier.mobile}" if financier.mobile else None,  # Mobile
+                f"{financier.email}" if financier.email else None,  # Email
             ]))
             invoice_fields = {
                 'title': f"Facture du {int(month):02d}/{year}  pour {establishment.name}",
@@ -674,8 +674,12 @@ class GenerateInvoice(graphene.Mutation):
                         )
                     invoice_items.append(invoice_item)
 
-            # Bulk create invoice items
-            InvoiceItem.objects.bulk_create(invoice_items)
+            # Bulk creation des éléments de facture
+            try:
+                InvoiceItem.objects.bulk_create(invoice_items)
+            except Exception as e:
+                return GenerateInvoice(invoice=None, success=False, message=f"Erreur lors de la création des éléments de facture : {str(e)}")
+
 
             # Update invoice totals after adding all items
             invoice.update_totals()

@@ -304,7 +304,8 @@ class Establishment(models.Model):
         # Utilisation de la relation inversée pour filtrer les bénéficiaires liés à cet établissement
         queryset = self.establishments_beneficiary_entries.filter(
             Q(entry_date__lt=month_end),  # Entré avant ou pendant le mois
-            Q(release_date__isnull=True) | Q(release_date__gte=month_start)  # Pas encore sorti ou sortie après le début du mois
+            Q(release_date__isnull=True) | Q(release_date__gte=month_start),  # Pas encore sorti ou sortie après le début du mois
+            beneficiary__is_deleted=False
         )
 
         beneficiaries = []
