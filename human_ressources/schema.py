@@ -928,7 +928,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
                     today = timezone.now().date()
                     beneficiaries = beneficiaries.annotate(
                         last_release_date=Max('beneficiary_entries__release_date')
-                    ).filter(last_release_date__lt=today)
+                    ).filter(last_release_date__isnull=False, last_release_date__lt=today)
             if keyword:
                 beneficiaries = beneficiaries.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword))
             if starting_date_time:
