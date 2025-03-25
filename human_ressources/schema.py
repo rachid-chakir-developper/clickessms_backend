@@ -926,30 +926,34 @@ class HumanRessourcesQuery(graphene.ObjectType):
             if list_type:
                 if list_type == 'OUT':
                     today = timezone.now().date()
-                    # Récupérer la dernière date de sortie pour chaque bénéficiaire
+                    # Sous-requête pour récupérer la dernière date de sortie
                     last_release_date_subquery = (
                         BeneficiaryEntry.objects
                         .filter(beneficiary=OuterRef('pk'), release_date__isnull=False)
                         .order_by('-release_date')
-                        .values('release_date')[:1]  # Récupère la dernière sortie
+                        .values('release_date')[:1]
                     )
 
-                    # Récupérer la dernière date d'entrée pour chaque bénéficiaire
+                    # Sous-requête pour récupérer la dernière date d'entrée
                     last_entry_date_subquery = (
                         BeneficiaryEntry.objects
                         .filter(beneficiary=OuterRef('pk'))
                         .order_by('-entry_date')
-                        .values('entry_date')[:1]  # Récupère la dernière entrée
+                        .values('entry_date')[:1]
                     )
 
+                    # Annoter chaque bénéficiaire avec ses dernières dates d'entrée et de sortie
                     beneficiaries = beneficiaries.annotate(
                         last_release_date=Subquery(last_release_date_subquery),
                         last_entry_date=Subquery(last_entry_date_subquery)
-                    ).filter(
+                    )
+
+                    # Appliquer les filtres sur le queryset déjà annoté
+                    beneficiaries = beneficiaries.filter(
                         last_release_date__isnull=False,  # Doit avoir une sortie
-                        last_release_date__lt=today,  # Dernière sortie avant aujourd’hui
+                        last_release_date__lt=today  # Dernière sortie avant aujourd’hui
                     ).exclude(
-                        last_entry_date__gt=OuterRef('last_release_date')  # Aucune entrée après la dernière sortie
+                        last_entry_date__gt=F('last_release_date')  # Pas de nouvelle entrée après la dernière sortie
                     )
             if keyword:
                 beneficiaries = beneficiaries.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(preferred_name__icontains=keyword) | Q(email__icontains=keyword))
