@@ -166,6 +166,7 @@ class ActivityTotalSynthesisMonthType(graphene.ObjectType):
     total_rejected = graphene.Int()
     total_canceled = graphene.Int()
     total_available_places = graphene.Int()
+    total_dashboard_comment = graphene.Int()
 
 class ActivitySynthesisEstablishmentType(graphene.ObjectType):
     title = graphene.String()
@@ -543,6 +544,7 @@ class DashboardActivityType(graphene.ObjectType):
             total_rejected = sum(item.count_rejected for item in activity_synthesis_month)
             total_canceled = sum(item.count_canceled for item in activity_synthesis_month)
             total_available_places = sum(item.count_available_places for item in activity_synthesis_month)
+            total_dashboard_comment = sum(int(item.dashboard_comment.text) if item.dashboard_comment else 0 for item in activity_synthesis_month)
 
             activity_total_synthesis_month = ActivityTotalSynthesisMonthType(
                 year=year,
@@ -551,6 +553,7 @@ class DashboardActivityType(graphene.ObjectType):
                 total_rejected=round(total_rejected, 2),
                 total_canceled=round(total_canceled, 2),
                 total_available_places=round(total_available_places, 2),
+                total_dashboard_comment=round(total_dashboard_comment, 2),
             )
             activity_synthesis_establishments.append(
                 ActivitySynthesisEstablishmentType(
