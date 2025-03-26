@@ -84,6 +84,7 @@ class InvoiceFilterInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     financiers = graphene.List(graphene.Int, required=False)
     statuses = graphene.List(graphene.String, required=False)
+    establishments = graphene.List(graphene.String, required=False)
 
 class InvoiceItemInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -226,6 +227,7 @@ class SalesQuery(graphene.ObjectType):
             ending_date_time = invoice_filter.get("ending_date_time")
             financiers = invoice_filter.get("financiers")
             statuses = invoice_filter.get("statuses")
+            establishments = invoice_filter.get("establishments")
             if keyword:
                 invoices = invoices.filter(
                     Q(title__icontains=keyword)
@@ -241,6 +243,8 @@ class SalesQuery(graphene.ObjectType):
                 )
             if financiers:
                 invoices = invoices.filter(financier__id__in=financiers)
+            if establishments:
+                invoices = invoices.filter(establishment__id__in=establishments)
             if statuses:
                 invoices = invoices.filter(status__in=statuses)
         invoices = invoices.order_by("-created_at").distinct()
@@ -644,7 +648,7 @@ class GenerateInvoice(graphene.Mutation):
             invoice_items = []
             for item in present_beneficiaries:
                 release_date = item['beneficiary_entry'].release_date
-                if release_date and release_date.year == year and release_date.month == month:
+                if release_date and release_date.year == int(year) and release_date.month == int(month):
                     release_date = release_date
                 else:
                     release_date = None
