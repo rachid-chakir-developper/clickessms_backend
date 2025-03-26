@@ -1164,12 +1164,15 @@ class HumanRessourcesQuery(graphene.ObjectType):
 class CreateEmployee(graphene.Mutation):
     class Arguments:
         employee_data = EmployeeInput(required=True)
+        photo = Upload(required=False)
+        cover_image = Upload(required=False)
+        signature = Upload(required=False)
 
     employee = graphene.Field(EmployeeType)
     success = graphene.Boolean()
     message = graphene.String()
 
-    def mutate(self, info, employee_data=None):
+    def mutate(self, info, photo=None, cover_image=None, signature=None,  employee_data=None):
         creator = info.context.user
         employee = Employee(**employee_data)
         employee.creator = creator
