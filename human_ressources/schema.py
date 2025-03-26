@@ -789,11 +789,6 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        employees = Employee.objects.all()
-        for employee in employees:
-            if not employee.folder or employee.folder is None:
-                folder = Folder.objects.create(name=str(employee.id)+'_'+employee.first_name+'-'+employee.last_name,creator=user)
-                Employee.objects.filter(pk=employee.id).update(folder=folder)
         employees = Employee.objects.filter(company__id=id_company, is_deleted=False) if id_company else Employee.objects.filter(company=company, is_deleted=False)
         # if not user.can_manage_administration():
         #     if user.is_manager():
@@ -914,11 +909,6 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        beneficiaries = Beneficiary.objects.all()
-        for beneficiarie in beneficiaries:
-            if not beneficiarie.folder or beneficiarie.folder is None:
-                folder = Folder.objects.create(name=str(beneficiarie.id)+'_'+beneficiarie.first_name+'-'+beneficiarie.last_name,creator=user)
-                Beneficiary.objects.filter(pk=beneficiarie.id).update(folder=folder)
         beneficiaries = Beneficiary.objects.filter(company__id=id_company, is_deleted=False) if id_company else Beneficiary.objects.filter(company=company, is_deleted=False)
         # if not user.can_manage_administration():
         #     if user.is_manager():
