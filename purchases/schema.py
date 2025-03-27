@@ -524,8 +524,12 @@ class UpdateSupplier(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None,  supplier_data=None):
         creator = info.context.user
+        try:
+            supplier = Supplier.objects.get(pk=id, company=creator.the_current_company)
+        except Supplier.DoesNotExist:
+            raise e
         Supplier.objects.filter(pk=id).update(**supplier_data)
-        supplier = Supplier.objects.get(pk=id)
+        supplier.refresh_from_db()
         if not supplier.folder or supplier.folder is None:
             folder = Folder.objects.create(name=str(supplier.id)+'_'+supplier.name,creator=creator)
             Supplier.objects.filter(pk=id).update(folder=folder)
@@ -569,12 +573,15 @@ class UpdateSupplierState(graphene.Mutation):
 
     def mutate(root, info, id, supplier_fields=None):
         creator = info.context.user
+        try:
+            supplier = Supplier.objects.get(pk=id, company=creator.the_current_company)
+        except Supplier.DoesNotExist:
+            raise e
         done = True
         success = True
         supplier = None
         message = ''
         try:
-            supplier = Supplier.objects.get(pk=id)
             Supplier.objects.filter(pk=id).update(is_active=not supplier.is_active)
             supplier.refresh_from_db()
         except Exception as e:
@@ -599,6 +606,10 @@ class DeleteSupplier(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            supplier = Supplier.objects.get(pk=id, company=current_user.the_current_company)
+        except Supplier.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             supplier = Supplier.objects.get(pk=id)
             supplier.delete()
@@ -652,8 +663,12 @@ class UpdatePurchaseContract(graphene.Mutation):
 
     def mutate(root, info, id, document=None, purchase_contract_data=None):
         creator = info.context.user
+        try:
+            purchase_contract = PurchaseContract.objects.get(pk=id, company=creator.the_current_company)
+        except PurchaseContract.DoesNotExist:
+            raise e
         PurchaseContract.objects.filter(pk=id).update(**purchase_contract_data)
-        purchase_contract = PurchaseContract.objects.get(pk=id)
+        purchase_contract.refresh_from_db()
         if not purchase_contract.folder or purchase_contract.folder is None:
             folder = Folder.objects.create(
                 name=str(purchase_contract.id) + "_" + purchase_contract.name,
@@ -687,12 +702,15 @@ class UpdatePurchaseContractState(graphene.Mutation):
 
     def mutate(root, info, id, purchase_contract_fields=None):
         creator = info.context.user
+        try:
+            purchase_contract = PurchaseContract.objects.get(pk=id, company=creator.the_current_company)
+        except PurchaseContract.DoesNotExist:
+            raise e
         done = True
         success = True
         purchase_contract = None
         message = ''
         try:
-            purchase_contract = PurchaseContract.objects.get(pk=id)
             PurchaseContract.objects.filter(pk=id).update(is_active=not purchase_contract.is_active)
             purchase_contract.refresh_from_db()
         except Exception as e:
@@ -717,6 +735,10 @@ class DeletePurchaseContract(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            purchase_contract = PurchaseContract.objects.get(pk=id, company=current_user.the_current_company)
+        except PurchaseContract.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             purchase_contract = PurchaseContract.objects.get(pk=id)
             purchase_contract.delete()
@@ -789,9 +811,13 @@ class UpdateExpense(graphene.Mutation):
 
     def mutate(root, info, id, files=None, expense_data=None):
         creator = info.context.user
+        try:
+            expense = Expense.objects.get(pk=id, company=creator.the_current_company)
+        except Expense.DoesNotExist:
+            raise e
         expense_items = expense_data.pop("expense_items")
         Expense.objects.filter(pk=id).update(**expense_data)
-        expense = Expense.objects.get(pk=id)
+        expense.refresh_from_db()
         if not expense.folder or expense.folder is None:
             folder = Folder.objects.create(name=str(expense.id)+'_'+expense.label,creator=creator)
             Expense.objects.filter(pk=id).update(folder=folder)
@@ -852,12 +878,15 @@ class UpdateExpenseState(graphene.Mutation):
 
     def mutate(root, info, id, expense_fields=None):
         creator = info.context.user
+        try:
+            expense = Expense.objects.get(pk=id, company=creator.the_current_company)
+        except Expense.DoesNotExist:
+            raise e
         done = True
         success = True
         expense = None
         message = ""
         try:
-            expense = Expense.objects.get(pk=id)
             Expense.objects.filter(pk=id).update(
                 is_active=not expense.is_active
             )
@@ -883,12 +912,15 @@ class UpdateExpenseFields(graphene.Mutation):
 
     def mutate(root, info, id, expense_data=None):
         creator = info.context.user
+        try:
+            expense = Expense.objects.get(pk=id, company=creator.the_current_company)
+        except Expense.DoesNotExist:
+            raise e
         done = True
         success = True
         expense = None
         message = ''
         try:
-            expense = Expense.objects.get(pk=id)
             Expense.objects.filter(pk=id).update(**expense_data)
             expense.refresh_from_db()
             if 'status' in expense_data:
@@ -925,6 +957,10 @@ class DeleteExpense(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            expense = Expense.objects.get(pk=id, company=current_user.the_current_company)
+        except Expense.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             expense = Expense.objects.get(pk=id)
             expense.delete()
@@ -950,7 +986,7 @@ class GeneratePurchaseOrder(graphene.Mutation):
         creator = info.context.user
         # Vérifier si la dépense existe
         try:
-            expense = Expense.objects.get(id=id_expense)
+            expense = Expense.objects.get(id=id_expense, company=creator.the_current_company)
         except Expense.DoesNotExist:
             return GeneratePurchaseOrder(success=False, message="Dépense introuvable.")
 
@@ -1050,9 +1086,13 @@ class UpdatePurchaseOrder(graphene.Mutation):
 
     def mutate(root, info, id, files=None, purchase_order_data=None):
         creator = info.context.user
+        try:
+            purchase_order = PurchaseOrder.objects.get(pk=id, company=creator.the_current_company)
+        except PurchaseOrder.DoesNotExist:
+            raise e
         purchase_order_items = purchase_order_data.pop("purchase_order_items")
         PurchaseOrder.objects.filter(pk=id).update(**purchase_order_data)
-        purchase_order = PurchaseOrder.objects.get(pk=id)
+        purchase_order.refresh_from_db()
         if not purchase_order.employee:
             purchase_order.employee = creator.get_employee_in_company()
             purchase_order.save()
@@ -1084,12 +1124,15 @@ class UpdatePurchaseOrderState(graphene.Mutation):
 
     def mutate(root, info, id, purchase_order_fields=None):
         creator = info.context.user
+        try:
+            purchase_order = PurchaseOrder.objects.get(pk=id, company=creator.the_current_company)
+        except PurchaseOrder.DoesNotExist:
+            raise e
         done = True
         success = True
         purchase_order = None
         message = ""
         try:
-            purchase_order = PurchaseOrder.objects.get(pk=id)
             PurchaseOrder.objects.filter(pk=id).update(
                 is_active=not purchase_order.is_active
             )
@@ -1115,12 +1158,15 @@ class UpdatePurchaseOrderFields(graphene.Mutation):
 
     def mutate(root, info, id, purchase_order_data=None):
         creator = info.context.user
+        try:
+            purchase_order = PurchaseOrder.objects.get(pk=id, company=creator.the_current_company)
+        except PurchaseOrder.DoesNotExist:
+            raise e
         done = True
         success = True
         purchase_order = None
         message = ''
         try:
-            purchase_order = PurchaseOrder.objects.get(pk=id)
             PurchaseOrder.objects.filter(pk=id).update(**purchase_order_data)
             purchase_order.refresh_from_db()
         except Exception as e:
@@ -1147,6 +1193,10 @@ class DeletePurchaseOrder(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            purchase_order = PurchaseOrder.objects.get(pk=id, company=current_user.the_current_company)
+        except PurchaseOrder.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             purchase_order = PurchaseOrder.objects.get(pk=id)
             purchase_order.delete()
@@ -1214,8 +1264,12 @@ class UpdateExpenseReport(graphene.Mutation):
 
     def mutate(root, info, id, files=None, expense_report_data=None):
         creator = info.context.user
+        try:
+            expense_report = ExpenseReport.objects.get(pk=id, company=creator.the_current_company)
+        except ExpenseReport.DoesNotExist:
+            raise e
         ExpenseReport.objects.filter(pk=id).update(**expense_report_data)
-        expense_report = ExpenseReport.objects.get(pk=id)
+        expense_report.refresh_from_db()
         if not expense_report.folder or expense_report.folder is None:
             folder = Folder.objects.create(name=str(expense_report.id)+'_'+expense_report.label,creator=creator)
             ExpenseReport.objects.filter(pk=id).update(folder=folder)
@@ -1262,12 +1316,15 @@ class UpdateExpenseReportState(graphene.Mutation):
 
     def mutate(root, info, id, expense_report_fields=None):
         creator = info.context.user
+        try:
+            expense_report = ExpenseReport.objects.get(pk=id, company=creator.the_current_company)
+        except ExpenseReport.DoesNotExist:
+            raise e
         done = True
         success = True
         expense_report = None
         message = ""
         try:
-            expense_report = ExpenseReport.objects.get(pk=id)
             ExpenseReport.objects.filter(pk=id).update(
                 is_active=not expense_report.is_active
             )
@@ -1293,12 +1350,15 @@ class UpdateExpenseReportFields(graphene.Mutation):
 
     def mutate(root, info, id, expense_report_data=None):
         creator = info.context.user
+        try:
+            expense_report = ExpenseReport.objects.get(pk=id, company=creator.the_current_company)
+        except ExpenseReport.DoesNotExist:
+            raise e
         done = True
         success = True
         expense_report = None
         message = ''
         try:
-            expense_report = ExpenseReport.objects.get(pk=id)
             ExpenseReport.objects.filter(pk=id).update(**expense_report_data)
             expense_report.refresh_from_db()
             if 'status' in expense_report_data:
@@ -1335,6 +1395,10 @@ class DeleteExpenseReport(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            expense_report = ExpenseReport.objects.get(pk=id, company=current_user.the_current_company)
+        except ExpenseReport.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             expense_report = ExpenseReport.objects.get(pk=id)
             expense_report.delete()

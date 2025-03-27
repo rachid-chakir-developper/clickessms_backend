@@ -278,8 +278,8 @@ class CompanyQuery(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         total_count = 0
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
-        establishments = Establishment.objects.filter(company=company)
+        company = user.the_current_company
+        establishments = Establishment.objects.filter(company=company, is_deleted=False)
         if id_parent:
             establishments = establishments.filter(establishment_parent__id=id_parent if int(id_parent) > 0 else None)
         if establishment_filter:
@@ -308,8 +308,10 @@ class CompanyQuery(graphene.ObjectType):
 
     def resolve_establishment(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            establishment = Establishment.objects.get(pk=id)
+            establishment = Establishment.objects.get(pk=id, company=company)
         except Establishment.DoesNotExist:
             establishment = None
         return establishment
@@ -698,12 +700,16 @@ class UpdateEstablishment(graphene.Mutation):
 
     def mutate(root, info, id, logo=None, cover_image=None,  establishment_data=None):
         creator = info.context.user
+        try:
+            establishment = Establishment.objects.get(pk=id, company=creator.the_current_company)
+        except Establishment.DoesNotExist:
+            raise e
         establishment_childs_ids = establishment_data.pop("establishment_childs")
         managers_ids = establishment_data.pop("managers")
         activity_authorizations = establishment_data.pop("activity_authorizations")
         establishment_childs = Establishment.objects.filter(id__in=establishment_childs_ids)
         Establishment.objects.filter(pk=id).update(**establishment_data)
-        establishment = Establishment.objects.get(pk=id)
+        establishment.refresh_from_db()
         if not establishment.folder or establishment.folder is None:
             folder = Folder.objects.create(name=str(establishment.id)+'_'+establishment.name,creator=creator)
             Establishment.objects.filter(pk=id).update(folder=folder)
@@ -784,12 +790,15 @@ class UpdateEstablishmentState(graphene.Mutation):
 
     def mutate(root, info, id, establishment_fields=None):
         creator = info.context.user
+        try:
+            establishment = Establishment.objects.get(pk=id, company=creator.the_current_company)
+        except Establishment.DoesNotExist:
+            raise e
         done = True
         success = True
         establishment = None
         message = ''
         try:
-            establishment = Establishment.objects.get(pk=id)
             Establishment.objects.filter(pk=id).update(is_active=not establishment.is_active)
             establishment.refresh_from_db()
         except Exception as e:
@@ -814,6 +823,10 @@ class DeleteEstablishment(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            establishment = Establishment.objects.get(pk=id, company=current_user.the_current_company)
+        except Establishment.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             establishment = Establishment.objects.get(pk=id)
             establishment.delete()

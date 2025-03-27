@@ -822,8 +822,10 @@ class HumanRessourcesQuery(graphene.ObjectType):
 
     def resolve_employee(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            employee = Employee.objects.get(pk=id)
+            employee = Employee.objects.get(pk=id, company=company)
         except Employee.DoesNotExist:
             employee = None
         return employee
@@ -866,8 +868,10 @@ class HumanRessourcesQuery(graphene.ObjectType):
 
     def resolve_employee_contract(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            employee_contract = EmployeeContract.objects.get(pk=id)
+            employee_contract = EmployeeContract.objects.get(pk=id, employee__company=company)
         except EmployeeContract.DoesNotExist:
             employee_contract = None
         return employee_contract
@@ -898,8 +902,10 @@ class HumanRessourcesQuery(graphene.ObjectType):
 
     def resolve_employee_group(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            employee_group = EmployeeGroup.objects.get(pk=id)
+            employee_group = EmployeeGroup.objects.get(pk=id, company=company)
         except EmployeeGroup.DoesNotExist:
             employee_group = None
         return employee_group
@@ -981,8 +987,10 @@ class HumanRessourcesQuery(graphene.ObjectType):
 
     def resolve_beneficiary(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            beneficiary = Beneficiary.objects.get(pk=id)
+            beneficiary = Beneficiary.objects.get(pk=id, company=company)
         except Beneficiary.DoesNotExist:
             beneficiary = None
         return beneficiary
@@ -1039,8 +1047,10 @@ class HumanRessourcesQuery(graphene.ObjectType):
 
     def resolve_beneficiary_admission(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id, company=company)
         except BeneficiaryAdmission.DoesNotExist:
             beneficiary_admission = None
         return beneficiary_admission
@@ -1072,10 +1082,9 @@ class HumanRessourcesQuery(graphene.ObjectType):
     def resolve_beneficiary_group(root, info, id):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        if not user.is_authenticated:
-            return None
+        company = user.the_current_company
         try:
-            beneficiary_group = BeneficiaryGroup.objects.get(pk=id)
+            beneficiary_group = BeneficiaryGroup.objects.get(pk=id, company=company)
             return beneficiary_group
         except BeneficiaryGroup.DoesNotExist:
             return None
@@ -1222,8 +1231,12 @@ class UpdateEmployee(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None, signature=None,  employee_data=None):
         creator = info.context.user
+        try:
+            employee = Employee.objects.get(pk=id, company=creator.the_current_company)
+        except Employee.DoesNotExist:
+            raise e
         Employee.objects.filter(pk=id).update(**employee_data)
-        employee = Employee.objects.get(pk=id)
+        employee.refresh_from_db()
         if not employee.folder or employee.folder is None:
             folder = Folder.objects.create(name=str(employee.id)+'_'+employee.first_name+'-'+employee.last_name,creator=creator)
             Employee.objects.filter(pk=id).update(folder=folder)
@@ -1278,12 +1291,15 @@ class UpdateEmployeeState(graphene.Mutation):
 
     def mutate(root, info, id, employee_fields=None):
         creator = info.context.user
+        try:
+            employee = Employee.objects.get(pk=id, company=creator.the_current_company)
+        except Employee.DoesNotExist:
+            raise e
         done = True
         success = True
         employee = None
         message = ''
         try:
-            employee = Employee.objects.get(pk=id)
             Employee.objects.filter(pk=id).update(is_active=not employee.is_active)
             employee.refresh_from_db()
         except Exception as e:
@@ -1308,7 +1324,10 @@ class DeleteEmployee(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        employee = Employee.objects.get(pk=id)
+        try:
+            employee = Employee.objects.get(pk=id, company=current_user.the_current_company)
+        except Employee.DoesNotExist:
+            raise e
         if current_user.can_manage_administration() or current_user.is_manager() or (employee.creator == current_user):
             # employee = Employee.objects.get(pk=id)
             # employee.delete()
@@ -1392,11 +1411,15 @@ class UpdateEmployeeContract(graphene.Mutation):
 
     def mutate(root, info, id, document=None, employee_contract_data=None):
         creator = info.context.user
+        try:
+            employee_contract = EmployeeContract.objects.get(pk=id, employee__company=creator.the_current_company)
+        except EmployeeContract.DoesNotExist:
+            raise e
         mission_ids = employee_contract_data.pop("missions")
         establishment_ids = employee_contract_data.pop("establishments")
         replaced_employees = employee_contract_data.pop("replaced_employees")
         EmployeeContract.objects.filter(pk=id).update(**employee_contract_data)
-        employee_contract = EmployeeContract.objects.get(pk=id)
+        employee_contract.refresh_from_db()
         if not employee_contract.folder or employee_contract.folder is None:
             folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.title,creator=creator)
             EmployeeContract.objects.filter(pk=id).update(folder=folder)
@@ -1464,6 +1487,10 @@ class DeleteEmployeeContract(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            employee_contract = EmployeeContract.objects.get(pk=id, employee__company=current_user.the_current_company)
+        except EmployeeContract.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             employee_contract = EmployeeContract.objects.get(pk=id)
             employee_contract.delete()
@@ -1524,9 +1551,13 @@ class UpdateEmployeeGroup(graphene.Mutation):
 
     def mutate(root, info, id, image=None, employee_group_data=None):
         creator = info.context.user
+        try:
+            employee_group = EmployeeGroup.objects.get(pk=id, company=creator.the_current_company)
+        except EmployeeGroup.DoesNotExist:
+            raise e
         employee_ids = employee_group_data.pop("employees")
         EmployeeGroup.objects.filter(pk=id).update(**employee_group_data)
-        employee_group = EmployeeGroup.objects.get(pk=id)
+        employee_group.refresh_from_db()
         if not employee_group.folder or employee_group.folder is None:
             folder = Folder.objects.create(name=str(employee_group.id)+'_'+employee_group.name,creator=creator)
             EmployeeGroup.objects.filter(pk=id).update(folder=folder)
@@ -1568,12 +1599,15 @@ class UpdateEmployeeGroupState(graphene.Mutation):
 
     def mutate(root, info, id, employee_group_fields=None):
         creator = info.context.user
+        try:
+            employee_group = EmployeeGroup.objects.get(pk=id, company=creator.the_current_company)
+        except EmployeeGroup.DoesNotExist:
+            raise e
         done = True
         success = True
         employee_group = None
         message = ''
         try:
-            employee_group = EmployeeGroup.objects.get(pk=id)
             EmployeeGroup.objects.filter(pk=id).update(is_active=not employee_group.is_active)
             employee_group.refresh_from_db()
         except Exception as e:
@@ -1599,6 +1633,10 @@ class DeleteEmployeeGroup(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            employee_group = EmployeeGroup.objects.get(pk=id, company=current_user.the_current_company)
+        except EmployeeGroup.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             employee_group = EmployeeGroup.objects.get(pk=id)
             employee_group.delete()
@@ -1733,6 +1771,10 @@ class UpdateBeneficiary(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None,  beneficiary_data=None):
         creator = info.context.user
+        try:
+            beneficiary = Beneficiary.objects.get(pk=id, company=creator.the_current_company)
+        except Beneficiary.DoesNotExist:
+            raise e
         beneficiary_admission_documents = beneficiary_data.pop("beneficiary_admission_documents", None)
         beneficiary_status_entries = beneficiary_data.pop("beneficiary_status_entries", None)
         beneficiary_entries = beneficiary_data.pop("beneficiary_entries", None)
@@ -1742,7 +1784,7 @@ class UpdateBeneficiary(graphene.Mutation):
         document_records = beneficiary_data.pop("document_records", None)
         
         Beneficiary.objects.filter(pk=id).update(**beneficiary_data)
-        beneficiary = Beneficiary.objects.get(pk=id)
+        beneficiary.refresh_from_db()
         if not beneficiary.folder or beneficiary.folder is None:
             folder = Folder.objects.create(name=str(beneficiary.id)+'_'+beneficiary.first_name+'-'+beneficiary.last_name,creator=creator)
             Beneficiary.objects.filter(pk=id).update(folder=folder)
@@ -1910,12 +1952,15 @@ class UpdateBeneficiaryState(graphene.Mutation):
 
     def mutate(root, info, id, beneficiary_fields=None):
         creator = info.context.user
+        try:
+            beneficiary = Beneficiary.objects.get(pk=id, company=creator.the_current_company)
+        except Beneficiary.DoesNotExist:
+            raise e
         done = True
         success = True
         beneficiary = None
         message = ''
         try:
-            beneficiary = Beneficiary.objects.get(pk=id)
             Beneficiary.objects.filter(pk=id).update(is_active=not beneficiary.is_active)
             beneficiary.refresh_from_db()
         except Exception as e:
@@ -1940,7 +1985,10 @@ class DeleteBeneficiary(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        beneficiary = Beneficiary.objects.get(pk=id)
+        try:
+            beneficiary = Beneficiary.objects.get(pk=id, company=current_user.the_current_company)
+        except Beneficiary.DoesNotExist:
+            raise e
         if current_user.can_manage_administration() or current_user.is_manager() or (beneficiary.creator == current_user):
             # beneficiary = Beneficiary.objects.get(pk=id)
             # beneficiary.delete()
@@ -2011,9 +2059,13 @@ class UpdateBeneficiaryAdmission(graphene.Mutation):
 
     def mutate(root, info, id, files=None, beneficiary_admission_data=None):
         creator = info.context.user
+        try:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id, company=creator.the_current_company)
+        except BeneficiaryAdmission.DoesNotExist:
+            raise e
         establishment_ids = beneficiary_admission_data.pop("establishments", None)
         BeneficiaryAdmission.objects.filter(pk=id).update(**beneficiary_admission_data)
-        beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
+        beneficiary_admission.refresh_from_db()
         if establishment_ids and establishment_ids is not None:
             beneficiary_admission.establishments.set(establishment_ids)
         if not beneficiary_admission.folder or beneficiary_admission.folder is None:
@@ -2062,12 +2114,15 @@ class UpdateBeneficiaryAdmissionState(graphene.Mutation):
 
     def mutate(root, info, id, beneficiary_admission_fields=None):
         creator = info.context.user
+        try:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id, company=creator.the_current_company)
+        except BeneficiaryAdmission.DoesNotExist:
+            raise e
         done = True
         success = True
         beneficiary_admission = None
         message = ""
         try:
-            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
             BeneficiaryAdmission.objects.filter(pk=id).update(
                 is_active=not beneficiary_admission.is_active
             )
@@ -2093,12 +2148,15 @@ class UpdateBeneficiaryAdmissionFields(graphene.Mutation):
 
     def mutate(root, info, id, beneficiary_admission_data=None):
         creator = info.context.user
+        try:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id, company=creator.the_current_company)
+        except BeneficiaryAdmission.DoesNotExist:
+            raise e
         done = True
         success = True
         beneficiary_admission = None
         message = ''
         try:
-            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
             BeneficiaryAdmission.objects.filter(pk=id).update(**beneficiary_admission_data)
             beneficiary_admission.refresh_from_db()
             if 'status' in beneficiary_admission_data:
@@ -2135,6 +2193,10 @@ class DeleteBeneficiaryAdmission(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id, company=current_user.the_current_company)
+        except BeneficiaryAdmission.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
             beneficiary_admission.delete()
@@ -2158,7 +2220,7 @@ class GenerateBeneficiary(graphene.Mutation):
         creator = info.context.user
         # Vérifier si l'admission du bénéficiaire existe
         try:
-            beneficiary_admission = BeneficiaryAdmission.objects.get(id=id_beneficiary_admission)
+            beneficiary_admission = BeneficiaryAdmission.objects.get(id=id_beneficiary_admission, company=creator.the_current_company)
         except BeneficiaryAdmission.DoesNotExist:
             return GenerateBeneficiary(success=False, message="Admission du bénéficiaire introuvable.")
 
@@ -2262,9 +2324,13 @@ class UpdateBeneficiaryGroup(graphene.Mutation):
 
     def mutate(root, info, id, image=None, beneficiary_group_data=None):
         creator = info.context.user
+        try:
+            beneficiary_group = BeneficiaryGroup.objects.get(pk=id, company=creator.the_current_company)
+        except BeneficiaryGroup.DoesNotExist:
+            raise e
         beneficiary_ids = beneficiary_group_data.pop("beneficiaries")
         BeneficiaryGroup.objects.filter(pk=id).update(**beneficiary_group_data)
-        beneficiary_group = BeneficiaryGroup.objects.get(pk=id)
+        beneficiary_group.refresh_from_db()
         if not beneficiary_group.folder or beneficiary_group.folder is None:
             folder = Folder.objects.create(name=str(beneficiary_group.id)+'_'+beneficiary_group.name,creator=creator)
             BeneficiaryGroup.objects.filter(pk=id).update(folder=folder)
@@ -2306,12 +2372,15 @@ class UpdateBeneficiaryGroupState(graphene.Mutation):
 
     def mutate(root, info, id, beneficiary_group_fields=None):
         creator = info.context.user
+        try:
+            beneficiary_group = BeneficiaryGroup.objects.get(pk=id, company=creator.the_current_company)
+        except BeneficiaryGroup.DoesNotExist:
+            raise e
         done = True
         success = True
         beneficiary_group = None
         message = ''
         try:
-            beneficiary_group = BeneficiaryGroup.objects.get(pk=id)
             BeneficiaryGroup.objects.filter(pk=id).update(is_active=not beneficiary_group.is_active)
             beneficiary_group.refresh_from_db()
         except Exception as e:
@@ -2337,6 +2406,10 @@ class DeleteBeneficiaryGroup(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            beneficiary_group = BeneficiaryGroup.objects.get(pk=id, company=current_user.the_current_company)
+        except BeneficiaryGroup.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             beneficiary_group = BeneficiaryGroup.objects.get(pk=id)
             beneficiary_group.delete()
