@@ -1001,7 +1001,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        beneficiary_admissions = BeneficiaryAdmission.objects.filter(company=company)
+        beneficiary_admissions = BeneficiaryAdmission.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_activity():
             if user.is_manager():
                 beneficiary_admissions = beneficiary_admissions.filter(Q(establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))

@@ -273,7 +273,7 @@ class PurchasesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        suppliers = Supplier.objects.filter(company__id=id_company) if id_company else Supplier.objects.filter(company=company)
+        suppliers = Supplier.objects.filter(company__id=id_company, is_deleted=False) if id_company else Supplier.objects.filter(company=company, is_deleted=False)
         if supplier_filter:
             keyword = supplier_filter.get('keyword', '')
             starting_date_time = supplier_filter.get('starting_date_time')
@@ -297,8 +297,10 @@ class PurchasesQuery(graphene.ObjectType):
 
     def resolve_supplier(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            supplier = Supplier.objects.get(pk=id)
+            supplier = Supplier.objects.get(pk=id, company=company)
         except Supplier.DoesNotExist:
             supplier = None
         return supplier
@@ -310,7 +312,7 @@ class PurchasesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        expenses = Expense.objects.filter(company=company)
+        expenses = Expense.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 expenses = expenses.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -356,8 +358,10 @@ class PurchasesQuery(graphene.ObjectType):
 
     def resolve_expense(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            expense = Expense.objects.get(pk=id)
+            expense = Expense.objects.get(pk=id, company=company)
         except Expense.DoesNotExist:
             expense = None
         return expense
@@ -369,7 +373,7 @@ class PurchasesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        purchase_orders = PurchaseOrder.objects.filter(company=company)
+        purchase_orders = PurchaseOrder.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 purchase_orders = purchase_orders.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user) | Q(expense__creator=user))
@@ -407,8 +411,10 @@ class PurchasesQuery(graphene.ObjectType):
 
     def resolve_purchase_order(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            purchase_order = PurchaseOrder.objects.get(pk=id)
+            purchase_order = PurchaseOrder.objects.get(pk=id, company=company)
         except PurchaseOrder.DoesNotExist:
             purchase_order = None
         return purchase_order
@@ -420,7 +426,7 @@ class PurchasesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        expense_reports = ExpenseReport.objects.filter(company=company)
+        expense_reports = ExpenseReport.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_finance():
             if user.is_manager():
                 expense_reports = expense_reports.filter(Q(establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -466,8 +472,10 @@ class PurchasesQuery(graphene.ObjectType):
 
     def resolve_expense_report(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            expense_report = ExpenseReport.objects.get(pk=id)
+            expense_report = ExpenseReport.objects.get(pk=id, company=company)
         except ExpenseReport.DoesNotExist:
             expense_report = None
         return expense_report
