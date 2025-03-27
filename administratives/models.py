@@ -85,7 +85,7 @@ class Call(models.Model):
 		caller.company = creator.the_current_company
 		if caller_data.caller_type == 'PhoneNumber' and ('phone_number_id' not in caller_data or caller_data.phone_number_id is None):
 			phone_number = PhoneNumber.objects.filter(phone=caller_data.phone).first()
-			phone_number = phone_number if phone_number else PhoneNumber.objects.create(phone=caller_data.phone, company=creator.the_current_company)
+			phone_number = phone_number if phone_number else PhoneNumber.objects.create(phone=caller_data.phone, creator=creator, company=creator.the_current_company)
 			caller.phone_number = phone_number
 		caller.save()
 		self.save()
