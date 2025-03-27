@@ -201,8 +201,10 @@ class UserQuery(graphene.ObjectType):
 
     def resolve_user(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            user = User.objects.get(pk=id)
+            user = User.objects.get(pk=id, company=company)
         except User.DoesNotExist:
             user = None
         return user
@@ -331,6 +333,10 @@ class UpdateUser(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
+        try:
+            user = User.objects.get(pk=id, company=creator.the_current_company)
+        except User.DoesNotExist:
+            raise e
         roles = user_data.pop("roles") if ('roles' in user_data) else None
         employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
         partner_id = user_data.pop("partner_id") if ('partner_id' in user_data) else None
@@ -344,7 +350,7 @@ class UpdateUser(graphene.Mutation):
             raise ValueError("Les mots de passe ne correspondent pas")
 
         User.objects.filter(pk=id).update(**user_data)
-        user = User.objects.get(pk=id)
+        user.refresh_from_db()
         user.set_roles_in_company(roles_names=roles)
         user.set_employee_for_company(employee_id=employee_id)
         user.set_partner_for_company(partner_id=partner_id)
@@ -404,12 +410,15 @@ class UpdateUserState(graphene.Mutation):
 
     def mutate(root, info, id, user_fields=None):
         creator = info.context.user
+        try:
+            user = User.objects.get(pk=id, company=creator.the_current_company)
+        except User.DoesNotExist:
+            raise e
         done = True
         success = True
         user = None
         message = ''
         try:
-            user = User.objects.get(pk=id)
             User.objects.filter(pk=id).update(is_active=not user.is_active)
             user.refresh_from_db()
         except Exception as e:
@@ -431,13 +440,16 @@ class UpdateUserFields(graphene.Mutation):
 
     def mutate(root, info, id, user_data=None):
         creator = info.context.user
+        try:
+            user = User.objects.get(pk=id, company=creator.the_current_company)
+        except User.DoesNotExist:
+            raise e
         roles = user_data.pop("roles") if ('roles' in user_data) else None
         done = True
         success = True
         user = None
         message = ''
         try:
-            user = User.objects.get(pk=id)
             User.objects.filter(pk=id).update(**user_data)
             user.set_roles_in_company(roles_names=roles)
             user.refresh_from_db()
@@ -530,6 +542,10 @@ class DeleteUser(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            user = User.objects.get(pk=id, company=current_user.the_current_company)
+        except User.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             user = User.objects.get(pk=id)
             if not user.is_superuser:
