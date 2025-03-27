@@ -177,8 +177,10 @@ class QualitiesQuery(graphene.ObjectType):
 
     def resolve_undesirable_event(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            undesirable_event = UndesirableEvent.objects.get(pk=id)
+            undesirable_event = UndesirableEvent.objects.get(pk=id, company=company)
         except UndesirableEvent.DoesNotExist:
             undesirable_event = None
         return undesirable_event
@@ -188,7 +190,7 @@ class QualitiesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        box_ideas = BoxIdea.objects.filter(company=company)
+        box_ideas = BoxIdea.objects.filter(company=company, is_deleted=False)
         if box_idea_filter:
             keyword = box_idea_filter.get('keyword', '')
             starting_date_time = box_idea_filter.get('starting_date_time')
@@ -209,8 +211,10 @@ class QualitiesQuery(graphene.ObjectType):
 
     def resolve_box_idea(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            box_idea = BoxIdea.objects.get(pk=id)
+            box_idea = BoxIdea.objects.get(pk=id, company=company)
         except BoxIdea.DoesNotExist:
             box_idea = None
         return box_idea
@@ -332,6 +336,10 @@ class UpdateUndesirableEvent(graphene.Mutation):
 
     def mutate(root, info, id, image=None, files=None, undesirable_event_data=None):
         creator = info.context.user
+        try:
+            undesirable_event = UndesirableEvent.objects.get(pk=id, company=creator.the_current_company)
+        except UndesirableEvent.DoesNotExist:
+            raise e
         declarant_ids = undesirable_event_data.pop("declarants")
         establishment_ids = undesirable_event_data.pop("establishments")
         beneficiary_ids = undesirable_event_data.pop("beneficiaries")
@@ -339,7 +347,6 @@ class UpdateUndesirableEvent(graphene.Mutation):
         notified_person_ids = undesirable_event_data.pop("notified_persons")
         normal_type_ids = undesirable_event_data.pop("normal_types")
         serious_type_ids = undesirable_event_data.pop("serious_types")
-        undesirable_event = UndesirableEvent.objects.get(pk=id)
         is_draft = True if undesirable_event.status == 'DRAFT' else False
         UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
         if declarant_ids and declarant_ids is not None:
@@ -466,12 +473,15 @@ class UpdateUndesirableEventFields(graphene.Mutation):
 
     def mutate(root, info, id, undesirable_event_data=None):
         creator = info.context.user
+        try:
+            undesirable_event = UndesirableEvent.objects.get(pk=id, company=creator.the_current_company)
+        except UndesirableEvent.DoesNotExist:
+            raise e
         done = True
         success = True
         undesirable_event = None
         message = ''
         try:
-            undesirable_event = UndesirableEvent.objects.get(pk=id)
             UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
             undesirable_event.refresh_from_db()
             if 'status' in undesirable_event_data and (creator.can_manage_quality() or creator.is_manager()):
@@ -500,12 +510,15 @@ class UpdateUndesirableEventState(graphene.Mutation):
 
     def mutate(root, info, id, undesirable_event_fields=None):
         creator = info.context.user
+        try:
+            undesirable_event = UndesirableEvent.objects.get(pk=id, company=creator.the_current_company)
+        except UndesirableEvent.DoesNotExist:
+            raise e
         done = True
         success = True
         undesirable_event = None
         message = ''
         try:
-            undesirable_event = UndesirableEvent.objects.get(pk=id)
             UndesirableEvent.objects.filter(pk=id).update(is_active=not undesirable_event.is_active)
             undesirable_event.refresh_from_db()
             broadcastUndesirableEventUpdated(undesirable_event=undesirable_event)
@@ -528,13 +541,17 @@ class CreateUndesirableEventTicket(graphene.Mutation):
 
     def mutate(root, info, id):
         creator = info.context.user
+        try:
+            undesirable_event = UndesirableEvent.objects.get(pk=id, company=creator.the_current_company)
+        except UndesirableEvent.DoesNotExist:
+            raise e
         success = True
         message = ''
         ticket = None
         if not creator.can_manage_quality() and not creator.is_manager():
             raise PermissionDenied("Impossible d'analyser : vous n'avez pas les droits nécessaires.")
         try:
-            undesirable_event = UndesirableEvent.objects.get(pk=id)
+            undesirable_event.refresh_from_db()
             if undesirable_event.status == 'DRAFT':
                 raise GraphQLError("Impossible d'analyser un événement indésirable en brouillon.")
             if Ticket.objects.filter(undesirable_event=undesirable_event).exists():
@@ -597,7 +614,10 @@ class DeleteUndesirableEvent(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        undesirable_event = UndesirableEvent.objects.get(pk=id)
+        try:
+            undesirable_event = UndesirableEvent.objects.get(pk=id, company=current_user.the_current_company)
+        except UndesirableEvent.DoesNotExist:
+            raise e
         if current_user.can_manage_quality() or current_user.is_manager() or (undesirable_event.creator == current_user and not undesirable_event.tickets.first()):
             # undesirable_event = UndesirableEvent.objects.get(pk=id)
             # undesirable_event.delete()
@@ -638,8 +658,12 @@ class UpdateBoxIdea(graphene.Mutation):
 
     def mutate(root, info, id, box_idea_data=None):
         creator = info.context.user
+        try:
+            box_idea = BoxIdea.objects.get(pk=id, company=creator.the_current_company)
+        except BoxIdea.DoesNotExist:
+            raise e
         BoxIdea.objects.filter(pk=id).update(**box_idea_data)
-        box_idea = BoxIdea.objects.get(pk=id)
+        box_idea.refresh_from_db()
         if not box_idea.employee:
             box_idea.employee = creator.get_employee_in_company()
             box_idea.save()
@@ -656,12 +680,15 @@ class UpdateBoxIdeaState(graphene.Mutation):
 
     def mutate(root, info, id, box_idea_fields=None):
         creator = info.context.user
+        try:
+            box_idea = BoxIdea.objects.get(pk=id, company=creator.the_current_company)
+        except BoxIdea.DoesNotExist:
+            raise e
         done = True
         success = True
         box_idea = None
         message = ''
         try:
-            box_idea = BoxIdea.objects.get(pk=id)
             BoxIdea.objects.filter(pk=id).update(is_active=not box_idea.is_active)
             box_idea.refresh_from_db()
         except Exception as e:
@@ -687,6 +714,10 @@ class DeleteBoxIdea(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            box_idea = BoxIdea.objects.get(pk=id, company=current_user.the_current_company)
+        except BoxIdea.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             box_idea = BoxIdea.objects.get(pk=id)
             box_idea.delete()
