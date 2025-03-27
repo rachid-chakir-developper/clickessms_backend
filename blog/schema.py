@@ -69,8 +69,10 @@ class BlogQuery(graphene.ObjectType):
 
     def resolve_post(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            post = Post.objects.get(pk=id)
+            post = Post.objects.get(pk=id, company=company)
         except Post.DoesNotExist:
             post = None
         return post
@@ -131,10 +133,14 @@ class UpdatePost(graphene.Mutation):
 
     def mutate(root, info, id, image=None, files=None, post_data=None):
         creator = info.context.user
+        try:
+            post = Post.objects.get(pk=id, company=creator.the_current_company)
+        except Post.DoesNotExist:
+            raise e
         if not creator.can_manage_sce():
             raise ValueError("Vous devez être président du CSE pour effectuer cette action.")
         Post.objects.filter(pk=id).update(**post_data)
-        post = Post.objects.get(pk=id)
+        post.refresh_from_db()
         if not image and post.image:
             image_file = post.image
             image_file.delete()
@@ -180,12 +186,15 @@ class UpdatePostState(graphene.Mutation):
 
     def mutate(root, info, id, post_fields=None):
         creator = info.context.user
+        try:
+            post = Post.objects.get(pk=id, company=creator.the_current_company)
+        except Post.DoesNotExist:
+            raise e
         done = True
         success = True
         post = None
         message = ''
         try:
-            post = Post.objects.get(pk=id)
             Post.objects.filter(pk=id).update(is_active=not post.is_active)
             post.refresh_from_db()
         except Exception as e:
@@ -210,7 +219,10 @@ class DeletePost(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        post = Post.objects.get(pk=id)
+        try:
+            post = Post.objects.get(pk=id, company=current_user.the_current_company)
+        except Post.DoesNotExist:
+            raise e
         if current_user.is_superuser or current_user.can_manage_sce() or (post.creator == current_user):
             # post = Post.objects.get(pk=id)
             # post.delete()

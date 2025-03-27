@@ -153,7 +153,7 @@ class UserQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        users = User.objects.filter(company__id=id_company) if id_company else User.objects.filter(company=company)
+        users = User.objects.filter(company__id=id_company, is_deleted=False) if id_company else User.objects.filter(company=company, is_deleted=False)
         if user_filter:
             keyword = user_filter.get('keyword', '')
             starting_date_time = user_filter.get('starting_date_time')
@@ -179,7 +179,7 @@ class UserQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        users = User.objects.filter(~Q(id=user.id), company__id=id_company) if id_company else User.objects.filter(~Q(id=user.id), company=company)
+        users = User.objects.filter(~Q(id=user.id), company__id=id_company, is_deleted=False) if id_company else User.objects.filter(~Q(id=user.id), company=company, is_deleted=False)
         if user_filter:
             keyword = user_filter.get('keyword', '')
             starting_date_time = user_filter.get('starting_date_time')
