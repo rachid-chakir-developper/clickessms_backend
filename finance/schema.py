@@ -514,8 +514,10 @@ class FinanceQuery(graphene.ObjectType):
 
     def resolve_decision_document(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            decision_document = DecisionDocument.objects.get(pk=id)
+            decision_document = DecisionDocument.objects.get(pk=id, company=company)
         except DecisionDocument.DoesNotExist:
             decision_document = None
         return decision_document
@@ -555,8 +557,10 @@ class FinanceQuery(graphene.ObjectType):
 
     def resolve_bank_account(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            bank_account = BankAccount.objects.get(pk=id)
+            bank_account = BankAccount.objects.get(pk=id, company=company)
         except BankAccount.DoesNotExist:
             bank_account = None
         return bank_account
@@ -604,8 +608,10 @@ class FinanceQuery(graphene.ObjectType):
 
     def resolve_balance(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            balance = Balance.objects.get(pk=id)
+            balance = Balance.objects.get(pk=id, company=company)
         except Balance.DoesNotExist:
             balance = None
         return balance
@@ -656,8 +662,10 @@ class FinanceQuery(graphene.ObjectType):
 
     def resolve_bank_card(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            bank_card = BankCard.objects.get(pk=id)
+            bank_card = BankCard.objects.get(pk=id, company=company)
         except BankCard.DoesNotExist:
             bank_card = None
         return bank_card   
@@ -698,8 +706,10 @@ class FinanceQuery(graphene.ObjectType):
 
     def resolve_cash_register(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            cash_register = CashRegister.objects.get(pk=id)
+            cash_register = CashRegister.objects.get(pk=id, company=company)
         except CashRegister.DoesNotExist:
             cash_register = None
         return cash_register
@@ -743,8 +753,10 @@ class FinanceQuery(graphene.ObjectType):
 
     def resolve_cash_register_transaction(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            cash_register_transaction = CashRegisterTransaction.objects.get(pk=id)
+            cash_register_transaction = CashRegisterTransaction.objects.get(pk=id, cash_register__company=company)
         except CashRegisterTransaction.DoesNotExist:
             cash_register_transaction = None
         return cash_register_transaction 
@@ -791,8 +803,10 @@ class FinanceQuery(graphene.ObjectType):
 
     def resolve_budget(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            budget = Budget.objects.get(pk=id)
+            budget = Budget.objects.get(pk=id, company=company)
         except Budget.DoesNotExist:
             budget = None
         return budget
@@ -835,8 +849,10 @@ class FinanceQuery(graphene.ObjectType):
 
     def resolve_endowment(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            endowment = Endowment.objects.get(pk=id)
+            endowment = Endowment.objects.get(pk=id, company=company)
         except Endowment.DoesNotExist:
             endowment = None
         return endowment
@@ -879,8 +895,10 @@ class FinanceQuery(graphene.ObjectType):
 
     def resolve_endowment_payment(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            endowment_payment = EndowmentPayment.objects.get(pk=id)
+            endowment_payment = EndowmentPayment.objects.get(pk=id, company=company)
         except EndowmentPayment.DoesNotExist:
             endowment_payment = None
         return endowment_payment
@@ -936,9 +954,13 @@ class UpdateDecisionDocument(graphene.Mutation):
 
     def mutate(root, info, id, document=None, decision_document_data=None):
         creator = info.context.user
+        try:
+            decision_document = DecisionDocument.objects.get(pk=id, company=creator.the_current_company)
+        except DecisionDocument.DoesNotExist:
+            raise e
         decision_document_items = decision_document_data.pop("decision_document_items")
         DecisionDocument.objects.filter(pk=id).update(**decision_document_data)
-        decision_document = DecisionDocument.objects.get(pk=id)
+        decision_document.refresh_from_db()
         if not decision_document.folder or decision_document.folder is None:
             folder = Folder.objects.create(
                 name=str(decision_document.id) + "_" + decision_document.name,
@@ -987,12 +1009,15 @@ class UpdateDecisionDocumentState(graphene.Mutation):
 
     def mutate(root, info, id, decision_document_fields=None):
         creator = info.context.user
+        try:
+            decision_document = DecisionDocument.objects.get(pk=id, company=creator.the_current_company)
+        except DecisionDocument.DoesNotExist:
+            raise e
         done = True
         success = True
         decision_document = None
         message = ""
         try:
-            decision_document = DecisionDocument.objects.get(pk=id)
             DecisionDocument.objects.filter(pk=id).update(
                 is_active=not decision_document.is_active
             )
@@ -1025,6 +1050,10 @@ class DeleteDecisionDocument(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            decision_document = DecisionDocument.objects.get(pk=id, company=current_user.the_current_company)
+        except DecisionDocument.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             decision_document = DecisionDocument.objects.get(pk=id)
             decision_document.delete()
@@ -1083,8 +1112,12 @@ class UpdateBankAccount(graphene.Mutation):
 
     def mutate(root, info, id, image=None, bank_account_data=None):
         creator = info.context.user
+        try:
+            bank_account = BankAccount.objects.get(pk=id, company=creator.the_current_company)
+        except BankAccount.DoesNotExist:
+            raise e
         BankAccount.objects.filter(pk=id).update(**bank_account_data)
-        bank_account = BankAccount.objects.get(pk=id)
+        bank_account.refresh_from_db()
         if not bank_account.folder or bank_account.folder is None:
             folder = Folder.objects.create(
                 name=str(bank_account.id) + "_" + bank_account.name, creator=creator
@@ -1118,12 +1151,15 @@ class UpdateBankAccountState(graphene.Mutation):
 
     def mutate(root, info, id, bank_account_fields=None):
         creator = info.context.user
+        try:
+            bank_account = BankAccount.objects.get(pk=id, company=creator.the_current_company)
+        except BankAccount.DoesNotExist:
+            raise e
         done = True
         success = True
         bank_account = None
         message = ""
         try:
-            bank_account = BankAccount.objects.get(pk=id)
             BankAccount.objects.filter(pk=id).update(
                 is_active=not bank_account.is_active
             )
@@ -1153,6 +1189,10 @@ class DeleteBankAccount(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            bank_account = BankAccount.objects.get(pk=id, company=current_user.the_current_company)
+        except BankAccount.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             bank_account = BankAccount.objects.get(pk=id)
             bank_account.delete()
@@ -1206,8 +1246,12 @@ class UpdateBalance(graphene.Mutation):
 
     def mutate(root, info, id, document=None, balance_data=None):
         creator = info.context.user
+        try:
+            balance = Balance.objects.get(pk=id, company=creator.the_current_company)
+        except Balance.DoesNotExist:
+            raise e
         Balance.objects.filter(pk=id).update(**balance_data)
-        balance = Balance.objects.get(pk=id)
+        balance.refresh_from_db()
         if not document and balance.document:
             document_file = balance.document
             document_file.delete()
@@ -1240,6 +1284,10 @@ class DeleteBalance(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            balance = Balance.objects.get(pk=id, company=current_user.the_current_company)
+        except Balance.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             balance = Balance.objects.get(pk=id)
             balance.delete()
@@ -1306,10 +1354,14 @@ class UpdateCashRegister(graphene.Mutation):
 
     def mutate(root, info, id, cash_register_data=None):
         creator = info.context.user
+        try:
+            cash_register = CashRegister.objects.get(pk=id, company=creator.the_current_company)
+        except CashRegister.DoesNotExist:
+            raise e
         establishment_ids = cash_register_data.pop("establishments")
         manager_ids = cash_register_data.pop("managers")
         CashRegister.objects.filter(pk=id).update(**cash_register_data)
-        cash_register = CashRegister.objects.get(pk=id)
+        cash_register.refresh_from_db()
         if not cash_register.folder or cash_register.folder is None:
             folder = Folder.objects.create(
                 name=str(cash_register.id) + "_" + cash_register.name, creator=creator
@@ -1353,12 +1405,15 @@ class UpdateCashRegisterState(graphene.Mutation):
 
     def mutate(root, info, id, cash_register_fields=None):
         creator = info.context.user
+        try:
+            cash_register = CashRegister.objects.get(pk=id, company=creator.the_current_company)
+        except CashRegister.DoesNotExist:
+            raise e
         done = True
         success = True
         cash_register = None
         message = ""
         try:
-            cash_register = CashRegister.objects.get(pk=id)
             CashRegister.objects.filter(pk=id).update(
                 is_active=not cash_register.is_active
             )
@@ -1388,6 +1443,10 @@ class DeleteCashRegister(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            cash_register = CashRegister.objects.get(pk=id, company=current_user.the_current_company)
+        except CashRegister.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             cash_register = CashRegister.objects.get(pk=id)
             cash_register.delete()
@@ -1415,7 +1474,7 @@ class CreateCashRegisterTransaction(graphene.Mutation):
         creator = info.context.user
         # Vérification si le cash_register existe
         try:
-            cash_register = CashRegister.objects.get(pk=cash_register_transaction_data.cash_register_id)
+            cash_register = CashRegister.objects.get(pk=cash_register_transaction_data.cash_register_id, company=creator.the_current_company)
         except CashRegister.DoesNotExist:
             raise ValueError("Le registre de caisse spécifié n'existe pas.")
         cash_register_transaction = CashRegisterTransaction(**cash_register_transaction_data)
@@ -1447,7 +1506,7 @@ class UpdateCashRegisterTransaction(graphene.Mutation):
         creator = info.context.user
         # Vérification si le cash_register existe
         try:
-            cash_register = CashRegister.objects.get(pk=cash_register_transaction_data.cash_register_id)
+            cash_register = CashRegister.objects.get(pk=cash_register_transaction_data.cash_register_id, company=creator.the_current_company)
         except CashRegister.DoesNotExist:
             raise ValueError("Le registre de caisse spécifié n'existe pas.")
         CashRegisterTransaction.objects.filter(pk=id).update(**cash_register_transaction_data)
@@ -1484,6 +1543,10 @@ class DeleteCashRegisterTransaction(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            cash_register_transaction = CashRegisterTransaction.objects.get(pk=id, cash_register__company=current_user.the_current_company)
+        except CashRegisterTransaction.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             cash_register_transaction = CashRegisterTransaction.objects.get(pk=id)
             cash_register_transaction.delete()
@@ -1527,8 +1590,12 @@ class UpdateBudget(graphene.Mutation):
 
     def mutate(root, info, id, budget_data=None):
         creator = info.context.user
+        try:
+            budget = Budget.objects.get(pk=id, company=creator.the_current_company)
+        except Budget.DoesNotExist:
+            raise e
         Budget.objects.filter(pk=id).update(**budget_data)
-        budget = Budget.objects.get(pk=id)
+        budget.refresh_from_db()
         is_draft = True if budget.status == 'DRAFT' else False
         if not budget.folder or budget.folder is None:
             folder = Folder.objects.create(
@@ -1555,7 +1622,7 @@ class UpdateBudgetAccountingNature(graphene.Mutation):
 
          # Vérifier que le budget existe
         try:
-            budget = Budget.objects.get(pk=budget_id)
+            budget = Budget.objects.get(pk=budget_id, company=creator.the_current_company)
         except Budget.DoesNotExist:
             raise Exception(f"Aucun budget trouvé avec l'ID {budget_id}.")
 
@@ -1600,12 +1667,15 @@ class UpdateBudgetState(graphene.Mutation):
 
     def mutate(root, info, id, budget_fields=None):
         creator = info.context.user
+        try:
+            budget = Budget.objects.get(pk=id, company=creator.the_current_company)
+        except Budget.DoesNotExist:
+            raise e
         done = True
         success = True
         budget = None
         message = ""
         try:
-            budget = Budget.objects.get(pk=id)
             Budget.objects.filter(pk=id).update(
                 is_active=not budget.is_active
             )
@@ -1631,12 +1701,15 @@ class UpdateBudgetFields(graphene.Mutation):
 
     def mutate(root, info, id, budget_data=None):
         creator = info.context.user
+        try:
+            budget = Budget.objects.get(pk=id, company=creator.the_current_company)
+        except Budget.DoesNotExist:
+            raise e
         done = True
         success = True
         budget = None
         message = ''
         try:
-            budget = Budget.objects.get(pk=id)
             Budget.objects.filter(pk=id).update(**budget_data)
             budget.refresh_from_db()
         except Exception as e:
@@ -1661,6 +1734,10 @@ class DeleteBudget(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            budget = Budget.objects.get(pk=id, company=current_user.the_current_company)
+        except Budget.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             budget = Budget.objects.get(pk=id)
             budget.delete()
@@ -1698,8 +1775,12 @@ class UpdateEndowment(graphene.Mutation):
 
     def mutate(root, info, id, endowment_data=None):
         creator = info.context.user
+        try:
+            endowment = Endowment.objects.get(pk=id, company=creator.the_current_company)
+        except Endowment.DoesNotExist:
+            raise e
         Endowment.objects.filter(pk=id).update(**endowment_data)
-        endowment = Endowment.objects.get(pk=id)
+        endowment.refresh_from_db()
         endowment.set_recurrence_from_rule()
         endowment.save()
         return UpdateEndowment(endowment=endowment)
@@ -1715,12 +1796,15 @@ class UpdateEndowmentState(graphene.Mutation):
 
     def mutate(root, info, id, endowment_fields=None):
         creator = info.context.user
+        try:
+            endowment = Endowment.objects.get(pk=id, company=creator.the_current_company)
+        except Endowment.DoesNotExist:
+            raise e
         done = True
         success = True
         endowment = None
         message = ''
         try:
-            endowment = Endowment.objects.get(pk=id)
             Endowment.objects.filter(pk=id).update(is_active=not endowment.is_active)
             endowment.refresh_from_db()
         except Exception as e:
@@ -1746,6 +1830,10 @@ class DeleteEndowment(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            endowment = Endowment.objects.get(pk=id, company=current_user.the_current_company)
+        except Endowment.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             endowment = Endowment.objects.get(pk=id)
             endowment.delete()
@@ -1797,8 +1885,12 @@ class UpdateBankCard(graphene.Mutation):
 
     def mutate(root, info, id, image=None, bank_card_data=None):
         creator = info.context.user
+        try:
+            bank_card = BankCard.objects.get(pk=id, company=creator.the_current_company)
+        except BankCard.DoesNotExist:
+            raise e
         BankCard.objects.filter(pk=id).update(**bank_card_data)
-        bank_card = BankCard.objects.get(pk=id)
+        bank_card.refresh_from_db()
         if not image and bank_card.image:
             image_file = bank_card.image
             image_file.delete()
@@ -1831,6 +1923,10 @@ class DeleteBankCard(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            bank_card = BankCard.objects.get(pk=id, company=current_user.the_current_company)
+        except BankCard.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             bank_card = BankCard.objects.get(pk=id)
             bank_card.delete()
@@ -1889,8 +1985,12 @@ class UpdateEndowmentPayment(graphene.Mutation):
 
     def mutate(root, info, id, files=None, endowment_payment_data=None):
         creator = info.context.user
+        try:
+            endowment_payment = EndowmentPayment.objects.get(pk=id, company=creator.the_current_company)
+        except EndowmentPayment.DoesNotExist:
+            raise e
         EndowmentPayment.objects.filter(pk=id).update(**endowment_payment_data)
-        endowment_payment = EndowmentPayment.objects.get(pk=id)
+        endowment_payment.refresh_from_db()
         if not endowment_payment.folder or endowment_payment.folder is None:
             folder = Folder.objects.create(name=str(endowment_payment.id)+'_'+endowment_payment.label,creator=creator)
             EndowmentPayment.objects.filter(pk=id).update(folder=folder)
@@ -1931,12 +2031,15 @@ class UpdateEndowmentPaymentFields(graphene.Mutation):
 
     def mutate(root, info, id, endowment_payment_data=None):
         creator = info.context.user
+        try:
+            endowment_payment = EndowmentPayment.objects.get(pk=id, company=creator.the_current_company)
+        except EndowmentPayment.DoesNotExist:
+            raise e
         done = True
         success = True
         endowment_payment = None
         message = ''
         try:
-            endowment_payment = EndowmentPayment.objects.get(pk=id)
             EndowmentPayment.objects.filter(pk=id).update(**endowment_payment_data)
             endowment_payment.refresh_from_db()
         except Exception as e:
@@ -1962,7 +2065,10 @@ class DeleteEndowmentPayment(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        endowment_payment = EndowmentPayment.objects.get(pk=id)
+        try:
+            endowment_payment = EndowmentPayment.objects.get(pk=id, company=current_user.the_current_company)
+        except EndowmentPayment.DoesNotExist:
+            raise e
         if current_user.can_manage_finance() or current_user.is_manager() or endowment_payment.creator == current_user:
             # endowment_payment = EndowmentPayment.objects.get(pk=id)
             # endowment_payment.delete()
