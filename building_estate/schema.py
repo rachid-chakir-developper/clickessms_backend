@@ -52,7 +52,7 @@ class BuildingEstateQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        space_rooms = SpaceRoom.objects.filter(company__id=id_company) if id_company else SpaceRoom.objects.filter(company=company)
+        space_rooms = SpaceRoom.objects.filter(company__id=id_company, is_deleted=False) if id_company else SpaceRoom.objects.filter(company=company, is_deleted=False)
         the_order_by = '-created_at'
         if space_room_filter:
             keyword = space_room_filter.get('keyword', '')
@@ -80,8 +80,10 @@ class BuildingEstateQuery(graphene.ObjectType):
 
     def resolve_space_room(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            space_room = SpaceRoom.objects.get(pk=id)
+            space_room = SpaceRoom.objects.get(pk=id, company=company)
         except SpaceRoom.DoesNotExist:
             space_room = None
         return space_room
@@ -129,8 +131,12 @@ class UpdateSpaceRoom(graphene.Mutation):
 
     def mutate(root, info, id, image=None, space_room_data=None):
         creator = info.context.user
+        try:
+            space_room = SpaceRoom.objects.get(pk=id, company=creator.the_current_company)
+        except SpaceRoom.DoesNotExist:
+            raise e
         SpaceRoom.objects.filter(pk=id).update(**space_room_data)
-        space_room = SpaceRoom.objects.get(pk=id)
+        space_room.refresh_from_db()
         if not space_room.folder or space_room.folder is None:
             folder = Folder.objects.create(
                 name=str(space_room.id) + "_" + space_room.name,
@@ -164,12 +170,15 @@ class UpdateSpaceRoomState(graphene.Mutation):
 
     def mutate(root, info, id, space_room_fields=None):
         creator = info.context.user
+        try:
+            space_room = SpaceRoom.objects.get(pk=id, company=creator.the_current_company)
+        except SpaceRoom.DoesNotExist:
+            raise e
         done = True
         success = True
         space_room = None
         message = ''
         try:
-            space_room = SpaceRoom.objects.get(pk=id)
             SpaceRoom.objects.filter(pk=id).update(is_active=not space_room.is_active)
             space_room.refresh_from_db()
         except Exception as e:
@@ -194,6 +203,10 @@ class DeleteSpaceRoom(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            space_room = SpaceRoom.objects.get(pk=id, company=current_user.the_current_company)
+        except SpaceRoom.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             space_room = SpaceRoom.objects.get(pk=id)
             space_room.delete()
