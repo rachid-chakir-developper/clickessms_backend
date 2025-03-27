@@ -157,7 +157,7 @@ class ActivitiesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        transmission_events = TransmissionEvent.objects.filter(company=company)
+        transmission_events = TransmissionEvent.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_activity():
             if user.is_manager():
                 transmission_events = transmission_events.filter(Q(beneficiaries__beneficiary__beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -186,8 +186,10 @@ class ActivitiesQuery(graphene.ObjectType):
 
     def resolve_transmission_event(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            transmission_event = TransmissionEvent.objects.get(pk=id)
+            transmission_event = TransmissionEvent.objects.get(pk=id, company=company)
         except TransmissionEvent.DoesNotExist:
             transmission_event = None
         return transmission_event
@@ -197,7 +199,7 @@ class ActivitiesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        beneficiary_absences = BeneficiaryAbsence.objects.filter(company=company)
+        beneficiary_absences = BeneficiaryAbsence.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_activity():
             if user.is_manager():
                 beneficiary_absences = beneficiary_absences.filter(Q(beneficiaries__beneficiary__beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -227,8 +229,10 @@ class ActivitiesQuery(graphene.ObjectType):
 
     def resolve_beneficiary_absence(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id)
+            beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id, company=company)
         except BeneficiaryAbsence.DoesNotExist:
             beneficiary_absence = None
         return beneficiary_absence
@@ -238,7 +242,7 @@ class ActivitiesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        personalized_projects = PersonalizedProject.objects.filter(company=company)
+        personalized_projects = PersonalizedProject.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_activity():
             if user.is_manager():
                 personalized_projects = personalized_projects.filter(Q(beneficiary__beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -268,8 +272,10 @@ class ActivitiesQuery(graphene.ObjectType):
 
     def resolve_personalized_project(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            personalized_project = PersonalizedProject.objects.get(pk=id)
+            personalized_project = PersonalizedProject.objects.get(pk=id, company=company)
         except PersonalizedProject.DoesNotExist:
             personalized_project = None
         return personalized_project
@@ -279,7 +285,7 @@ class ActivitiesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        beneficiary_expenses = BeneficiaryExpense.objects.filter(company=company)
+        beneficiary_expenses = BeneficiaryExpense.objects.filter(company=company, is_deleted=False)
         the_order_by = '-created_at'
         if not user.can_manage_activity():
             if user.is_manager():
@@ -312,8 +318,10 @@ class ActivitiesQuery(graphene.ObjectType):
 
     def resolve_beneficiary_expense(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            beneficiary_expense = BeneficiaryExpense.objects.get(pk=id)
+            beneficiary_expense = BeneficiaryExpense.objects.get(pk=id, company=company)
         except BeneficiaryExpense.DoesNotExist:
             beneficiary_expense = None
         return beneficiary_expense
@@ -371,9 +379,13 @@ class UpdateTransmissionEvent(graphene.Mutation):
 
     def mutate(root, info, id, image=None, transmission_event_data=None):
         creator = info.context.user
+        try:
+            transmission_event = TransmissionEvent.objects.get(pk=id, company=creator.the_current_company)
+        except TransmissionEvent.DoesNotExist:
+            raise e
         beneficiary_ids = transmission_event_data.pop("beneficiaries")
         TransmissionEvent.objects.filter(pk=id).update(**transmission_event_data)
-        transmission_event = TransmissionEvent.objects.get(pk=id)
+        transmission_event.refresh_from_db()
         if not transmission_event.folder or transmission_event.folder is None:
             folder = Folder.objects.create(name=str(transmission_event.id)+'_'+transmission_event.title,creator=creator)
             TransmissionEvent.objects.filter(pk=id).update(folder=folder)
@@ -418,12 +430,15 @@ class UpdateTransmissionEventState(graphene.Mutation):
 
     def mutate(root, info, id, transmission_event_fields=None):
         creator = info.context.user
+        try:
+            transmission_event = TransmissionEvent.objects.get(pk=id, company=creator.the_current_company)
+        except TransmissionEvent.DoesNotExist:
+            raise e
         done = True
         success = True
         transmission_event = None
         message = ''
         try:
-            transmission_event = TransmissionEvent.objects.get(pk=id)
             TransmissionEvent.objects.filter(pk=id).update(is_active=not transmission_event.is_active)
             transmission_event.refresh_from_db()
         except Exception as e:
@@ -449,7 +464,10 @@ class DeleteTransmissionEvent(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        transmission_event = TransmissionEvent.objects.get(pk=id)
+        try:
+            transmission_event = TransmissionEvent.objects.get(pk=id, company=current_user.the_current_company)
+        except TransmissionEvent.DoesNotExist:
+            raise e
         if current_user.can_manage_activity() or current_user.is_manager() or transmission_event.creator == current_user:
             # transmission_event = TransmissionEvent.objects.get(pk=id)
             # transmission_event.delete()
@@ -505,10 +523,14 @@ class UpdateBeneficiaryAbsence(graphene.Mutation):
 
     def mutate(root, info, id, image=None, beneficiary_absence_data=None):
         creator = info.context.user
+        try:
+            beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id, company=creator.the_current_company)
+        except BeneficiaryAbsence.DoesNotExist:
+            raise e
         beneficiary_ids = beneficiary_absence_data.pop("beneficiaries")
         reason_ids = beneficiary_absence_data.pop("reasons")
         BeneficiaryAbsence.objects.filter(pk=id).update(**beneficiary_absence_data)
-        beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id)
+        beneficiary_absence.refresh_from_db()
         if not beneficiary_absence.folder or beneficiary_absence.folder is None:
             folder = Folder.objects.create(name=str(beneficiary_absence.id)+'_'+beneficiary_absence.title,creator=creator)
             BeneficiaryAbsence.objects.filter(pk=id).update(folder=folder)
@@ -548,7 +570,10 @@ class DeleteBeneficiaryAbsence(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id)
+        try:
+            beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id, company=current_user.the_current_company)
+        except BeneficiaryAbsence.DoesNotExist:
+            raise e
         if current_user.can_manage_activity() or current_user.is_manager() or beneficiary_absence.creator == current_user:
             # beneficiary_absence = BeneficiaryAbsence.objects.get(pk=id)
             # beneficiary_absence.delete()
@@ -590,8 +615,12 @@ class UpdatePersonalizedProject(graphene.Mutation):
 
     def mutate(root, info, id, personalized_project_data=None):
         creator = info.context.user
+        try:
+            personalized_project = PersonalizedProject.objects.get(pk=id, company=creator.the_current_company)
+        except PersonalizedProject.DoesNotExist:
+            raise e
         PersonalizedProject.objects.filter(pk=id).update(**personalized_project_data)
-        personalized_project = PersonalizedProject.objects.get(pk=id)
+        personalized_project.refresh_from_db()
         if not personalized_project.folder or personalized_project.folder is None:
             folder = Folder.objects.create(name=str(personalized_project.id)+'_'+personalized_project.label,creator=creator)
             PersonalizedProject.objects.filter(pk=id).update(folder=folder)
@@ -615,7 +644,10 @@ class DeletePersonalizedProject(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        personalized_project = PersonalizedProject.objects.get(pk=id)
+        try:
+            personalized_project = PersonalizedProject.objects.get(pk=id, company=current_user.the_current_company)
+        except PersonalizedProject.DoesNotExist:
+            raise e
         if current_user.can_manage_activity() or current_user.is_manager() or personalized_project.creator == current_user:
             # personalized_project = PersonalizedProject.objects.get(pk=id)
             # personalized_project.delete()
@@ -676,8 +708,12 @@ class UpdateBeneficiaryExpense(graphene.Mutation):
 
     def mutate(root, info, id, files=None, beneficiary_expense_data=None):
         creator = info.context.user
+        try:
+            beneficiary_expense = BeneficiaryExpense.objects.get(pk=id, company=creator.the_current_company)
+        except BeneficiaryExpense.DoesNotExist:
+            raise e
         BeneficiaryExpense.objects.filter(pk=id).update(**beneficiary_expense_data)
-        beneficiary_expense = BeneficiaryExpense.objects.get(pk=id)
+        beneficiary_expense.refresh_from_db()
         if not beneficiary_expense.folder or beneficiary_expense.folder is None:
             folder = Folder.objects.create(name=str(beneficiary_expense.id)+'_'+beneficiary_expense.label,creator=creator)
             BeneficiaryExpense.objects.filter(pk=id).update(folder=folder)
@@ -722,7 +758,10 @@ class DeleteBeneficiaryExpense(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        beneficiary_expense = BeneficiaryExpense.objects.get(pk=id)
+        try:
+            beneficiary_expense = BeneficiaryExpense.objects.get(pk=id, company=current_user.the_current_company)
+        except BeneficiaryExpense.DoesNotExist:
+            raise e
         if current_user.can_manage_activity() or current_user.is_manager() or beneficiary_expense.creator == current_user:
             # beneficiary_expense = BeneficiaryExpense.objects.get(pk=id)
             # beneficiary_expense.delete()
