@@ -318,8 +318,10 @@ class WorksQuery(graphene.ObjectType):
 
     def resolve_task(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            task = Task.objects.get(pk=id)
+            task = Task.objects.get(pk=id, company=company)
         except Task.DoesNotExist:
             task = None
         return task
@@ -352,7 +354,7 @@ class WorksQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        tickets = Ticket.objects.filter(company=company)
+        tickets = Ticket.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_quality():
             if user.is_manager():
                 tickets = tickets.filter(Q(establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
@@ -385,8 +387,10 @@ class WorksQuery(graphene.ObjectType):
 
     def resolve_ticket(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            ticket = Ticket.objects.get(pk=id)
+            ticket = Ticket.objects.get(pk=id, company=company)
         except Ticket.DoesNotExist:
             ticket = None
         return ticket
@@ -438,8 +442,10 @@ class WorksQuery(graphene.ObjectType):
 
     def resolve_task_action(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            task_action = TaskAction.objects.get(pk=id)
+            task_action = TaskAction.objects.get(pk=id, company=company)
         except TaskAction.DoesNotExist:
             task_action = None
         return task_action
@@ -547,12 +553,15 @@ class UpdateTask(graphene.Mutation):
 
     def mutate(root, info, id, task_data=None):
         creator = info.context.user
+        try:
+            task = Task.objects.get(pk=id, company=creator.the_current_company)
+        except Task.DoesNotExist:
+            raise e
         establishment_ids = task_data.pop("establishments")
         worker_ids = task_data.pop("workers")
         vehicle_ids = task_data.pop("vehicles")
         material_ids = task_data.pop("materials")
         task_checklist = task_data.pop("task_checklist")
-        task = Task.objects.get(pk=id)
         if not creator.is_manager() and not creator.can_manage_facility() and task.status != 'PENDING':
             raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'intervention n'est pas en attente.")
         Task.objects.filter(pk=id).update(**task_data)
@@ -649,12 +658,15 @@ class UpdateTaskFields(graphene.Mutation):
 
     def mutate(root, info, id, task_data=None):
         creator = info.context.user
+        try:
+            task = Task.objects.get(pk=id, company=creator.the_current_company)
+        except Task.DoesNotExist:
+            raise e
         done = True
         success = True
         task = None
         message = ''
         try:
-            task = Task.objects.get(pk=id)
             Task.objects.filter(pk=id).update(**task_data)
             task.refresh_from_db()
             if 'status' in task_data:
@@ -691,12 +703,15 @@ class UpdateTaskState(graphene.Mutation):
 
     def mutate(root, info, id, task_fields=None):
         creator = info.context.user
+        try:
+            task = Task.objects.get(pk=id, company=creator.the_current_company)
+        except Task.DoesNotExist:
+            raise e
         done = True
         success = True
         task = None
         message = ''
         try:
-            task = Task.objects.get(pk=id)
             Task.objects.filter(pk=id).update(is_active=not task.is_active)
             task.refresh_from_db()
         except Exception as e:
@@ -831,7 +846,10 @@ class DeleteTask(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        task = Task.objects.get(pk=id)
+        try:
+            task = Task.objects.get(pk=id, company=current_user.the_current_company)
+        except Task.DoesNotExist:
+            raise e
         if current_user.can_manage_facility() or current_user.is_manager() or (task.creator == current_user and task.status == 'PENDING'):
             # task = Task.objects.get(pk=id)
             # delete_calendar_event_task(task=task)
@@ -942,6 +960,10 @@ class UpdateTicket(graphene.Mutation):
 
     def mutate(root, info, id, image=None, ticket_data=None):
         creator = info.context.user
+        try:
+            ticket = Ticket.objects.get(pk=id, company=creator.the_current_company)
+        except Ticket.DoesNotExist:
+            raise e
         establishment_ids = ticket_data.pop("establishments") if "establishments" in ticket_data else None
         task_actions = ticket_data.pop("actions")
         efc_reports = ticket_data.pop("efc_reports")
@@ -1015,12 +1037,15 @@ class UpdateTicketFields(graphene.Mutation):
 
     def mutate(root, info, id, ticket_data=None):
         creator = info.context.user
+        try:
+            ticket = Ticket.objects.get(pk=id, company=creator.the_current_company)
+        except Ticket.DoesNotExist:
+            raise e
         done = True
         success = True
         ticket = None
         message = ''
         try:
-            ticket = Ticket.objects.get(pk=id)
             Ticket.objects.filter(pk=id).update(**ticket_data)
             ticket.refresh_from_db()
             broadcastTicketUpdated(ticket=ticket)
@@ -1046,7 +1071,10 @@ class DeleteTicket(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        ticket = Ticket.objects.get(pk=id)
+        try:
+            ticket = Ticket.objects.get(pk=id, company=current_user.the_current_company)
+        except Ticket.DoesNotExist:
+            raise e
         if current_user.can_manage_quality() or current_user.is_manager() or ticket.creator == current_user:
             # ticket = Ticket.objects.get(pk=id)
             # ticket.delete()
@@ -1111,7 +1139,10 @@ class UpdateTaskAction(graphene.Mutation):
 
     def mutate(root, info, id, document=None, task_action_data=None):
         creator = info.context.user
-        task_action = TaskAction.objects.get(pk=id)
+        try:
+            task_action = TaskAction.objects.get(pk=id, company=creator.the_current_company)
+        except TaskAction.DoesNotExist:
+            raise e
         if creator != task_action.creator and not creator.is_admin():
             raise ValueError("Vous n'avez pas les droits nécessaires pour modifier cette action.")
         employees_ids = task_action_data.pop("employees") if "employees" in task_action_data else None
@@ -1180,12 +1211,15 @@ class UpdateTaskActionFields(graphene.Mutation):
 
     def mutate(root, info, id, task_action_data=None):
         creator = info.context.user
+        try:
+            task_action = TaskAction.objects.get(pk=id, company=creator.the_current_company)
+        except TaskAction.DoesNotExist:
+            raise e
         done = True
         success = True
         task_action = None
         message = ''
         try:
-            task_action = TaskAction.objects.get(pk=id)
             TaskAction.objects.filter(pk=id).update(**task_action_data)
             task_action.refresh_from_db()
             if 'status' in task_action_data:
@@ -1232,7 +1266,10 @@ class DeleteTaskAction(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        task_action = TaskAction.objects.get(pk=id)
+        try:
+            task_action = TaskAction.objects.get(pk=id, company=current_user.the_current_company)
+        except TaskAction.DoesNotExist:
+            raise e
         if current_user.is_superuser or current_user.is_admin() or (task_action.creator==current_user):
             # task_action.delete()
             TaskAction.objects.filter(pk=id).update(is_deleted=True)
