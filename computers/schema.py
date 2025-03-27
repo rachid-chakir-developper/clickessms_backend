@@ -234,12 +234,8 @@ class UpdateSoftware(graphene.Mutation):
 
 	def mutate(root, info, id, image=None, software_data=None):
 		creator = info.context.user
-        try:
-            software = Software.objects.get(pk=id, company=creator.the_current_company)
-        except Software.DoesNotExist:
-            raise e
 		Software.objects.filter(pk=id).update(**software_data)
-		software.refresh_from_db()
+		software = Software.objects.get(pk=id)
 		if not software.folder or software.folder is None:
 			folder = Folder.objects.create(name=str(software.id)+'_'+software.name,creator=creator)
 			Software.objects.filter(pk=id).update(folder=folder)
@@ -270,15 +266,12 @@ class UpdateSoftwareState(graphene.Mutation):
 
 	def mutate(root, info, id, software_fields=None):
 		creator = info.context.user
-        try:
-            software = Software.objects.get(pk=id, company=creator.the_current_company)
-        except Software.DoesNotExist:
-            raise e
 		done = True
 		success = True
 		software = None
 		message = ''
 		try:
+			software = Software.objects.get(pk=id)
 			Software.objects.filter(pk=id).update(is_active=not software.is_active)
 			software.refresh_from_db()
 		except Exception as e:
@@ -304,10 +297,6 @@ class DeleteSoftware(graphene.Mutation):
 		success = False
 		message = ''
 		current_user = info.context.user
-        try:
-            software = Software.objects.get(pk=id, company=current_user.the_current_company)
-        except Software.DoesNotExist:
-            raise e
 		if current_user.is_superuser:
 			software = Software.objects.get(pk=id)
 			software.delete()
@@ -343,12 +332,8 @@ class UpdateTheBackup(graphene.Mutation):
 
 	def mutate(root, info, id, the_backup_data=None):
 		creator = info.context.user
-        try:
-            the_backup = TheBackup.objects.get(pk=id, company=creator.the_current_company)
-        except TheBackup.DoesNotExist:
-            raise e
 		TheBackup.objects.filter(pk=id).update(**the_backup_data)
-		the_backup.refresh_from_db()
+		the_backup = TheBackup.objects.get(pk=id)
 		return UpdateTheBackup(the_backup=the_backup)
 		
 class UpdateTheBackupState(graphene.Mutation):
@@ -362,15 +347,12 @@ class UpdateTheBackupState(graphene.Mutation):
 
 	def mutate(root, info, id, the_backup_fields=None):
 		creator = info.context.user
-        try:
-            the_backup = TheBackup.objects.get(pk=id, company=creator.the_current_company)
-        except TheBackup.DoesNotExist:
-            raise e
 		done = True
 		success = True
 		the_backup = None
 		message = ''
 		try:
+			the_backup = TheBackup.objects.get(pk=id)
 			TheBackup.objects.filter(pk=id).update(is_active=not the_backup.is_active)
 			the_backup.refresh_from_db()
 		except Exception as e:
@@ -396,10 +378,6 @@ class DeleteTheBackup(graphene.Mutation):
 		success = False
 		message = ''
 		current_user = info.context.user
-        try:
-            the_backup = TheBackup.objects.get(pk=id, company=current_user.the_current_company)
-        except TheBackup.DoesNotExist:
-            raise e
 		if current_user.is_superuser:
 			the_backup = TheBackup.objects.get(pk=id)
 			the_backup.delete()
@@ -435,12 +413,8 @@ class UpdateThePassword(graphene.Mutation):
 
 	def mutate(root, info, id, the_password_data=None):
 		creator = info.context.user
-        try:
-            the_password = ThePassword.objects.get(pk=id, company=creator.the_current_company)
-        except ThePassword.DoesNotExist:
-            raise e
 		ThePassword.objects.filter(pk=id).update(**the_password_data)
-		the_password.refresh_from_db()
+		the_password = ThePassword.objects.get(pk=id)
 		return UpdateThePassword(the_password=the_password)
 		
 class UpdateThePasswordState(graphene.Mutation):
@@ -454,15 +428,12 @@ class UpdateThePasswordState(graphene.Mutation):
 
 	def mutate(root, info, id, the_password_fields=None):
 		creator = info.context.user
-        try:
-            the_password = ThePassword.objects.get(pk=id, company=creator.the_current_company)
-        except ThePassword.DoesNotExist:
-            raise e
 		done = True
 		success = True
 		the_password = None
 		message = ''
 		try:
+			the_password = ThePassword.objects.get(pk=id)
 			ThePassword.objects.filter(pk=id).update(is_active=not the_password.is_active)
 			the_password.refresh_from_db()
 		except Exception as e:
@@ -488,10 +459,6 @@ class DeleteThePassword(graphene.Mutation):
 		success = False
 		message = ''
 		current_user = info.context.user
-        try:
-            the_password = ThePassword.objects.get(pk=id, company=current_user.the_current_company)
-        except ThePassword.DoesNotExist:
-            raise e
 		if current_user.is_superuser:
 			the_password = ThePassword.objects.get(pk=id)
 			the_password.delete()
