@@ -309,8 +309,12 @@ class UpdateComment(graphene.Mutation):
 
     def mutate(root, info, id, image=None, comment_data=None):
         creator = info.context.user
+        try:
+            comment = Comment.objects.get(pk=id, creator=creator)
+        except Comment.DoesNotExist:
+            raise e
         Comment.objects.filter(pk=id).update(**comment_data)
-        comment = Comment.objects.get(pk=id)
+        comment.refresh_from_db()
         if not image and comment.image:
             image_file = comment.image
             image_file.delete()
@@ -391,8 +395,12 @@ class UpdateFeedback(graphene.Mutation):
 
     def mutate(root, info, id, image=None, feedback_data=None):
         creator = info.context.user
+        try:
+            feedback = Feedback.objects.get(pk=id, creator=creator)
+        except Feedback.DoesNotExist:
+            raise e
         Feedback.objects.filter(pk=id).update(**feedback_data)
-        feedback = Feedback.objects.get(pk=id)
+        feedback.refresh_from_db()
         if not image and feedback.image:
             image_file = feedback.image
             image_file.delete()
@@ -421,12 +429,15 @@ class UpdateFeedbackState(graphene.Mutation):
 
     def mutate(root, info, id, feedback_fields=None):
         creator = info.context.user
+        try:
+            feedback = Feedback.objects.get(pk=id, creator=creator)
+        except Feedback.DoesNotExist:
+            raise e
         done = True
         success = True
         feedback = None
         message = ""
         try:
-            feedback = Feedback.objects.get(pk=id)
             Feedback.objects.filter(pk=id).update(
                 is_active=not feedback.is_active
             )

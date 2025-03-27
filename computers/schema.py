@@ -103,7 +103,7 @@ class ComputersQuery(graphene.ObjectType):
 		user = info.context.user
 		company = user.the_current_company
 		total_count = 0
-		softwares = Software.objects.filter(company=company)
+		softwares = Software.objects.filter(company=company, is_deleted=False)
 		if software_filter:
 			keyword = software_filter.get('keyword', '')
 			starting_date_time = software_filter.get('starting_date_time')
@@ -124,8 +124,10 @@ class ComputersQuery(graphene.ObjectType):
 
 	def resolve_software(root, info, id):
 		# We can easily optimize query count in the resolve method
+		user = info.context.user
+		company = user.the_current_company
 		try:
-			software = Software.objects.get(pk=id)
+			software = Software.objects.get(pk=id, company=company)
 		except Software.DoesNotExist:
 			software = None
 		return software
@@ -135,7 +137,7 @@ class ComputersQuery(graphene.ObjectType):
 		user = info.context.user
 		company = user.the_current_company
 		total_count = 0
-		the_backups = TheBackup.objects.filter(company=company)
+		the_backups = TheBackup.objects.filter(company=company, is_deleted=False)
 		if the_backup_filter:
 			keyword = the_backup_filter.get('keyword', '')
 			starting_date_time = the_backup_filter.get('starting_date_time')
@@ -156,8 +158,10 @@ class ComputersQuery(graphene.ObjectType):
 
 	def resolve_the_backup(root, info, id):
 		# We can easily optimize query count in the resolve method
+		user = info.context.user
+		company = user.the_current_company
 		try:
-			the_backup = TheBackup.objects.get(pk=id)
+			the_backup = TheBackup.objects.get(pk=id, company=company)
 		except TheBackup.DoesNotExist:
 			the_backup = None
 		return the_backup
@@ -167,7 +171,7 @@ class ComputersQuery(graphene.ObjectType):
 		user = info.context.user
 		company = user.the_current_company
 		total_count = 0
-		the_passwords = ThePassword.objects.filter(company=company)
+		the_passwords = ThePassword.objects.filter(company=company, is_deleted=False)
 		if the_password_filter:
 			keyword = the_password_filter.get('keyword', '')
 			starting_date_time = the_password_filter.get('starting_date_time')
@@ -188,8 +192,10 @@ class ComputersQuery(graphene.ObjectType):
 
 	def resolve_the_password(root, info, id):
 		# We can easily optimize query count in the resolve method
+		user = info.context.user
+		company = user.the_current_company
 		try:
-			the_password = ThePassword.objects.get(pk=id)
+			the_password = ThePassword.objects.get(pk=id, company=company)
 		except ThePassword.DoesNotExist:
 			the_password = None
 		return the_password

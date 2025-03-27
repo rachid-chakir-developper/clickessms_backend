@@ -265,7 +265,7 @@ class DataQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         # We can easily optimize query count in the resolve method
-        datas = apps.get_model('data_management', typeData).objects.filter(Q(company=company) | Q(creator__is_superuser=True))
+        datas = apps.get_model('data_management', typeData).objects.filter(Q(company=company) | Q(creator__is_superuser=True), is_deleted=False)
         if id_parent:
             datas = datas.filter(parent_id=id_parent)
         else:
@@ -309,8 +309,10 @@ class DataQuery(graphene.ObjectType):
 
     def resolve_accounting_nature(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            accounting_nature = AccountingNature.objects.get(pk=id)
+            accounting_nature = AccountingNature.objects.get(pk=id, company=company)
         except AccountingNature.DoesNotExist:
             accounting_nature = None
         return accounting_nature
@@ -320,7 +322,7 @@ class DataQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        custom_fields = CustomField.objects.filter(company__id=id_company) if id_company else CustomField.objects.filter(company=company)
+        custom_fields = CustomField.objects.filter(company__id=id_company, is_deleted=False) if id_company else CustomField.objects.filter(company=company, is_deleted=False)
         if custom_field_filter:
             keyword = custom_field_filter.get('keyword', '')
             form_models = custom_field_filter.get('form_models')
@@ -338,8 +340,10 @@ class DataQuery(graphene.ObjectType):
 
     def resolve_custom_field(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            custom_field = CustomField.objects.get(pk=id)
+            custom_field = CustomField.objects.get(pk=id, company=company)
         except CustomField.DoesNotExist:
             custom_field = None
         return custom_field
@@ -701,9 +705,13 @@ class UpdateCustomField(graphene.Mutation):
 
     def mutate(root, info, id, image=None, custom_field_data=None):
         creator = info.context.user
+        try:
+            custom_field = CustomField.objects.get(pk=id, company=creator.the_current_company)
+        except CustomField.DoesNotExist:
+            raise e
         options = custom_field_data.pop("options")
         CustomField.objects.filter(pk=id).update(**custom_field_data)
-        custom_field = CustomField.objects.get(pk=id)
+        custom_field.refresh_from_db()
         option_ids = [
             item.id for item in options if item.id is not None
         ]
@@ -729,6 +737,7 @@ class UpdateCustomFieldValues(graphene.Mutation):
 
     def mutate(root, info, form_model, id_object, custom_field_values_data=None):
         creator = info.context.user
+        company=creator.the_current_company
         custom_field_values = []
         try:
             model = None
@@ -742,7 +751,7 @@ class UpdateCustomFieldValues(graphene.Mutation):
             if not model:
                 raise ValueError("Modèle introuvable.")
             try:
-                this_object = model.objects.get(pk=id_object)
+                this_object = model.objects.get(pk=id_object, company=company)
                 CustomFieldEntityBase.set_custom_fields(form_model, this_object, custom_field_values_data)
             except ObjectDoesNotExist:
                 raise ValueError("L'objet avec ID {id_object} est introuvable.")
