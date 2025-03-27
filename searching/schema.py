@@ -52,12 +52,14 @@ class SearchQuery(graphene.ObjectType):
     search_numbers = graphene.Field(SearchType, search_filter=SearchFilterInput(required=False), offset=graphene.Int(required=False), limit=graphene.Int(required=False), page=graphene.Int(required=False))
 
     def resolve_search(root, info, search_filter=None, offset=None, limit=None, page=None):
-        tasks = Task.objects.all()
-        employees = Employee.objects.all()
-        clients = Client.objects.all()
-        suppliers = Supplier.objects.all()
-        beneficiaries = Beneficiary.objects.all()
-        establishments = Establishment.objects.all()
+        user = info.context.user
+        company = user.the_current_company
+        tasks = Task.objects.filter(company=company, is_deleted=False)
+        employees = Employee.objects.filter(company=company, is_deleted=False)
+        clients = Client.objects.filter(company=company, is_deleted=False)
+        suppliers = Supplier.objects.filter(company=company, is_deleted=False)
+        beneficiaries = Beneficiary.objects.filter(company=company, is_deleted=False)
+        establishments = Establishment.objects.filter(company=company, is_deleted=False)
 
         # Apply search filter if keyword is provided
         if search_filter and search_filter.keyword:
@@ -103,13 +105,15 @@ class SearchQuery(graphene.ObjectType):
         }
 
     def resolve_search_numbers(root, info, search_filter=None, offset=None, limit=None, page=None):
-        employees = Employee.objects.all()
-        clients = Client.objects.all()
-        suppliers = Supplier.objects.all()
-        partners = Partner.objects.all()
-        beneficiaries = Beneficiary.objects.all()
-        establishments = Establishment.objects.all()
-        phone_numbers = PhoneNumber.objects.all()
+        user = info.context.user
+        company = user.the_current_company
+        employees = Employee.objects.filter(company=company, is_deleted=False)
+        clients = Client.objects.filter(company=company, is_deleted=False)
+        suppliers = Supplier.objects.filter(company=company, is_deleted=False)
+        partners = Partner.objects.filter(company=company, is_deleted=False)
+        beneficiaries = Beneficiary.objects.filter(company=company, is_deleted=False)
+        establishments = Establishment.objects.filter(company=company, is_deleted=False)
+        phone_numbers = PhoneNumber.objects.filter(company=company, is_deleted=False)
 
         # Apply search filter if keyword is provided
         if search_filter and search_filter.keyword:

@@ -82,10 +82,10 @@ class Call(models.Model):
 		caller = Caller(**caller_data)
 		caller.call = self
 		caller.creator = creator
-		caller.company = creator.current_company if creator.current_company is not None else creator.company
+		caller.company = creator.the_current_company
 		if caller_data.caller_type == 'PhoneNumber' and ('phone_number_id' not in caller_data or caller_data.phone_number_id is None):
 			phone_number = PhoneNumber.objects.filter(phone=caller_data.phone).first()
-			phone_number = phone_number if phone_number else PhoneNumber.objects.create(phone=caller_data.phone)
+			phone_number = phone_number if phone_number else PhoneNumber.objects.create(phone=caller_data.phone, company=creator.the_current_company)
 			caller.phone_number = phone_number
 		caller.save()
 		self.save()
@@ -201,7 +201,7 @@ class Letter(models.Model):
 				name=sender_data.get('name', ''),
 				sender_type=sender_data.get('type', ''),
 				other_sender=sender_data.get('otherSender', ''),
-				creator=creator
+				creator=creator, company=creator.the_current_company
 			)
 			
 			if sender_data.get('type') == 'PARTNER' and sender_data.get('partner_id'):
