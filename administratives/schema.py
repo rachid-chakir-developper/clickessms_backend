@@ -323,8 +323,10 @@ class AdministrativesQuery(graphene.ObjectType):
 
     def resolve_call(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            call = Call.objects.get(pk=id)
+            call = Call.objects.get(pk=id, company=company)
         except Call.DoesNotExist:
             call = None
         return call
@@ -362,8 +364,10 @@ class AdministrativesQuery(graphene.ObjectType):
 
     def resolve_letter(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            letter = Letter.objects.get(pk=id)
+            letter = Letter.objects.get(pk=id, company=company)
         except Letter.DoesNotExist:
             letter = None
         return letter
@@ -416,8 +420,10 @@ class AdministrativesQuery(graphene.ObjectType):
 
     def resolve_meeting(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            meeting = Meeting.objects.get(pk=id)
+            meeting = Meeting.objects.get(pk=id, company=company)
         except Meeting.DoesNotExist:
             meeting = None
         return meeting
@@ -463,8 +469,10 @@ class AdministrativesQuery(graphene.ObjectType):
 
     def resolve_frame_document(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            frame_document = FrameDocument.objects.get(pk=id)
+            frame_document = FrameDocument.objects.get(pk=id, company=company)
         except FrameDocument.DoesNotExist:
             frame_document = None
         return frame_document
@@ -545,12 +553,16 @@ class UpdateCall(graphene.Mutation):
 
     def mutate(root, info, id, image=None, call_data=None):
         creator = info.context.user
+        try:
+            call = Call.objects.get(pk=id, company=creator.the_current_company)
+        except Call.DoesNotExist:
+            raise e
         establishment_ids = call_data.pop("establishments")
         employee_ids = call_data.pop("employees")
         beneficiary_ids = call_data.pop("beneficiaries")
         caller_data = call_data.pop("caller")
         Call.objects.filter(pk=id).update(**call_data)
-        call = Call.objects.get(pk=id)
+        call.refresh_from_db()
         if call_data:
             call.setCaller(caller_data=caller_data, creator=creator)
         if not call.folder or call.folder is None:
@@ -616,12 +628,15 @@ class UpdateCallState(graphene.Mutation):
 
     def mutate(root, info, id, call_fields=None):
         creator = info.context.user
+        try:
+            call = Call.objects.get(pk=id, company=creator.the_current_company)
+        except Call.DoesNotExist:
+            raise e
         done = True
         success = True
         call = None
         message = ''
         try:
-            call = Call.objects.get(pk=id)
             Call.objects.filter(pk=id).update(is_active=not call.is_active)
             call.refresh_from_db()
         except Exception as e:
@@ -647,7 +662,10 @@ class DeleteCall(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        call = Call.objects.get(pk=id)
+        try:
+            call = Call.objects.get(pk=id, company=current_user.the_current_company)
+        except Call.DoesNotExist:
+            raise e
         if current_user.is_superuser or call.creator==current_user:
             call.delete()
             deleted = True
@@ -799,12 +817,15 @@ class UpdateLetterState(graphene.Mutation):
 
     def mutate(root, info, id, letter_fields=None):
         creator = info.context.user
+        try:
+            letter = Letter.objects.get(pk=id, company=creator.the_current_company)
+        except Letter.DoesNotExist:
+            raise e
         done = True
         success = True
         letter = None
         message = ''
         try:
-            letter = Letter.objects.get(pk=id)
             Letter.objects.filter(pk=id).update(is_active=not letter.is_active)
             letter.refresh_from_db()
         except Exception as e:
@@ -830,7 +851,10 @@ class DeleteLetter(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        letter = Letter.objects.get(pk=id)
+        try:
+            letter = Letter.objects.get(pk=id, company=current_user.the_current_company)
+        except Letter.DoesNotExist:
+            raise e
         if current_user.is_superuser or letter.creator==current_user:
             letter.delete()
             deleted = True
@@ -946,6 +970,10 @@ class UpdateMeeting(graphene.Mutation):
 
     def mutate(root, info, id, image=None, meeting_data=None):
         creator = info.context.user
+        try:
+            meeting = Meeting.objects.get(pk=id, company=creator.the_current_company)
+        except Meeting.DoesNotExist:
+            raise e
         establishment_ids = meeting_data.pop("establishments", None)
         beneficiary_ids = meeting_data.pop("beneficiaries", None)
         participants_ids = meeting_data.pop("participants", None)
@@ -955,7 +983,7 @@ class UpdateMeeting(graphene.Mutation):
         meeting_decisions = meeting_data.pop("meeting_decisions", None)
         meeting_review_points = meeting_data.pop("meeting_review_points", None)
         Meeting.objects.filter(pk=id).update(**meeting_data)
-        meeting = Meeting.objects.get(pk=id)
+        meeting.refresh_from_db()
         if not meeting.folder or meeting.folder is None:
             folder = Folder.objects.create(name=str(meeting.id)+'_',creator=creator)
             Meeting.objects.filter(pk=id).update(folder=folder)
@@ -1066,7 +1094,10 @@ class DeleteMeeting(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        meeting = Meeting.objects.get(pk=id)
+        try:
+            meeting = Meeting.objects.get(pk=id, company=current_user.the_current_company)
+        except Meeting.DoesNotExist:
+            raise e
         if current_user.is_superuser or (meeting.meeting_mode=='PV_SCE' and current_user.can_manage_sce()) or (meeting.creator == current_user):
             # meeting = Meeting.objects.get(pk=id)
             # meeting.delete()
@@ -1122,6 +1153,10 @@ class UpdateFrameDocument(graphene.Mutation):
 
     def mutate(root, info, id, document=None, frame_document_data=None):
         creator = info.context.user
+        try:
+            frame_document = FrameDocument.objects.get(pk=id, company=creator.the_current_company)
+        except FrameDocument.DoesNotExist:
+            raise e
         if not creator.can_manage_administration():
             raise ValueError("Vous devez être responsable administartif pour effectuer cette action.")
         establishment_ids = frame_document_data.pop("establishments", None)
@@ -1160,7 +1195,10 @@ class DeleteFrameDocument(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        frame_document = FrameDocument.objects.get(pk=id)
+        try:
+            frame_document = FrameDocument.objects.get(pk=id, company=current_user.the_current_company)
+        except FrameDocument.DoesNotExist:
+            raise e
         if current_user.is_superuser or current_user.can_manage_administration() or (frame_document.creator == current_user):
             # frame_document = FrameDocument.objects.get(pk=id)
             # frame_document.delete()
