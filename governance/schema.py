@@ -67,9 +67,9 @@ class GovernanceQuery(graphene.ObjectType):
     def resolve_governance_members(root, info, governance_member_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
-        governance_members = GovernanceMember.objects.filter(company__id=id_company) if id_company else GovernanceMember.objects.filter(company=company)
+        governance_members = GovernanceMember.objects.filter(company__id=id_company, is_deleted=False) if id_company else GovernanceMember.objects.filter(company=company, is_deleted=False)
         if governance_member_filter:
             keyword = governance_member_filter.get('keyword', '')
             starting_date_time = governance_member_filter.get('starting_date_time')
@@ -90,8 +90,10 @@ class GovernanceQuery(graphene.ObjectType):
 
     def resolve_governance_member(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            governance_member = GovernanceMember.objects.get(pk=id)
+            governance_member = GovernanceMember.objects.get(pk=id, company=company)
         except GovernanceMember.DoesNotExist:
             governance_member = None
         return governance_member
@@ -145,8 +147,12 @@ class UpdateGovernanceMember(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None,  governance_member_data=None):
         creator = info.context.user
+        try:
+            governance_member = GovernanceMember.objects.get(pk=id, company=creator.the_current_company)
+        except GovernanceMember.DoesNotExist:
+            raise e
         GovernanceMember.objects.filter(pk=id).update(**governance_member_data)
-        governance_member = GovernanceMember.objects.get(pk=id)
+        governance_member.refresh_from_db()
         if not governance_member.folder or governance_member.folder is None:
             folder = Folder.objects.create(name=str(governance_member.id)+'_'+governance_member.first_name+'-'+governance_member.last_name,creator=creator)
             GovernanceMember.objects.filter(pk=id).update(folder=folder)
@@ -190,12 +196,15 @@ class UpdateGovernanceMemberState(graphene.Mutation):
 
     def mutate(root, info, id, governance_member_fields=None):
         creator = info.context.user
+        try:
+            governance_member = GovernanceMember.objects.get(pk=id, company=creator.the_current_company)
+        except GovernanceMember.DoesNotExist:
+            raise e
         done = True
         success = True
         governance_member = None
         message = ''
         try:
-            governance_member = GovernanceMember.objects.get(pk=id)
             GovernanceMember.objects.filter(pk=id).update(is_active=not governance_member.is_active)
             governance_member.refresh_from_db()
         except Exception as e:
@@ -220,6 +229,10 @@ class DeleteGovernanceMember(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            governance_member = GovernanceMember.objects.get(pk=id, company=current_user.the_current_company)
+        except GovernanceMember.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             governance_member = GovernanceMember.objects.get(pk=id)
             governance_member.delete()
