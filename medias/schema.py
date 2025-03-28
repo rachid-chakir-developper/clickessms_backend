@@ -174,7 +174,7 @@ class MediasQuery(graphene.ObjectType):
 		# We can easily optimize query count in the resolve method
 		user = info.context.user
 		company = user.the_current_company
-		folders = Folder.objects.filter(creator__managed_companies__company=company).distinct()
+		folders = Folder.objects.all()
 		return folders
 
 	def resolve_folder(root, info, id):
@@ -182,11 +182,9 @@ class MediasQuery(graphene.ObjectType):
 		user = info.context.user
 		company = user.the_current_company
 		try:
-			folder = Folder.objects.filter(pk=id, creator__managed_companies__company=company).distinct().get()
+			folder = Folder.objects.get(pk=id)
 		except Folder.DoesNotExist:
 			folder = None  # Ou renvoyer une erreur personnalisée
-		except Folder.MultipleObjectsReturned:
-			folder = None  # Gérer le cas improbable où plusieurs objets sont retournés
 
 		return folder
 
@@ -194,7 +192,7 @@ class MediasQuery(graphene.ObjectType):
 		# We can easily optimize query count in the resolve method
 		user = info.context.user
 		company = user.the_current_company
-		files = File.objects.filter(creator__managed_companies__company=company).distinct()
+		files = File.objects.all()
 		return files
 
 	def resolve_file(root, info, id):
@@ -202,11 +200,9 @@ class MediasQuery(graphene.ObjectType):
 		user = info.context.user
 		company = user.the_current_company
 		try:
-			file = File.objects.filter(pk=id, creator__managed_companies__company=company).distinct().get()
+			file = File.objects.get(pk=id)
 		except File.DoesNotExist:
 			file = None  # Ou renvoyer une erreur personnalisée
-		except File.MultipleObjectsReturned:
-			file = None  # Gérer le cas improbable où plusieurs objets sont retournés
 		return file
 
 	def resolve_contract_templates(root, info, contract_template_filter=None, id_company=None, offset=None, limit=None, page=None):
@@ -270,12 +266,6 @@ class UpdateFolder(graphene.Mutation):
 
 	def mutate(root, info, id, folder_data=None):
 		creator = info.context.user
-		try:
-			folder = Folder.objects.filter(pk=id, creator__managed_companies__company=creator.the_current_company).distinct().get()
-		except Folder.DoesNotExist:
-			raise e
-		except Folder.MultipleObjectsReturned:
-			raise e
 		Folder.objects.filter(pk=id).update(**folder_data)
 		folder = Folder.objects.get(pk=id)
 		return UpdateFolder(folder=folder)
@@ -338,12 +328,6 @@ class UpdateFile(graphene.Mutation):
 
 	def mutate(root, info, id, file_upload=None, file_data=None):
 		creator = info.context.user
-		try:
-			file = File.objects.filter(pk=id, creator__managed_companies__company=creator.the_current_company).distinct().get()
-		except File.DoesNotExist:
-			raise e
-		except File.MultipleObjectsReturned:
-			raise e
 		File.objects.filter(pk=id).update(**file_data)
 		file = File.objects.get(pk=id)
 		if info.context.FILES:

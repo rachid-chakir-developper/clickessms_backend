@@ -515,7 +515,6 @@ class UpdateUndesirableEventState(graphene.Mutation):
             raise e
         done = True
         success = True
-        undesirable_event = None
         message = ''
         try:
             UndesirableEvent.objects.filter(pk=id).update(is_active=not undesirable_event.is_active)

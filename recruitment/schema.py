@@ -79,8 +79,6 @@ class JobCandidateApplicationNodeType(graphene.ObjectType):
     nodes = graphene.List(JobCandidateApplicationType)
     total_count = graphene.Int()
 
-
-
 class JobCandidateInformationSheetType(DjangoObjectType):
     class Meta:
         model = JobCandidateInformationSheet
@@ -548,8 +546,12 @@ class UpdateJobPosition(graphene.Mutation):
 
     def mutate(root, info, id, job_position_data=None):
         creator = info.context.user
+        try:
+            job_position = JobPosition.objects.get(pk=id, company=creator.the_current_company)
+        except JobPosition.DoesNotExist:
+            raise e
         JobPosition.objects.filter(pk=id).update(**job_position_data)
-        job_position = JobPosition.objects.get(pk=id)
+        job_position.refresh_from_db()
         if not job_position.folder or job_position.folder is None:
             folder = Folder.objects.create(name=str(job_position.id)+'_'+job_position.title,creator=creator)
             JobPosition.objects.filter(pk=id).update(folder=folder)
@@ -573,6 +575,10 @@ class DeleteJobPosition(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            job_position = JobPosition.objects.get(pk=id, company=current_user.the_current_company)
+        except JobPosition.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             job_position = JobPosition.objects.get(pk=id)
             job_position.delete()
@@ -620,9 +626,13 @@ class UpdateJobPosting(graphene.Mutation):
 
     def mutate(root, info, id, job_posting_data=None):
         creator = info.context.user
+        try:
+            job_posting = JobPosting.objects.get(pk=id, company=creator.the_current_company)
+        except JobPosting.DoesNotExist:
+            raise e
         job_platforms = job_posting_data.pop("job_platforms", None)
         JobPosting.objects.filter(pk=id).update(**job_posting_data)
-        job_posting = JobPosting.objects.get(pk=id)
+        job_posting.refresh_from_db()
         if not job_posting.folder or job_posting.folder is None:
             folder = Folder.objects.create(name=str(job_posting.id)+'_'+job_posting.title,creator=creator)
             JobPosting.objects.filter(pk=id).update(folder=folder)
@@ -657,6 +667,10 @@ class DeleteJobPosting(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            job_posting = JobPosting.objects.get(pk=id, company=current_user.the_current_company)
+        except JobPosting.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             job_posting = JobPosting.objects.get(pk=id)
             job_posting.delete()
@@ -742,8 +756,12 @@ class UpdateJobCandidate(graphene.Mutation):
 
     def mutate(root, info, id, cv=None, cover_letter=None, files=None, job_candidate_data=None):
         creator = info.context.user
+        try:
+            job_candidate = JobCandidate.objects.get(pk=id, company=creator.the_current_company)
+        except JobCandidate.DoesNotExist:
+            raise e
         JobCandidate.objects.filter(pk=id).update(**job_candidate_data)
-        job_candidate = JobCandidate.objects.get(pk=id)
+        job_candidate.refresh_from_db()
         if not job_candidate.folder or job_candidate.folder is None:
             folder = Folder.objects.create(name=str(job_candidate.id)+'_'+job_candidate.first_name,creator=creator)
             UpdateJob.objects.filter(pk=id).update(folder=folder)
@@ -814,6 +832,10 @@ class DeleteJobCandidate(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            job_candidate = JobCandidate.objects.get(pk=id, company=current_user.the_current_company)
+        except JobCandidate.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             job_candidate = JobCandidate.objects.get(pk=id)
             job_candidate.delete()
@@ -882,8 +904,12 @@ class UpdateJobCandidateApplication(graphene.Mutation):
 
     def mutate(root, info, id, cv=None, cover_letter=None, files=None, job_candidate_application_data=None):
         creator = info.context.user
+        try:
+            job_candidate_application = JobCandidateApplication.objects.get(pk=id, company=creator.the_current_company)
+        except JobCandidateApplication.DoesNotExist:
+            raise e
         JobCandidateApplication.objects.filter(pk=id).update(**job_candidate_application_data)
-        job_candidate_application = JobCandidateApplication.objects.get(pk=id)
+        job_candidate_application.refresh_from_db()
         if not job_candidate_application.folder or job_candidate_application.folder is None:
             folder = Folder.objects.create(name=str(job_candidate_application.id)+'_'+job_candidate_application.first_name,creator=creator)
             UpdateJob.objects.filter(pk=id).update(folder=folder)
@@ -932,12 +958,14 @@ class UpdateJobCandidateApplicationFields(graphene.Mutation):
 
     def mutate(root, info, id, job_candidate_application_data=None):
         creator = info.context.user
+        try:
+            job_candidate_application = JobCandidateApplication.objects.get(pk=id, company=creator.the_current_company)
+        except JobCandidateApplication.DoesNotExist:
+            raise e
         done = True
         success = True
-        job_candidate_application = None
         message = ''
         try:
-            job_candidate_application = JobCandidateApplication.objects.get(pk=id)
             JobCandidateApplication.objects.filter(pk=id).update(**job_candidate_application_data)
             job_candidate_application.refresh_from_db()
             # if 'status' in job_candidate_application_data:
@@ -1052,6 +1080,10 @@ class DeleteJobCandidateApplication(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            job_candidate_application = JobCandidateApplication.objects.get(pk=id, company=current_user.the_current_company)
+        except JobCandidateApplication.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             job_candidate_application = JobCandidateApplication.objects.get(pk=id)
             job_candidate_application.delete()
@@ -1150,6 +1182,11 @@ class UpdateJobCandidateInformationSheet(graphene.Mutation):
         if access_token:
             payload = decode_access_token(access_token)
             id = payload.get("id")
+        else:
+            try:
+                job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id, company=creator.the_current_company)
+            except JobCandidateInformationSheet.DoesNotExist:
+                raise e
         document_records = job_candidate_information_sheet_data.pop("document_records", None)
         JobCandidateInformationSheet.objects.filter(pk=id).update(**job_candidate_information_sheet_data)
         job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
@@ -1204,6 +1241,11 @@ class UpdateJobCandidateInformationSheetFields(graphene.Mutation):
         if access_token:
             payload = decode_access_token(access_token)
             id = payload.get("id")
+        else:
+            try:
+                job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id, company=creator.the_current_company)
+            except JobCandidateInformationSheet.DoesNotExist:
+                raise e
         done = True
         success = True
         job_candidate_information_sheet = None
@@ -1234,6 +1276,10 @@ class DeleteJobCandidateInformationSheet(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id, company=current_user.the_current_company)
+        except JobCandidateInformationSheet.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
             job_candidate_information_sheet.delete()
