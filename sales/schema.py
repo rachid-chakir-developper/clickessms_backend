@@ -84,7 +84,7 @@ class InvoiceFilterInput(graphene.InputObjectType):
     ending_date_time = graphene.DateTime(required=False)
     financiers = graphene.List(graphene.Int, required=False)
     statuses = graphene.List(graphene.String, required=False)
-    establishments = graphene.List(graphene.String, required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class InvoiceItemInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -167,7 +167,7 @@ class GenerateInvoiceInput(graphene.InputObjectType):
     year = graphene.String(required=True)
     month = graphene.String(required=True)
     financier = graphene.Int(required=True)
-    establishment = graphene.Int(required=True)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class SalesQuery(graphene.ObjectType):
     clients = graphene.Field(ClientNodeType, client_filter= ClientFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -522,15 +522,15 @@ class GenerateInvoice(graphene.Mutation):
     def mutate(self, info, generate_invoice_data=None):
         creator = info.context.user
         company = creator.the_current_company
-        year, month, financier_id, establishment_id = map(
+        year, month, financier_id, establishment_ids = map(
             lambda field: getattr(generate_invoice_data, field),
-            ["year", "month", "financier", "establishment"],
+            ["year", "month", "financier", "establishments"],
         )
         invoice = None
         invoices = []
         try:
             try:
-                establishments = Establishment.objects.filter(id=establishment_id, company=creator.the_current_company)
+                establishments = Establishment.objects.filter(id__in=establishment_ids, company=creator.the_current_company)
                 if not establishments:
                     return GenerateInvoice(invoice=invoice, success=False, message="Structures non trouvées.")
                 establishment=establishments.first()
