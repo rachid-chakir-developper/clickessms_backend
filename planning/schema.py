@@ -100,7 +100,7 @@ class PlanningQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        employee_absences = EmployeeAbsence.objects.filter(company=company)
+        employee_absences = EmployeeAbsence.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_human_ressources():
             if user.is_manager():
                 employee_absences = employee_absences.filter(Q(employees__employee__employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -130,8 +130,10 @@ class PlanningQuery(graphene.ObjectType):
 
     def resolve_employee_absence(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            employee_absence = EmployeeAbsence.objects.get(pk=id)
+            employee_absence = EmployeeAbsence.objects.get(pk=id, company=company)
         except EmployeeAbsence.DoesNotExist:
             employee_absence = None
         return employee_absence
@@ -141,7 +143,7 @@ class PlanningQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        employee_shifts = EmployeeShift.objects.filter(company=company)
+        employee_shifts = EmployeeShift.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_human_ressources():
             if user.is_manager():
                 employee_shifts = employee_shifts.filter(Q(employee__employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -171,8 +173,10 @@ class PlanningQuery(graphene.ObjectType):
 
     def resolve_employee_shift(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            employee_shift = EmployeeShift.objects.get(pk=id)
+            employee_shift = EmployeeShift.objects.get(pk=id, company=company)
         except EmployeeShift.DoesNotExist:
             employee_shift = None
         return employee_shift
@@ -239,9 +243,12 @@ class UpdateEmployeeAbsence(graphene.Mutation):
 
     def mutate(root, info, id, document=None, employee_absence_data=None):
         creator = info.context.user
+        try:
+            employee_absence = EmployeeAbsence.objects.get(pk=id, company=creator.the_current_company)
+        except EmployeeAbsence.DoesNotExist:
+            raise e
         employee_ids = employee_absence_data.pop("employees")
         reason_ids = employee_absence_data.pop("reasons")
-        employee_absence = EmployeeAbsence.objects.get(pk=id)
         if not creator.can_manage_human_ressources() and employee_absence.status != 'PENDING':
             raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
         EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
@@ -296,14 +303,16 @@ class UpdateEmployeeAbsenceFields(graphene.Mutation):
 
     def mutate(root, info, id, employee_absence_data=None):
         creator = info.context.user
+        try:
+            employee_absence = EmployeeAbsence.objects.get(pk=id, company=creator.the_current_company)
+        except EmployeeAbsence.DoesNotExist:
+            raise e
         done = True
         success = True
-        employee_absence = None
         message = ''
         if not creator.can_manage_human_ressources() and employee_absence.status != 'PENDING':
             raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
         try:
-            employee_absence = EmployeeAbsence.objects.get(pk=id)
             EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
             employee_absence.refresh_from_db()
             if 'status' in employee_absence_data and creator.can_manage_human_ressources():
@@ -342,7 +351,10 @@ class DeleteEmployeeAbsence(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        employee_absence = EmployeeAbsence.objects.get(pk=id)
+        try:
+            employee_absence = EmployeeAbsence.objects.get(pk=id, company=current_user.the_current_company)
+        except EmployeeAbsence.DoesNotExist:
+            raise e
         if current_user.can_manage_human_ressources() or current_user.is_manager() or (employee_absence.creator == current_user and employee_absence.status == 'PENDING'):
             # employee_absence = EmployeeAbsence.objects.get(pk=id)
             # employee_absence.delete()
@@ -380,7 +392,10 @@ class UpdateEmployeeShift(graphene.Mutation):
 
     def mutate(root, info, id, employee_shift_data=None):
         creator = info.context.user
-        employee_shift = EmployeeShift.objects.get(pk=id)
+        try:
+            employee_shift = EmployeeShift.objects.get(pk=id, company=creator.the_current_company)
+        except EmployeeShift.DoesNotExist:
+            raise e
         if not creator.can_manage_human_ressources() and employee_shift.status != 'PENDING':
             raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
         EmployeeShift.objects.filter(pk=id).update(**employee_shift_data)
@@ -399,9 +414,12 @@ class UpdateEmployeeShiftFields(graphene.Mutation):
 
     def mutate(root, info, id, employee_shift_data=None):
         creator = info.context.user
+        try:
+            employee_shift = EmployeeShift.objects.get(pk=id, company=creator.the_current_company)
+        except EmployeeShift.DoesNotExist:
+            raise e
         done = True
         success = True
-        employee_shift = None
         message = ''
         if not creator.can_manage_human_ressources() and employee_shift.status != 'PENDING':
             raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
@@ -432,7 +450,10 @@ class DeleteEmployeeShift(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        employee_shift = EmployeeShift.objects.get(pk=id)
+        try:
+            employee_shift = EmployeeShift.objects.get(pk=id, company=current_user.the_current_company)
+        except EmployeeShift.DoesNotExist:
+            raise e
         if current_user.can_manage_human_ressources() or current_user.is_manager() or (employee_shift.creator == current_user and employee_shift.status == 'PENDING'):
             # employee_shift = EmployeeShift.objects.get(pk=id)
             # employee_shift.delete()

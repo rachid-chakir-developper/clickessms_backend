@@ -119,9 +119,9 @@ class PartnershipsQuery(graphene.ObjectType):
     def resolve_partners(root, info, partner_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
-        partners = Partner.objects.filter(company__id=id_company) if id_company else Partner.objects.filter(company=company)
+        partners = Partner.objects.filter(company__id=id_company, is_deleted=False) if id_company else Partner.objects.filter(company=company, is_deleted=False)
         if partner_filter:
             keyword = partner_filter.get('keyword', '')
             starting_date_time = partner_filter.get('starting_date_time')
@@ -142,8 +142,10 @@ class PartnershipsQuery(graphene.ObjectType):
 
     def resolve_partner(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            partner = Partner.objects.get(pk=id)
+            partner = Partner.objects.get(pk=id, company=company)
         except Partner.DoesNotExist:
             partner = None
         return partner
@@ -152,7 +154,7 @@ class PartnershipsQuery(graphene.ObjectType):
         user = info.context.user
         company = user.current_company if user.current_company is not None else user.company
         total_count = 0
-        financiers = Financier.objects.filter(company__id=id_company) if id_company else Financier.objects.filter(company=company)
+        financiers = Financier.objects.filter(company__id=id_company, is_deleted=False) if id_company else Financier.objects.filter(company=company, is_deleted=False)
         if financier_filter:
             keyword = financier_filter.get('keyword', '')
             starting_date_time = financier_filter.get('starting_date_time')
@@ -173,8 +175,10 @@ class PartnershipsQuery(graphene.ObjectType):
 
     def resolve_financier(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            financier = Financier.objects.get(pk=id)
+            financier = Financier.objects.get(pk=id, company=company)
         except Financier.DoesNotExist:
             financier = None
         return financier
@@ -254,6 +258,10 @@ class UpdatePartner(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None,  partner_data=None):
         creator = info.context.user
+        try:
+            partner = Partner.objects.get(pk=id, company=creator.the_current_company)
+        except Partner.DoesNotExist:
+            raise e
         
         # Extraire les établissements de partner_data
         establishment_ids = []
@@ -270,7 +278,7 @@ class UpdatePartner(graphene.Mutation):
             # Si pas d'établissements, mettre à jour normalement
             Partner.objects.filter(pk=id).update(**partner_data)
             
-        partner = Partner.objects.get(pk=id)
+        partner.refresh_from_db()
         
         if not partner.folder or partner.folder is None:
             folder = Folder.objects.create(name=str(partner.id)+'_'+partner.name,creator=creator)
@@ -337,12 +345,14 @@ class UpdatePartnerState(graphene.Mutation):
 
     def mutate(root, info, id, partner_fields=None):
         creator = info.context.user
+        try:
+            partner = Partner.objects.get(pk=id, company=creator.the_current_company)
+        except Partner.DoesNotExist:
+            raise e
         done = True
         success = True
-        partner = None
         message = ''
         try:
-            partner = Partner.objects.get(pk=id)
             Partner.objects.filter(pk=id).update(is_active=not partner.is_active)
             partner.refresh_from_db()
         except Exception as e:
@@ -367,6 +377,10 @@ class DeletePartner(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            partner = Partner.objects.get(pk=id, company=current_user.the_current_company)
+        except Partner.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             partner = Partner.objects.get(pk=id)
             partner.delete()
@@ -427,8 +441,12 @@ class UpdateFinancier(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None,  financier_data=None):
         creator = info.context.user
+        try:
+            financier = Financier.objects.get(pk=id, company=creator.the_current_company)
+        except Financier.DoesNotExist:
+            raise e
         Financier.objects.filter(pk=id).update(**financier_data)
-        financier = Financier.objects.get(pk=id)
+        financier.refresh_from_db()
         if not financier.folder or financier.folder is None:
             folder = Folder.objects.create(name=str(financier.id)+'_'+financier.name,creator=creator)
             Financier.objects.filter(pk=id).update(folder=folder)
@@ -472,12 +490,14 @@ class UpdateFinancierState(graphene.Mutation):
 
     def mutate(root, info, id, financier_fields=None):
         creator = info.context.user
+        try:
+            financier = Financier.objects.get(pk=id, company=creator.the_current_company)
+        except Financier.DoesNotExist:
+            raise e
         done = True
         success = True
-        financier = None
         message = ''
         try:
-            financier = Financier.objects.get(pk=id)
             Financier.objects.filter(pk=id).update(is_active=not financier.is_active)
             financier.refresh_from_db()
         except Exception as e:
@@ -502,6 +522,10 @@ class DeleteFinancier(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            financier = Financier.objects.get(pk=id, company=current_user.the_current_company)
+        except Financier.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             financier = Financier.objects.get(pk=id)
             financier.delete()
