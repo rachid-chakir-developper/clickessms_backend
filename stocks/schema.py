@@ -48,9 +48,9 @@ class StocksQuery(graphene.ObjectType):
     def resolve_materials(root, info, material_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
-        materials = Material.objects.filter(company=company)
+        materials = Material.objects.filter(company=company, is_deleted=False)
         if material_filter:
             keyword = material_filter.get('keyword', '')
             starting_date_time = material_filter.get('starting_date_time')
@@ -71,8 +71,10 @@ class StocksQuery(graphene.ObjectType):
 
     def resolve_material(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            material = Material.objects.get(pk=id)
+            material = Material.objects.get(pk=id, company=company)
         except Material.DoesNotExist:
             material = None
         return material
@@ -117,8 +119,12 @@ class UpdateMaterial(graphene.Mutation):
 
     def mutate(root, info, id, image=None, material_data=None):
         creator = info.context.user
+        try:
+            material = Material.objects.get(pk=id, company=creator.the_current_company)
+        except Material.DoesNotExist:
+            raise e
         Material.objects.filter(pk=id).update(**material_data)
-        material = Material.objects.get(pk=id)
+        material.refresh_from_db()
         if not material.folder or material.folder is None:
             folder = Folder.objects.create(name=str(material.id)+'_'+material.name,creator=creator)
             Material.objects.filter(pk=id).update(folder=folder)
@@ -149,9 +155,12 @@ class UpdateMaterialState(graphene.Mutation):
 
     def mutate(root, info, id, material_fields=None):
         creator = info.context.user
+        try:
+            material = Material.objects.get(pk=id, company=creator.the_current_company)
+        except Material.DoesNotExist:
+            raise e
         done = True
         success = True
-        material = None
         message = ''
         try:
             material = Material.objects.get(pk=id)
@@ -180,6 +189,10 @@ class DeleteMaterial(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            material = Material.objects.get(pk=id, company=current_user.the_current_company)
+        except Material.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             material = Material.objects.get(pk=id)
             material.delete()
