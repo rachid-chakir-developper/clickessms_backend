@@ -1297,7 +1297,6 @@ class UpdateEmployeeState(graphene.Mutation):
             raise e
         done = True
         success = True
-        employee = None
         message = ''
         try:
             Employee.objects.filter(pk=id).update(is_active=not employee.is_active)
@@ -1605,7 +1604,6 @@ class UpdateEmployeeGroupState(graphene.Mutation):
             raise e
         done = True
         success = True
-        employee_group = None
         message = ''
         try:
             EmployeeGroup.objects.filter(pk=id).update(is_active=not employee_group.is_active)
@@ -1958,7 +1956,6 @@ class UpdateBeneficiaryState(graphene.Mutation):
             raise e
         done = True
         success = True
-        beneficiary = None
         message = ''
         try:
             Beneficiary.objects.filter(pk=id).update(is_active=not beneficiary.is_active)
@@ -2120,7 +2117,6 @@ class UpdateBeneficiaryAdmissionState(graphene.Mutation):
             raise e
         done = True
         success = True
-        beneficiary_admission = None
         message = ""
         try:
             BeneficiaryAdmission.objects.filter(pk=id).update(
@@ -2377,7 +2373,6 @@ class UpdateBeneficiaryGroupState(graphene.Mutation):
             raise e
         done = True
         success = True
-        beneficiary_group = None
         message = ''
         try:
             BeneficiaryGroup.objects.filter(pk=id).update(is_active=not beneficiary_group.is_active)

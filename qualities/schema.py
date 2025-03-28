@@ -684,7 +684,6 @@ class UpdateBoxIdeaState(graphene.Mutation):
             raise e
         done = True
         success = True
-        box_idea = None
         message = ''
         try:
             BoxIdea.objects.filter(pk=id).update(is_active=not box_idea.is_active)

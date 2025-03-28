@@ -796,7 +796,6 @@ class UpdateEstablishmentState(graphene.Mutation):
             raise e
         done = True
         success = True
-        establishment = None
         message = ''
         try:
             Establishment.objects.filter(pk=id).update(is_active=not establishment.is_active)

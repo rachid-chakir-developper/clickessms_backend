@@ -416,7 +416,6 @@ class UpdateUserState(graphene.Mutation):
             raise e
         done = True
         success = True
-        user = None
         message = ''
         try:
             User.objects.filter(pk=id).update(is_active=not user.is_active)

@@ -435,7 +435,6 @@ class UpdateFeedbackState(graphene.Mutation):
             raise e
         done = True
         success = True
-        feedback = None
         message = ""
         try:
             Feedback.objects.filter(pk=id).update(

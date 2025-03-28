@@ -1156,7 +1156,6 @@ class UpdateBankAccountState(graphene.Mutation):
             raise e
         done = True
         success = True
-        bank_account = None
         message = ""
         try:
             BankAccount.objects.filter(pk=id).update(
@@ -1410,7 +1409,6 @@ class UpdateCashRegisterState(graphene.Mutation):
             raise e
         done = True
         success = True
-        cash_register = None
         message = ""
         try:
             CashRegister.objects.filter(pk=id).update(
@@ -1672,7 +1670,6 @@ class UpdateBudgetState(graphene.Mutation):
             raise e
         done = True
         success = True
-        budget = None
         message = ""
         try:
             Budget.objects.filter(pk=id).update(
@@ -1800,7 +1797,6 @@ class UpdateEndowmentState(graphene.Mutation):
             raise e
         done = True
         success = True
-        endowment = None
         message = ''
         try:
             Endowment.objects.filter(pk=id).update(is_active=not endowment.is_active)

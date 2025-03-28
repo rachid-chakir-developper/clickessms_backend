@@ -634,7 +634,6 @@ class UpdateCallState(graphene.Mutation):
             raise e
         done = True
         success = True
-        call = None
         message = ''
         try:
             Call.objects.filter(pk=id).update(is_active=not call.is_active)
@@ -823,7 +822,6 @@ class UpdateLetterState(graphene.Mutation):
             raise e
         done = True
         success = True
-        letter = None
         message = ''
         try:
             Letter.objects.filter(pk=id).update(is_active=not letter.is_active)

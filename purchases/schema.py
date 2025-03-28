@@ -587,7 +587,6 @@ class UpdateSupplierState(graphene.Mutation):
             raise e
         done = True
         success = True
-        supplier = None
         message = ''
         try:
             Supplier.objects.filter(pk=id).update(is_active=not supplier.is_active)
@@ -716,7 +715,6 @@ class UpdatePurchaseContractState(graphene.Mutation):
             raise e
         done = True
         success = True
-        purchase_contract = None
         message = ''
         try:
             PurchaseContract.objects.filter(pk=id).update(is_active=not purchase_contract.is_active)
@@ -892,7 +890,6 @@ class UpdateExpenseState(graphene.Mutation):
             raise e
         done = True
         success = True
-        expense = None
         message = ""
         try:
             Expense.objects.filter(pk=id).update(
@@ -1137,7 +1134,6 @@ class UpdatePurchaseOrderState(graphene.Mutation):
             raise e
         done = True
         success = True
-        purchase_order = None
         message = ""
         try:
             PurchaseOrder.objects.filter(pk=id).update(
@@ -1328,7 +1324,6 @@ class UpdateExpenseReportState(graphene.Mutation):
             raise e
         done = True
         success = True
-        expense_report = None
         message = ""
         try:
             ExpenseReport.objects.filter(pk=id).update(

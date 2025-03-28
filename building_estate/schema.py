@@ -176,7 +176,6 @@ class UpdateSpaceRoomState(graphene.Mutation):
             raise e
         done = True
         success = True
-        space_room = None
         message = ''
         try:
             SpaceRoom.objects.filter(pk=id).update(is_active=not space_room.is_active)

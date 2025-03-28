@@ -436,7 +436,6 @@ class UpdateTransmissionEventState(graphene.Mutation):
             raise e
         done = True
         success = True
-        transmission_event = None
         message = ''
         try:
             TransmissionEvent.objects.filter(pk=id).update(is_active=not transmission_event.is_active)

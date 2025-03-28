@@ -282,7 +282,6 @@ class UpdateSoftwareState(graphene.Mutation):
 			raise e
 		done = True
 		success = True
-		software = None
 		message = ''
 		try:
 			Software.objects.filter(pk=id).update(is_active=not software.is_active)
@@ -374,7 +373,6 @@ class UpdateTheBackupState(graphene.Mutation):
 			raise e
 		done = True
 		success = True
-		the_backup = None
 		message = ''
 		try:
 			TheBackup.objects.filter(pk=id).update(is_active=not the_backup.is_active)
@@ -466,7 +464,6 @@ class UpdateThePasswordState(graphene.Mutation):
 			raise e
 		done = True
 		success = True
-		the_password = None
 		message = ''
 		try:
 			ThePassword.objects.filter(pk=id).update(is_active=not the_password.is_active)

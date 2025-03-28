@@ -202,7 +202,6 @@ class UpdateGovernanceMemberState(graphene.Mutation):
             raise e
         done = True
         success = True
-        governance_member = None
         message = ''
         try:
             GovernanceMember.objects.filter(pk=id).update(is_active=not governance_member.is_active)

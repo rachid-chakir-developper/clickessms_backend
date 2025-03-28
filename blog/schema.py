@@ -192,7 +192,6 @@ class UpdatePostState(graphene.Mutation):
             raise e
         done = True
         success = True
-        post = None
         message = ''
         try:
             Post.objects.filter(pk=id).update(is_active=not post.is_active)

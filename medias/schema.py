@@ -442,7 +442,6 @@ class UpdateContractTemplateState(graphene.Mutation):
 			raise e
 		done = True
 		success = True
-		contract_template = None
 		message = ''
 		try:
 			ContractTemplate.objects.filter(pk=id).update(is_active=not contract_template.is_active)

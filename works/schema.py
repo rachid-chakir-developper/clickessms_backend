@@ -708,7 +708,6 @@ class UpdateTaskState(graphene.Mutation):
             raise e
         done = True
         success = True
-        task = None
         message = ''
         try:
             Task.objects.filter(pk=id).update(is_active=not task.is_active)
