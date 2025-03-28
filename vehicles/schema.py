@@ -253,7 +253,7 @@ class VehiclesQuery(graphene.ObjectType):
     def resolve_vehicles(root, info, vehicle_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         vehicles = Vehicle.objects.filter(company=company, is_deleted=False)
         the_order_by = '-created_at'
@@ -286,15 +286,17 @@ class VehiclesQuery(graphene.ObjectType):
 
     def resolve_vehicle(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            vehicle = Vehicle.objects.get(pk=id)
+            vehicle = Vehicle.objects.get(pk=id, company=company)
         except Vehicle.DoesNotExist:
             vehicle = None
         return vehicle
     def resolve_vehicle_inspections(root, info, vehicle_inspection_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         vehicle_inspections = VehicleInspection.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_parking():
@@ -329,8 +331,10 @@ class VehiclesQuery(graphene.ObjectType):
 
     def resolve_vehicle_inspection(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            vehicle_inspection = VehicleInspection.objects.get(pk=id)
+            vehicle_inspection = VehicleInspection.objects.get(pk=id, company=company)
         except VehicleInspection.DoesNotExist:
             vehicle_inspection = None
         return vehicle_inspection
@@ -339,7 +343,7 @@ class VehiclesQuery(graphene.ObjectType):
     def resolve_vehicle_technical_inspections(root, info, vehicle_technical_inspection_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         vehicle_technical_inspections = VehicleTechnicalInspection.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_parking():
@@ -373,8 +377,10 @@ class VehiclesQuery(graphene.ObjectType):
 
     def resolve_vehicle_technical_inspection(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id)
+            vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id, company=company)
         except VehicleTechnicalInspection.DoesNotExist:
             vehicle_technical_inspection = None
         return vehicle_technical_inspection
@@ -383,7 +389,7 @@ class VehiclesQuery(graphene.ObjectType):
     def resolve_vehicle_repairs(root, info, vehicle_repair_filter=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
         vehicle_repairs = VehicleRepair.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_parking():
@@ -418,8 +424,10 @@ class VehiclesQuery(graphene.ObjectType):
 
     def resolve_vehicle_repair(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            vehicle_repair = VehicleRepair.objects.get(pk=id)
+            vehicle_repair = VehicleRepair.objects.get(pk=id, company=company)
         except VehicleRepair.DoesNotExist:
             vehicle_repair = None
         return vehicle_repair
@@ -483,11 +491,15 @@ class UpdateVehicle(graphene.Mutation):
 
     def mutate(root, info, id, image=None, vehicle_data=None):
         creator = info.context.user
+        try:
+            vehicle = Vehicle.objects.get(pk=id, company=creator.the_current_company)
+        except Vehicle.DoesNotExist:
+            raise e
         vehicle_establishments = vehicle_data.pop("vehicle_establishments") if "vehicle_establishments" in vehicle_data else []
         vehicle_employees = vehicle_data.pop("vehicle_employees") if "vehicle_employees" in vehicle_data else []
         vehicle_ownerships = vehicle_data.pop("vehicle_ownerships") if "vehicle_ownerships" in vehicle_data else []
         Vehicle.objects.filter(pk=id).update(**vehicle_data)
-        vehicle = Vehicle.objects.get(pk=id)
+        vehicle.refresh_from_db()
         if not vehicle.folder or vehicle.folder is None:
             folder = Folder.objects.create(name=str(vehicle.id)+'_'+vehicle.name,creator=creator)
             Vehicle.objects.filter(pk=id).update(folder=folder)
@@ -551,12 +563,14 @@ class UpdateVehicleState(graphene.Mutation):
 
     def mutate(root, info, id, vehicle_fields=None):
         creator = info.context.user
+        try:
+            vehicle = Vehicle.objects.get(pk=id, company=creator.the_current_company)
+        except Vehicle.DoesNotExist:
+            raise e
         done = True
         success = True
-        vehicle = None
         message = ''
         try:
-            vehicle = Vehicle.objects.get(pk=id)
             Vehicle.objects.filter(pk=id).update(is_active=not vehicle.is_active)
             vehicle.refresh_from_db()
         except Exception as e:
@@ -582,7 +596,10 @@ class DeleteVehicle(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        vehicle = Vehicle.objects.get(pk=id)
+        try:
+            vehicle = Vehicle.objects.get(pk=id, company=current_user.the_current_company)
+        except Vehicle.DoesNotExist:
+            raise e
         if current_user.can_manage_facility() or current_user.is_manager() or vehicle.creator == current_user:
             # vehicle = Vehicle.objects.get(pk=id)
             # vehicle.delete()
@@ -662,9 +679,13 @@ class UpdateVehicleInspection(graphene.Mutation):
 
     def mutate(root, info, id, images=None, videos=None, vehicle_inspection_data=None):
         creator = info.context.user
+        try:
+            vehicle_inspection = VehicleInspection.objects.get(pk=id, company=creator.the_current_company)
+        except VehicleInspection.DoesNotExist:
+            raise e
         controller_employees_ids = vehicle_inspection_data.pop("controller_employees") if 'controller_employees' in vehicle_inspection_data else []
         VehicleInspection.objects.filter(pk=id).update(**vehicle_inspection_data)
-        vehicle_inspection = VehicleInspection.objects.get(pk=id)
+        vehicle_inspection.refresh_from_db()
         if controller_employees_ids and controller_employees_ids is not None:
             vehicle_inspection.controller_employees.set(controller_employees_ids)
         if not images:
@@ -723,7 +744,10 @@ class DeleteVehicleInspection(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        vehicle_inspection = VehicleInspection.objects.get(pk=id)
+        try:
+            vehicle_inspection = VehicleInspection.objects.get(pk=id, company=current_user.the_current_company)
+        except VehicleInspection.DoesNotExist:
+            raise e
         if current_user.can_manage_facility() or current_user.is_manager() or vehicle_inspection.creator == current_user:
             # vehicle_inspection = VehicleInspection.objects.get(pk=id)
             # vehicle_inspection.delete()
@@ -788,9 +812,13 @@ class UpdateVehicleTechnicalInspection(graphene.Mutation):
 
     def mutate(root, info, id, document=None, vehicle_technical_inspection_data=None):
         creator = info.context.user
+        try:
+            vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id, company=creator.the_current_company)
+        except VehicleTechnicalInspection.DoesNotExist:
+            raise e
         failures = vehicle_technical_inspection_data.pop("failures") if "failures" in vehicle_technical_inspection_data else []
         VehicleTechnicalInspection.objects.filter(pk=id).update(**vehicle_technical_inspection_data)
-        vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id)
+        vehicle_technical_inspection.refresh_from_db()
         if not vehicle_technical_inspection.folder or vehicle_technical_inspection.folder is None:
             folder = Folder.objects.create(
                 name=str(vehicle_technical_inspection.id) + "_" + vehicle_technical_inspection.number, creator=creator
@@ -837,7 +865,10 @@ class DeleteVehicleTechnicalInspection(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id)
+        try:
+            vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id, company=current_user.the_current_company)
+        except VehicleTechnicalInspection.DoesNotExist:
+            raise e
         if current_user.can_manage_facility() or current_user.is_manager() or vehicle_technical_inspection.creator == current_user:
             # vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id)
             # vehicle_technical_inspection.delete()
@@ -913,6 +944,10 @@ class UpdateVehicleRepair(graphene.Mutation):
 
     def mutate(root, info, id, document=None, vehicle_repair_data=None):
         creator = info.context.user
+        try:
+            vehicle_repair = VehicleRepair.objects.get(pk=id, company=creator.the_current_company)
+        except VehicleRepair.DoesNotExist:
+            raise e
         repairs = vehicle_repair_data.pop("repairs") if "repairs" in vehicle_repair_data else []
         vigilant_points = vehicle_repair_data.pop("vigilant_points") if "vigilant_points" in vehicle_repair_data else []
         VehicleRepair.objects.filter(pk=id).update(**vehicle_repair_data)
@@ -975,7 +1010,10 @@ class DeleteVehicleRepair(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        vehicle_repair = VehicleRepair.objects.get(pk=id)
+        try:
+            vehicle_repair = VehicleRepair.objects.get(pk=id, company=current_user.the_current_company)
+        except VehicleRepair.DoesNotExist:
+            raise e
         if current_user.can_manage_facility() or current_user.is_manager() or vehicle_repair.creator == current_user:
             # vehicle_repair = VehicleRepair.objects.get(pk=id)
             # vehicle_repair.delete()
