@@ -17,34 +17,34 @@ class ChildrenFolderType(DjangoObjectType):
 		fields = "__all__"
 
 class DocumentRecordType(DjangoObjectType):
-    class Meta:
-        model = DocumentRecord
-        fields = "__all__"
-    document = graphene.String()
-    expiration_status = graphene.String()
-    def resolve_document( instance, info, **kwargs ):
-        return instance.document and info.context.build_absolute_uri(instance.document.file.url)
-    def resolve_expiration_status( instance, info, **kwargs ):
-        return instance.expiration_status
+	class Meta:
+		model = DocumentRecord
+		fields = "__all__"
+	document = graphene.String()
+	expiration_status = graphene.String()
+	def resolve_document( instance, info, **kwargs ):
+		return instance.document and info.context.build_absolute_uri(instance.document.file.url)
+	def resolve_expiration_status( instance, info, **kwargs ):
+		return instance.expiration_status
 
 
 class DocumentRecordInput(graphene.InputObjectType):
-    id = graphene.ID(required=False)
-    name = graphene.String(required=False)
-    document = Upload(required=False)
-    starting_date = graphene.DateTime(required=False)
-    ending_date = graphene.DateTime(required=False)
-    description = graphene.String(required=False)
-    observation = graphene.String(required=False)
-    comment = graphene.String(required=False)
-    is_notification_enabled = graphene.Boolean(required=False)
-    notification_period_unit = graphene.String(required=False)
-    notification_period_value = graphene.Int(required=False)
-    is_active = graphene.Boolean(required=False)
-    beneficiary_document_type_id = graphene.Int(name="beneficiaryDocumentType", required=False)
-    beneficiary_id = graphene.Int(name="beneficiary", required=False)
-    job_candidate_document_type_id = graphene.Int(name="jobCandidateDocumentType", required=False)
-    job_candidate_information_sheet_id = graphene.Int(name="jobCandidateInformationSheet", required=False)
+	id = graphene.ID(required=False)
+	name = graphene.String(required=False)
+	document = Upload(required=False)
+	starting_date = graphene.DateTime(required=False)
+	ending_date = graphene.DateTime(required=False)
+	description = graphene.String(required=False)
+	observation = graphene.String(required=False)
+	comment = graphene.String(required=False)
+	is_notification_enabled = graphene.Boolean(required=False)
+	notification_period_unit = graphene.String(required=False)
+	notification_period_value = graphene.Int(required=False)
+	is_active = graphene.Boolean(required=False)
+	beneficiary_document_type_id = graphene.Int(name="beneficiaryDocumentType", required=False)
+	beneficiary_id = graphene.Int(name="beneficiary", required=False)
+	job_candidate_document_type_id = graphene.Int(name="jobCandidateDocumentType", required=False)
+	job_candidate_information_sheet_id = graphene.Int(name="jobCandidateInformationSheet", required=False)
 
 class MediaInput(graphene.InputObjectType):
 	id = graphene.ID(required=False)
@@ -172,30 +172,49 @@ class MediasQuery(graphene.ObjectType):
 
 	def resolve_folders(root, info):
 		# We can easily optimize query count in the resolve method
-		folders = Folder.objects.all()
+		user = info.context.user
+		company = user.the_current_company
+		folders = Folder.objects.filter(creator__managed_companies__company=company).distinct()
 		return folders
 
 	def resolve_folder(root, info, id):
 		# We can easily optimize query count in the resolve method
-		folder = Folder.objects.get(pk=id)
+		user = info.context.user
+		company = user.the_current_company
+		try:
+			folder = Folder.objects.filter(pk=id, creator__managed_companies__company=company).distinct().get()
+		except Folder.DoesNotExist:
+			folder = None  # Ou renvoyer une erreur personnalisée
+		except Folder.MultipleObjectsReturned:
+			folder = None  # Gérer le cas improbable où plusieurs objets sont retournés
+
 		return folder
 
 	def resolve_files(root, info):
 		# We can easily optimize query count in the resolve method
-		files = File.objects.all()
+		user = info.context.user
+		company = user.the_current_company
+		files = File.objects.filter(creator__managed_companies__company=company).distinct()
 		return files
 
 	def resolve_file(root, info, id):
 		# We can easily optimize query count in the resolve method
-		file = File.objects.get(pk=id)
+		user = info.context.user
+		company = user.the_current_company
+		try:
+			file = File.objects.filter(pk=id, creator__managed_companies__company=company).distinct().get()
+		except File.DoesNotExist:
+			file = None  # Ou renvoyer une erreur personnalisée
+		except File.MultipleObjectsReturned:
+			file = None  # Gérer le cas improbable où plusieurs objets sont retournés
 		return file
 
 	def resolve_contract_templates(root, info, contract_template_filter=None, id_company=None, offset=None, limit=None, page=None):
 		# We can easily optimize query count in the resolve method
 		user = info.context.user
-		company = user.current_company if user.current_company is not None else user.company
+		company = user.the_current_company
 		total_count = 0
-		contract_templates = ContractTemplate.objects.filter(company__id=id_company) if id_company else ContractTemplate.objects.filter(company=company)
+		contract_templates = ContractTemplate.objects.filter(company__id=id_company, is_deleted=False) if id_company else ContractTemplate.objects.filter(company=company, is_deleted=False)
 		if contract_template_filter:
 			keyword = contract_template_filter.get('keyword', '')
 			contract_type = contract_template_filter.get('contract_type')
@@ -219,8 +238,10 @@ class MediasQuery(graphene.ObjectType):
 
 	def resolve_contract_template(root, info, id):
 		# We can easily optimize query count in the resolve method
+		user = info.context.user
+		company = user.the_current_company
 		try:
-			contract_template = ContractTemplate.objects.get(pk=id)
+			contract_template = ContractTemplate.objects.get(pk=id, company=company)
 		except ContractTemplate.DoesNotExist:
 			contract_template = None
 		return contract_template
@@ -248,6 +269,13 @@ class UpdateFolder(graphene.Mutation):
 	folder = graphene.Field(FolderType)
 
 	def mutate(root, info, id, folder_data=None):
+		creator = info.context.user
+		try:
+			folder = Folder.objects.filter(pk=id, creator__managed_companies__company=creator.the_current_company).distinct().get()
+		except Folder.DoesNotExist:
+			raise e
+		except Folder.MultipleObjectsReturned:
+			raise e
 		Folder.objects.filter(pk=id).update(**folder_data)
 		folder = Folder.objects.get(pk=id)
 		return UpdateFolder(folder=folder)
@@ -293,7 +321,7 @@ class CreateFile(graphene.Mutation):
 		creator = info.context.user
 		file = File(**file_data)
 		file.creator = creator
-		file.company = creator.current_company if creator.current_company is not None else creator.company
+		file.company = creator.the_current_company
 		if info.context.FILES:
 			# file_upload = info.context.FILES['1']
 			file.file = file_upload
@@ -309,6 +337,13 @@ class UpdateFile(graphene.Mutation):
 	file = graphene.Field(FileType)
 
 	def mutate(root, info, id, file_upload=None, file_data=None):
+		creator = info.context.user
+		try:
+			file = File.objects.filter(pk=id, creator__managed_companies__company=creator.the_current_company).distinct().get()
+		except File.DoesNotExist:
+			raise e
+		except File.MultipleObjectsReturned:
+			raise e
 		File.objects.filter(pk=id).update(**file_data)
 		file = File.objects.get(pk=id)
 		if info.context.FILES:
@@ -360,7 +395,7 @@ class CreateContractTemplate(graphene.Mutation):
 		creator = info.context.user
 		contract_template = ContractTemplate(**contract_template_data)
 		contract_template.creator = creator
-		contract_template.company = creator.current_company if creator.current_company is not None else creator.company
+		contract_template.company = creator.the_current_company
 		if info.context.FILES:
 			# file1 = info.context.FILES['1']
 			if image and isinstance(image, UploadedFile):
@@ -384,8 +419,12 @@ class UpdateContractTemplate(graphene.Mutation):
 
 	def mutate(root, info, id, image=None, contract_template_data=None):
 		creator = info.context.user
+		try:
+			contract_template = ContractTemplate.objects.get(pk=id, company=creator.the_current_company)
+		except ContractTemplate.DoesNotExist:
+			raise e
 		ContractTemplate.objects.filter(pk=id).update(**contract_template_data)
-		contract_template = ContractTemplate.objects.get(pk=id)
+		contract_template.refresh_from_db()
 		if not image and contract_template.image:
 			image_file = contract_template.image
 			image_file.delete()
@@ -413,12 +452,15 @@ class UpdateContractTemplateState(graphene.Mutation):
 
 	def mutate(root, info, id, contract_template_fields=None):
 		creator = info.context.user
+		try:
+			contract_template = ContractTemplate.objects.get(pk=id, company=creator.the_current_company)
+		except ContractTemplate.DoesNotExist:
+			raise e
 		done = True
 		success = True
 		contract_template = None
 		message = ''
 		try:
-			contract_template = ContractTemplate.objects.get(pk=id)
 			ContractTemplate.objects.filter(pk=id).update(is_active=not contract_template.is_active)
 			contract_template.refresh_from_db()
 		except Exception as e:
@@ -471,11 +513,10 @@ class GenerateContractContent(graphene.Mutation):
 		contract_content = None
 		message = ''
 		try:
-			employee_contract = EmployeeContract.objects.get(pk=employee_contract_id)
-			contract_template = ContractTemplate.objects.get(pk=contract_template_id)
+			employee_contract = EmployeeContract.objects.get(pk=employee_contract_id, company=creator.the_current_company)
+			contract_template = ContractTemplate.objects.get(pk=contract_template_id, company=creator.the_current_company)
 			variables = re.findall(r'{{\s*(\w+(?:__\w+)?)(?:.size=(\d+))?\s*}}', contract_template.content)
 			context = {}
-			print(variables)
 			for var, size in variables:
 				try:
 					keys = var.split('__')
@@ -557,13 +598,11 @@ class GenerateContractContent(graphene.Mutation):
 						else:
 							context[var] = escape(str(value)) if value is not None else ''
 				except Exception as e:
-					print(f"Exception **** {e}")
 					context[var] = ''
 
 			template = Template(contract_template.content)
 			contract_content = template.render(Context(context))
 		except Exception as e:
-			print(e)
 			success = False
 			contract_content=None
 			message = "Une erreur s'est produite."
@@ -584,6 +623,10 @@ class DeleteContractTemplate(graphene.Mutation):
 		success = False
 		message = ''
 		current_user = info.context.user
+		try:
+			contract_template = ContractTemplate.objects.get(pk=id, company=current_user.the_current_company)
+		except ContractTemplate.DoesNotExist:
+			raise e
 		if current_user.is_superuser:
 			contract_template = ContractTemplate.objects.get(pk=id)
 			contract_template.delete()
