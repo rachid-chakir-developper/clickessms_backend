@@ -184,9 +184,9 @@ class SalesQuery(graphene.ObjectType):
     def resolve_clients(root, info, client_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = user.current_company if user.current_company is not None else user.company
+        company = user.the_current_company
         total_count = 0
-        clients = Client.objects.filter(company__id=id_company) if id_company else Client.objects.filter(company=company)
+        clients = Client.objects.filter(company__id=id_company, is_deleted=False) if id_company else Client.objects.filter(company=company, is_deleted=False)
         if client_filter:
             keyword = client_filter.get('keyword', '')
             starting_date_time = client_filter.get('starting_date_time')
@@ -207,8 +207,10 @@ class SalesQuery(graphene.ObjectType):
 
     def resolve_client(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            client = Client.objects.get(pk=id)
+            client = Client.objects.get(pk=id, company=company)
         except Client.DoesNotExist:
             client = None
         return client
@@ -220,7 +222,7 @@ class SalesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        invoices = Invoice.objects.filter(company=company)
+        invoices = Invoice.objects.filter(company=company, is_deleted=False)
         if invoice_filter:
             keyword = invoice_filter.get("keyword", "")
             starting_date_time = invoice_filter.get("starting_date_time")
@@ -259,8 +261,10 @@ class SalesQuery(graphene.ObjectType):
 
     def resolve_invoice(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            invoice = Invoice.objects.get(pk=id)
+            invoice = Invoice.objects.get(pk=id, company=company)
         except Invoice.DoesNotExist:
             invoice = None
         return invoice
@@ -314,8 +318,12 @@ class UpdateClient(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None,  client_data=None):
         creator = info.context.user
+        try:
+            client = Client.objects.get(pk=id, company=creator.the_current_company)
+        except Client.DoesNotExist:
+            raise e
         Client.objects.filter(pk=id).update(**client_data)
-        client = Client.objects.get(pk=id)
+        client.refresh_from_db()
         if not client.folder or client.folder is None:
             folder = Folder.objects.create(name=str(client.id)+'_'+client.name,creator=creator)
             Client.objects.filter(pk=id).update(folder=folder)
@@ -359,12 +367,14 @@ class UpdateClientState(graphene.Mutation):
 
     def mutate(root, info, id, client_fields=None):
         creator = info.context.user
+        try:
+            client = Client.objects.get(pk=id, company=creator.the_current_company)
+        except Client.DoesNotExist:
+            raise e
         done = True
         success = True
-        client = None
         message = ''
         try:
-            client = Client.objects.get(pk=id)
             Client.objects.filter(pk=id).update(is_active=not client.is_active)
             client.refresh_from_db()
         except Exception as e:
@@ -389,6 +399,10 @@ class DeleteClient(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            client = Client.objects.get(pk=id, company=current_user.the_current_company)
+        except Client.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             client = Client.objects.get(pk=id)
             client.delete()
@@ -436,9 +450,13 @@ class UpdateInvoice(graphene.Mutation):
 
     def mutate(root, info, id, invoice_data=None):
         creator = info.context.user
+        try:
+            invoice = Invoice.objects.get(pk=id, company=creator.the_current_company)
+        except Invoice.DoesNotExist:
+            raise e
         invoice_items = invoice_data.pop("invoice_items")
         Invoice.objects.filter(pk=id).update(**invoice_data)
-        invoice = Invoice.objects.get(pk=id)
+        invoice.refresh_from_db()
         if not invoice.employee:
             invoice.employee = creator.get_employee_in_company()
             invoice.save()
@@ -471,12 +489,14 @@ class UpdateInvoiceFields(graphene.Mutation):
 
     def mutate(root, info, id, invoice_data=None):
         creator = info.context.user
+        try:
+            invoice = Invoice.objects.get(pk=id, company=creator.the_current_company)
+        except Invoice.DoesNotExist:
+            raise e
         done = True
         success = True
-        invoice = None
         message = ''
         try:
-            invoice = Invoice.objects.get(pk=id)
             for field, value in invoice_data.items():
                 setattr(invoice, field, value)
             invoice.save()
@@ -510,11 +530,11 @@ class GenerateInvoice(graphene.Mutation):
         invoices = []
         try:
             try:
-                establishments = Establishment.objects.filter(id=establishment_id)
+                establishments = Establishment.objects.filter(id=establishment_id, company=creator.the_current_company)
                 if not establishments:
                     return GenerateInvoice(invoice=invoice, success=False, message="Structures non trouvées.")
                 establishment=establishments.first()
-                financier = Financier.objects.get(pk=financier_id)
+                financier = Financier.objects.get(pk=financier_id, company=creator.the_current_company)
             except Financier.DoesNotExist:
                 return GenerateInvoice(invoice=invoice, success=False, message="Financeur non trouvé.")
             try:
@@ -709,7 +729,10 @@ class DeleteInvoice(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        invoice = Invoice.objects.get(pk=id)
+        try:
+            invoice = Invoice.objects.get(pk=id, company=current_user.the_current_company)
+        except Invoice.DoesNotExist:
+            raise e
         if (current_user.is_superuser or current_user.can_manage_finance() or invoice.creator==current_user) and invoice.status=="DRAFT":
             if invoice.status == 'DRAFT':
                 invoice.delete()
