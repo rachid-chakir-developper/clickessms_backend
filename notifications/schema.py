@@ -103,8 +103,9 @@ class NotificationsQuery(graphene.ObjectType):
 
     def resolve_notification(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
         try:
-            notification = Notification.objects.get(pk=id)
+            notification = Notification.objects.get(pk=id, recipient=user)
         except Notification.DoesNotExist:
             notification = None
         return notification
@@ -114,11 +115,9 @@ class NotificationsQuery(graphene.ObjectType):
     ):
         # We can easily optimize query count in the resolve method
         user = info.context.user
-        company = (
-            user.current_company if user.current_company is not None else user.company
-        )
+        company = user.the_current_company
         total_count = 0
-        message_notifications = MessageNotification.objects.filter(company=company)
+        message_notifications = MessageNotification.objects.filter(company=company, is_deleted=False)
         if message_notification_filter:
             keyword = message_notification_filter.get("keyword", "")
             starting_date_time = message_notification_filter.get("starting_date_time")
@@ -146,8 +145,10 @@ class NotificationsQuery(graphene.ObjectType):
 
     def resolve_message_notification(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            message_notification = MessageNotification.objects.get(pk=id)
+            message_notification = MessageNotification.objects.get(pk=id, company=company)
         except MessageNotification.DoesNotExist:
             message_notification = None
         return message_notification
@@ -162,8 +163,13 @@ class UpdateNotification(graphene.Mutation):
     notification = graphene.Field(NotificationType)
 
     def mutate(root, info, id, notification_data=None):
+        creator = info.context.user
+        try:
+            notification = Notification.objects.get(pk=id, recipient=creator)
+        except Notification.DoesNotExist:
+            raise e
         Notification.objects.filter(pk=id).update(**notification_data)
-        notification = Notification.objects.get(pk=id)
+        notification.refresh_from_db()
         return UpdateNotification(notification=notification)
 
 class MarkNotificationsAsSeen(graphene.Mutation):
@@ -176,12 +182,13 @@ class MarkNotificationsAsSeen(graphene.Mutation):
     message = graphene.String()
 
     def mutate(root, info, ids, is_seen=None):
+        creator = info.context.user
         done = True
         success = True
         message = ''
         try:
-            Notification.objects.filter(is_seen=False).update(is_seen=True)
-            not_seen_count = Notification.objects.filter(is_seen=False).count()
+            Notification.objects.filter(is_seen=False, recipient=creator).update(is_seen=True)
+            not_seen_count = Notification.objects.filter(is_seen=False, recipient=creator).count()
             broadcastNotificationsSeen(not_seen_count=not_seen_count)
         except Exception as e:
             done = False
@@ -204,6 +211,10 @@ class DeleteNotification(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
+        try:
+            notification = Notification.objects.get(pk=id, recipient=current_user)
+        except Notification.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             notification = Notification.objects.get(pk=id)
             notification.delete()
@@ -268,10 +279,14 @@ class UpdateMessageNotification(graphene.Mutation):
 
     def mutate(root, info, id, image=None, message_notification_data=None):
         creator = info.context.user
+        try:
+            message_notification = MessageNotification.objects.get(pk=id, company=creator.the_current_company)
+        except MessageNotification.DoesNotExist:
+            raise e
         establishment_ids = message_notification_data.pop("establishments")
         MessageNotification.objects.filter(pk=id).update(**message_notification_data)
         MessageNotificationUserStatus.objects.filter(message_notification__id=id).update(is_read=False)
-        message_notification = MessageNotification.objects.get(pk=id)
+        message_notification.refresh_from_db()
         if not image and message_notification.image:
             image_file = message_notification.image
             image_file.delete()
@@ -312,12 +327,14 @@ class UpdateMessageNotificationState(graphene.Mutation):
 
     def mutate(root, info, id, message_notification_fields=None):
         creator = info.context.user
+        try:
+            message_notification = MessageNotification.objects.get(pk=id, company=creator.the_current_company)
+        except MessageNotification.DoesNotExist:
+            raise e
         done = True
         success = True
-        message_notification = None
         message = ""
         try:
-            message_notification = MessageNotification.objects.get(pk=id)
             MessageNotification.objects.filter(pk=id).update(
                 is_active=not message_notification.is_active
             )
@@ -346,7 +363,7 @@ class MarkMessageNotificationsAsRead(graphene.Mutation):
         success = True
         message = ''
         try:
-            message_notifications = MessageNotification.objects.filter(id__in=ids)
+            message_notifications = MessageNotification.objects.filter(id__in=ids, company=user.the_current_company)
             for message_notification in message_notifications:
                 notification_status, created = MessageNotificationUserStatus.objects.get_or_create(
                     user=user,
@@ -378,6 +395,10 @@ class DeleteMessageNotification(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
+        try:
+            message_notification = MessageNotification.objects.get(pk=id, company=current_user.the_current_company)
+        except MessageNotification.DoesNotExist:
+            raise e
         if current_user.is_superuser:
             message_notification = MessageNotification.objects.get(pk=id)
             message_notification.delete()

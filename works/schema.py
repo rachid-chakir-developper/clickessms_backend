@@ -664,7 +664,6 @@ class UpdateTaskFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        task = None
         message = ''
         try:
             Task.objects.filter(pk=id).update(**task_data)
@@ -1043,7 +1042,6 @@ class UpdateTicketFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        ticket = None
         message = ''
         try:
             Ticket.objects.filter(pk=id).update(**ticket_data)
@@ -1217,7 +1215,6 @@ class UpdateTaskActionFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        task_action = None
         message = ''
         try:
             TaskAction.objects.filter(pk=id).update(**task_action_data)

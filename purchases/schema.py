@@ -926,7 +926,6 @@ class UpdateExpenseFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        expense = None
         message = ''
         try:
             Expense.objects.filter(pk=id).update(**expense_data)
@@ -1172,7 +1171,6 @@ class UpdatePurchaseOrderFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        purchase_order = None
         message = ''
         try:
             PurchaseOrder.objects.filter(pk=id).update(**purchase_order_data)
@@ -1364,7 +1362,6 @@ class UpdateExpenseReportFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        expense_report = None
         message = ''
         try:
             ExpenseReport.objects.filter(pk=id).update(**expense_report_data)

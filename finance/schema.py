@@ -1015,7 +1015,6 @@ class UpdateDecisionDocumentState(graphene.Mutation):
             raise e
         done = True
         success = True
-        decision_document = None
         message = ""
         try:
             DecisionDocument.objects.filter(pk=id).update(
@@ -1707,7 +1706,6 @@ class UpdateBudgetFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        budget = None
         message = ''
         try:
             Budget.objects.filter(pk=id).update(**budget_data)
@@ -2037,7 +2035,6 @@ class UpdateEndowmentPaymentFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        endowment_payment = None
         message = ''
         try:
             EndowmentPayment.objects.filter(pk=id).update(**endowment_payment_data)

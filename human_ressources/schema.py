@@ -2154,7 +2154,6 @@ class UpdateBeneficiaryAdmissionFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        beneficiary_admission = None
         message = ''
         try:
             BeneficiaryAdmission.objects.filter(pk=id).update(**beneficiary_admission_data)

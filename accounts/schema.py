@@ -447,7 +447,6 @@ class UpdateUserFields(graphene.Mutation):
         roles = user_data.pop("roles") if ('roles' in user_data) else None
         done = True
         success = True
-        user = None
         message = ''
         try:
             User.objects.filter(pk=id).update(**user_data)

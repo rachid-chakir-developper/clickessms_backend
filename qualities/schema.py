@@ -479,7 +479,6 @@ class UpdateUndesirableEventFields(graphene.Mutation):
             raise e
         done = True
         success = True
-        undesirable_event = None
         message = ''
         try:
             UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
