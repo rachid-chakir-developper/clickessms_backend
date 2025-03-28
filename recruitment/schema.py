@@ -295,7 +295,7 @@ class RecruitmentQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        job_positions = JobPosition.objects.filter(company__id=id_company) if id_company else JobPosition.objects.filter(company=company)
+        job_positions = JobPosition.objects.filter(company__id=id_company, is_deleted=False) if id_company else JobPosition.objects.filter(company=company, is_deleted=False)
         the_order_by = '-created_at'
         if job_position_filter:
             keyword = job_position_filter.get('keyword', '')
@@ -320,8 +320,10 @@ class RecruitmentQuery(graphene.ObjectType):
 
     def resolve_job_position(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            job_position = JobPosition.objects.get(pk=id)
+            job_position = JobPosition.objects.get(pk=id, company=company)
         except JobPosition.DoesNotExist:
             job_position = None
         return job_position
@@ -330,7 +332,7 @@ class RecruitmentQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        job_postings = JobPosting.objects.filter(company__id=id_company) if id_company else JobPosting.objects.filter(company=company)
+        job_postings = JobPosting.objects.filter(company__id=id_company, is_deleted=False) if id_company else JobPosting.objects.filter(company=company, is_deleted=False)
         the_order_by = '-created_at'
         if job_posting_filter:
             keyword = job_posting_filter.get('keyword', '')
@@ -358,8 +360,10 @@ class RecruitmentQuery(graphene.ObjectType):
 
     def resolve_job_posting(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            job_posting = JobPosting.objects.get(pk=id)
+            job_posting = JobPosting.objects.get(pk=id, company=company)
         except JobPosting.DoesNotExist:
             job_posting = None
         return job_posting
@@ -368,7 +372,7 @@ class RecruitmentQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        job_candidates = JobCandidate.objects.filter(company__id=id_company) if id_company else JobCandidate.objects.filter(company=company)
+        job_candidates = JobCandidate.objects.filter(company__id=id_company, is_deleted=False) if id_company else JobCandidate.objects.filter(company=company, is_deleted=False)
         the_order_by = '-created_at'
         if job_candidate_filter:
             keyword = job_candidate_filter.get('keyword', '')
@@ -400,8 +404,10 @@ class RecruitmentQuery(graphene.ObjectType):
 
     def resolve_job_candidate(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            job_candidate = JobCandidate.objects.get(pk=id)
+            job_candidate = JobCandidate.objects.get(pk=id, company=company)
         except JobCandidate.DoesNotExist:
             job_candidate = None
         return job_candidate
@@ -410,7 +416,7 @@ class RecruitmentQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        job_candidate_applications = JobCandidateApplication.objects.filter(company__id=id_company) if id_company else JobCandidateApplication.objects.filter(company=company)
+        job_candidate_applications = JobCandidateApplication.objects.filter(company__id=id_company, is_deleted=False) if id_company else JobCandidateApplication.objects.filter(company=company, is_deleted=False)
         the_order_by = '-created_at'
         if job_candidate_application_filter:
             keyword = job_candidate_application_filter.get('keyword', '')
@@ -445,8 +451,10 @@ class RecruitmentQuery(graphene.ObjectType):
 
     def resolve_job_candidate_application(root, info, id):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        company = user.the_current_company
         try:
-            job_candidate_application = JobCandidateApplication.objects.get(pk=id)
+            job_candidate_application = JobCandidateApplication.objects.get(pk=id, company=company)
         except JobCandidateApplication.DoesNotExist:
             job_candidate_application = None
         return job_candidate_application
@@ -455,7 +463,7 @@ class RecruitmentQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        job_candidate_information_sheets = JobCandidateInformationSheet.objects.filter(company__id=id_company) if id_company else JobCandidateInformationSheet.objects.filter(company=company)
+        job_candidate_information_sheets = JobCandidateInformationSheet.objects.filter(company__id=id_company, is_deleted=False) if id_company else JobCandidateInformationSheet.objects.filter(company=company, is_deleted=False)
         the_order_by = '-created_at'
         if job_candidate_information_sheet_filter:
             keyword = job_candidate_information_sheet_filter.get('keyword', '')
@@ -506,8 +514,10 @@ class RecruitmentQuery(graphene.ObjectType):
 
         # Si un ID est fourni sans token
         elif id:
+            user = info.context.user
+            company = user.the_current_company
             try:
-                return JobCandidateInformationSheet.objects.get(pk=id)
+                return JobCandidateInformationSheet.objects.get(pk=id, company=company)
             except JobCandidateInformationSheet.DoesNotExist:
                 raise ValueError("Fiche candidat non trouvée.")
 
@@ -1000,12 +1010,12 @@ class GenerateJobCandidateApplication(graphene.Mutation):
         try:
             # Vérifier si le candidat existe
             try:
-                job_candidate = JobCandidate.objects.get(id=job_candidate_id, is_deleted=False)
+                job_candidate = JobCandidate.objects.get(id=job_candidate_id, company=creator.the_current_company, is_deleted=False)
             except JobCandidate.DoesNotExist:
                 return GenerateJobCandidateApplication(job_candidate_applications=job_candidate_applications, success=False, message="Candidat non trouvé.")
 
             # Vérifier si les postes existent
-            job_positions = JobPosition.objects.filter(id__in=job_position_ids)
+            job_positions = JobPosition.objects.filter(id__in=job_position_ids, company=creator.the_current_company)
             if not job_positions.exists():
                 return GenerateJobCandidateApplication(job_candidate_applications=job_candidate_applications, success=False, message="Fiche(s) non trouvée(s).")
 
@@ -1111,11 +1121,11 @@ class CreateJobCandidateInformationSheet(graphene.Mutation):
 
         try:
             try:
-                job_candidate = JobCandidate.objects.get(id=job_candidate_id, is_deleted=False)
+                job_candidate = JobCandidate.objects.get(id=job_candidate_id, company=creator.the_current_company, is_deleted=False)
             except JobCandidate.DoesNotExist as e:
                 raise e
             try:
-                job_position = JobPosition.objects.get(id=job_position_id, is_deleted=False)
+                job_position = JobPosition.objects.get(id=job_position_id, company=creator.the_current_company, is_deleted=False)
             except JobPosition.DoesNotExist as e:
                 raise e
 
@@ -1241,6 +1251,7 @@ class UpdateJobCandidateInformationSheetFields(graphene.Mutation):
         if access_token:
             payload = decode_access_token(access_token)
             id = payload.get("id")
+            job_candidate_information_sheet = None
         else:
             try:
                 job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id, company=creator.the_current_company)
@@ -1248,7 +1259,6 @@ class UpdateJobCandidateInformationSheetFields(graphene.Mutation):
                 raise e
         done = True
         success = True
-        job_candidate_information_sheet = None
         message = ''
         try:
             job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
