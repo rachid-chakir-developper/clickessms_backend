@@ -83,9 +83,9 @@ class CreatePost(graphene.Mutation):
     class Arguments:
         post_data = PostInput(required=True)
         image = Upload(required=False)
-        files = graphene.List(MediaInput, required=False)
+        files = graphene.List(MediaInput, required=False) 
 
-    post = graphene.Field(PostType)
+    post = graphene.Field(PostType) 
 
     def mutate(root, info, image=None, files=None, post_data=None):
         creator = info.context.user

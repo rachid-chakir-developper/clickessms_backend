@@ -4,6 +4,8 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
+from human_ressources.models import Employee 
+
 from django.db.models import Q, Subquery, OuterRef, Max, F
 
 from human_ressources.models import CareerEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem, Advance
@@ -18,6 +20,7 @@ from data_management.utils import CustomFieldEntityBase
 
 from notifications.notificator import notify_beneficiary_admission
 from django.utils import timezone
+import decimal
 
 class AdvanceType(DjangoObjectType):
     class Meta:
@@ -35,76 +38,152 @@ class AdvanceNodeType(graphene.ObjectType):
 
 class AdvanceFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
-    status = graphene.String(required=False)
-    employee_id = graphene.ID(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
 
 class AdvanceInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
-    amount = graphene.Decimal(required=True)
-    month = graphene.Date(required=True)
-    reason = graphene.String(required=False)
-    status = graphene.String(required=False)
-    comments = graphene.String(required=False)
-    employee_id = graphene.Int(name="employee", required=True)
-    validated_by_id = graphene.Int(name="validatedBy", required=False)
+    amount = graphene.Decimal(required=False)  # Modification: Float -> Decimal pour compatibilité avec DecimalField
+    month = graphene.Date(required=True)  # Correction: Ajout du champ obligatoire month
+    reason = graphene.String(required=False)  # Correction: Remplace title et content
+    status = graphene.String(required=False, default_value="PENDING")  # Correction: Ajout du champ status
+    comments = graphene.String(required=False)  # Correction: Remplace observation
+    employee = graphene.Int(required=True)  # Correction: Ajout d'un champ obligatoire pour l'employé
+
+class AdvanceQuery(graphene.ObjectType):
+    advances = graphene.Field(
+        AdvanceNodeType, 
+        advance_filter=AdvanceFilterInput(required=False),
+        id_company=graphene.ID(required=False), 
+        offset=graphene.Int(required=False), 
+        limit=graphene.Int(required=False), 
+        page=graphene.Int(required=False)
+    )
+    advance = graphene.Field(AdvanceType, id=graphene.ID())
+
+    def resolve_advances(root, info, advance_filter=None, id_company=None, offset=None, limit=None, page=None):
+        # Filtrage et pagination des acomptes
+        user = info.context.user
+        if not user.is_authenticated:
+            return AdvanceNodeType(
+                nodes=[], 
+                total_count=0, 
+                page_info=PageInfoType(
+                    hasNextPage=False, 
+                    hasPreviousPage=False
+                )
+            )
+
+        # Base query - exclure les soft-deleted
+        qs = Advance.objects.filter(is_deleted=False)
+        
+        # Filtres
+        if advance_filter:
+            # Filtrer par mot-clé (recherche dans numéro, raison, commentaires)
+            if hasattr(advance_filter, 'keyword') and advance_filter.keyword:
+                keyword = advance_filter.keyword
+                qs = qs.filter(
+                    Q(number__icontains=keyword) | 
+                    Q(reason__icontains=keyword) | 
+                    Q(comments__icontains=keyword)
+                )
+                
+            # Filtrer par statut
+            if hasattr(advance_filter, 'status') and advance_filter.status:
+                qs = qs.filter(status=advance_filter.status)
+                
+            # Filtrer par employé
+            if hasattr(advance_filter, 'employee_id') and advance_filter.employee_id:
+                qs = qs.filter(employee_id=advance_filter.employee_id)
+        
+        # Si pas admin ou RH, montrer uniquement les acomptes de l'employé connecté
+        if not user.is_staff and not user.is_superuser:
+            try:
+                employee = Employee.objects.get(user=user)
+                qs = qs.filter(employee=employee)
+            except Employee.DoesNotExist:
+                return AdvanceNodeType(
+                    nodes=[], 
+                    total_count=0, 
+                    page_info=PageInfoType(
+                        hasNextPage=False, 
+                        hasPreviousPage=False
+                    )
+                )
+        
+        # Pagination
+        total_count = qs.count()
+        
+        if page and limit:
+            start = (page - 1) * limit
+            end = page * limit
+            has_next_page = total_count > end
+            has_previous_page = page > 1
+            qs = qs[start:end]
+        else:
+            has_next_page = False
+            has_previous_page = False
+            
+        # Retour
+        return AdvanceNodeType(
+            nodes=list(qs),  # Convertir le queryset en liste pour éviter les problèmes de coroutines
+            total_count=total_count,
+            page_info=PageInfoType(
+                hasNextPage=has_next_page,
+                hasPreviousPage=has_previous_page
+            )
+        )
+        
+    def resolve_advance(root, info, id):
+        # Vérifier l'authentification
+        user = info.context.user
+        if not user.is_authenticated:
+            return None
+            
+        try:
+            advance = Advance.objects.get(pk=id, is_deleted=False)
+            
+            # Si l'utilisateur n'est pas admin ou RH, vérifier qu'il est propriétaire de la demande
+            if not user.is_staff and not user.is_superuser:
+                try:
+                    employee = Employee.objects.get(user=user)
+                    if advance.employee != employee:
+                        return None
+                except Employee.DoesNotExist:
+                    return None
+                    
+            return advance
+        except Advance.DoesNotExist:
+            return None
+
+# ***************************************************************************
 
 class CreateAdvance(graphene.Mutation):
     class Arguments:
-        amount = graphene.Decimal(required=True)
-        month = graphene.Date(required=True)
-        reason = graphene.String(required=False)
-        employee_id = graphene.ID(required=True)
-        
+        advance_data = AdvanceInput(required=True)
+
     advance = graphene.Field(AdvanceType)
-    success = graphene.Boolean()
-    message = graphene.String()
-    
-    def mutate(self, info, amount, month, employee_id, reason=None):
-        user = info.context.user
-        success = False
-        message = ""
-        advance = None
-        
-        if not user.is_authenticated:
-            message = "Vous devez être connecté pour créer un acompte."
-            return CreateAdvance(advance=advance, success=success, message=message)
-            
+
+    def mutate(root, info, advance_data=None):
+        creator = info.context.user
+
+        # Vérifier si l'ID de l'employé est bien fourni
+        employee_id = advance_data.pop("employee", None)
+        if not employee_id:
+            raise ValueError("L'ID de l'employé est obligatoire.")
+
         try:
-            employee = Employee.objects.get(pk=employee_id)
-            
-            # Si l'utilisateur n'est pas admin ou RH, vérifier qu'il est l'employé concerné
-            if not user.is_staff and not user.is_superuser:
-                try:
-                    user_employee = Employee.objects.get(user=user)
-                    if user_employee.id != employee.id:
-                        message = "Vous ne pouvez créer un acompte que pour vous-même."
-                        return CreateAdvance(advance=advance, success=success, message=message)
-                except Employee.DoesNotExist:
-                    message = "Votre profil employé n'existe pas."
-                    return CreateAdvance(advance=advance, success=success, message=message)
-            
-            # Créer l'acompte
-            advance = Advance.objects.create(
-                amount=amount,
-                month=month,
-                reason=reason,
-                employee=employee,
-                creator=user,
-                company=employee.company
-            )
-            
-            success = True
-            message = "Acompte créé avec succès."
-            return CreateAdvance(advance=advance, success=success, message=message)
-            
+            employee_instance = Employee.objects.get(pk=employee_id)
         except Employee.DoesNotExist:
-            message = "L'employé spécifié n'existe pas."
-            return CreateAdvance(advance=advance, success=success, message=message)
-        except Exception as e:
-            message = f"Une erreur est survenue lors de la création de l'acompte: {str(e)}"
-            return CreateAdvance(advance=advance, success=success, message=message)
+            raise ValueError("L'employé spécifié n'existe pas.")
+
+        # Création de l'Advance avec l'instance Employee
+        advance = Advance(**advance_data, employee=employee_instance)
+        advance.creator = creator
+        advance.company = creator.the_current_company
+        advance.save()
+
+        return CreateAdvance(advance=advance)
 
 class UpdateAdvance(graphene.Mutation):
     class Arguments:
@@ -112,63 +191,64 @@ class UpdateAdvance(graphene.Mutation):
         advance_data = AdvanceInput(required=True)
 
     advance = graphene.Field(AdvanceType)
+
+    def mutate(root, info, id, advance_data=None):
+        Advance.objects.filter(pk=id).update(**advance_data)
+        advance = Advance.objects.get(pk=id)
+        return UpdateAdvance(advance=advance)
+
+class UpdateAdvanceState(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    advance = graphene.Field(AdvanceType)
+    done = graphene.Boolean()
     success = graphene.Boolean()
     message = graphene.String()
 
-    def mutate(root, info, id, advance_data=None):
-        user = info.context.user
-        if not user.is_authenticated:
-            return UpdateAdvance(advance=None, success=False, message="Vous devez être connecté pour effectuer cette action.")
-            
+    def mutate(root, info, id):
+        done = True
+        success = True
+        message = ''
         try:
-            # Récupérer l'acompte
-            advance = Advance.objects.get(pk=id, is_deleted=False)
-            
-            # Vérifier les permissions
-            is_admin_or_hr = user.is_staff or user.is_superuser
-            
-            if not is_admin_or_hr:
-                try:
-                    employee = Employee.objects.get(user=user)
-                    if advance.employee != employee:
-                        return UpdateAdvance(advance=None, success=False, message="Vous ne pouvez pas modifier une demande d'acompte qui ne vous appartient pas.")
-                    
-                    
-                    # Les employés ne peuvent modifier que les demandes en attente
-                    if advance.status != "PENDING":
-                        return UpdateAdvance(advance=None, success=False, message="Vous ne pouvez pas modifier une demande d'acompte qui a déjà été traitée.")
-                        
-                    # Les employés ne peuvent pas changer le statut
-                    if advance_data.status and advance_data.status != advance.status:
-                        return UpdateAdvance(advance=None, success=False, message="Vous n'avez pas la permission de changer le statut de la demande.")
-                except Employee.DoesNotExist:
-                    return UpdateAdvance(advance=None, success=False, message="Vous n'êtes pas un employé enregistré dans le système.")
-            
-            # Mise à jour des champs
-            if advance_data.amount:
-                advance.amount = advance_data.amount
-            if advance_data.month:
-                advance.month = advance_data.month
-            if advance_data.reason is not None:
-                advance.reason = advance_data.reason
-                
-            # Seuls les admin/RH peuvent faire ces modifications
-            if is_admin_or_hr:
-                if advance_data.status:
-                    advance.status = advance_data.status
-                if advance_data.comments is not None:
-                    advance.comments = advance_data.comments
-                if advance_data.validated_by:
-                    advance.validated_by_id = advance_data.validated_by
-                    advance.validation_date = timezone.now()
-            
+            advance = Advance.objects.get(pk=id)
+            advance.is_active = not advance.is_active
             advance.save()
-            
-            return UpdateAdvance(advance=advance, success=True, message="Demande d'acompte mise à jour avec succès.")
-        except Advance.DoesNotExist:
-            return UpdateAdvance(advance=None, success=False, message="Demande d'acompte introuvable.")
-        except Exception as e:
-            return UpdateAdvance(advance=None, success=False, message=f"Une erreur est survenue: {str(e)}")
+        except Exception:
+            done = False
+            success = False
+            message = "Une erreur s'est produite."
+
+        return UpdateAdvanceState(done=done, success=success, message=message, advance=advance)
+
+class DeleteAdvance(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+
+    advance = graphene.Field(AdvanceType)
+    deleted = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id):
+        deleted = False
+        success = False
+        message = ''
+        current_user = info.context.user
+
+        if current_user.is_superuser or current_user.is_staff:
+            try:
+                advance = Advance.objects.get(pk=id)
+                advance.is_deleted = True
+                advance.save()
+                deleted = True
+                success = True
+            except Advance.DoesNotExist:
+                message = "L'élément n'existe pas."
+        else:
+            message = "Vous n'êtes pas autorisé à supprimer cet élément."
+
+        return DeleteAdvance(deleted=deleted, success=success, message=message, id=id)
 
 class ValidateAdvance(graphene.Mutation):
     class Arguments:
@@ -218,54 +298,18 @@ class ValidateAdvance(graphene.Mutation):
         except Exception as e:
             return ValidateAdvance(advance=None, success=False, message=f"Une erreur est survenue: {str(e)}")
 
-class DeleteAdvance(graphene.Mutation):
-    class Arguments:
-        id = graphene.ID(required=True)
+# ***************************************************************************
 
-    advance = graphene.Field(AdvanceType)
-    id = graphene.ID()
-    deleted = graphene.Boolean()
-    success = graphene.Boolean()
-    message = graphene.String()
-
-    def mutate(root, info, id):
-        user = info.context.user
-        if not user.is_authenticated:
-            return DeleteAdvance(advance=None, id=id, deleted=False, success=False, message="Vous devez être connecté pour effectuer cette action.")
-            
-        try:
-            # Récupérer l'acompte
-            advance = Advance.objects.get(pk=id, is_deleted=False)
-            
-            # Vérifier les permissions
-            is_admin_or_hr = user.is_staff or user.is_superuser
-            
-            if not is_admin_or_hr:
-                try:
-                    employee = Employee.objects.get(user=user)
-                    if advance.employee != employee:
-                        return DeleteAdvance(advance=None, id=id, deleted=False, success=False, message="Vous ne pouvez pas supprimer une demande d'acompte qui ne vous appartient pas.")
-                    
-                    # Les employés ne peuvent supprimer que les demandes en attente
-                    if advance.status != "PENDING":
-                        return DeleteAdvance(advance=None, id=id, deleted=False, success=False, message="Vous ne pouvez pas supprimer une demande d'acompte qui a déjà été traitée.")
-                except Employee.DoesNotExist:
-                    return DeleteAdvance(advance=None, id=id, deleted=False, success=False, message="Vous n'êtes pas un employé enregistré dans le système.")
-            
-            # Marquer comme supprimé
-            advance.is_deleted = True
-            advance.save()
-            
-            return DeleteAdvance(advance=advance, id=id, deleted=True, success=True, message="Demande d'acompte supprimée avec succès.")
-        except Advance.DoesNotExist:
-            return DeleteAdvance(advance=None, id=id, deleted=False, success=False, message="Demande d'acompte introuvable.")
-        except Exception as e:
-            return DeleteAdvance(advance=None, id=id, deleted=False, success=False, message=f"Une erreur est survenue: {str(e)}")
+class AdvanceMutation(graphene.ObjectType):
+    create_advance = CreateAdvance.Field()
+    update_advance = UpdateAdvance.Field()
+    update_advance_state = UpdateAdvanceState.Field()
+    delete_advance = DeleteAdvance.Field()
 
 # Définition des types de base pour la pagination
-class PageInfoType(graphene.ObjectType):
-    hasNextPage = graphene.Boolean()
-    hasPreviousPage = graphene.Boolean()
+# class PageInfoType(graphene.ObjectType):
+#     hasNextPage = graphene.Boolean()
+#     hasPreviousPage = graphene.Boolean()
 
 # Définition des types pour Advance
 
@@ -1093,7 +1137,14 @@ class HumanRessourcesQuery(graphene.ObjectType):
         # Filtrage et pagination des acomptes
         user = info.context.user
         if not user.is_authenticated:
-            return AdvanceNodeType(nodes=[], total_count=0, page_info=PageInfoType(hasNextPage=False, hasPreviousPage=False))
+            return AdvanceNodeType(
+                nodes=[], 
+                total_count=0, 
+                page_info=PageInfoType(
+                    hasNextPage=False, 
+                    hasPreviousPage=False
+                )
+            )
 
         # Base query - exclure les soft-deleted
         qs = Advance.objects.filter(is_deleted=False)
@@ -1101,7 +1152,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
         # Filtres
         if advance_filter:
             # Filtrer par mot-clé (recherche dans numéro, raison, commentaires)
-            if advance_filter.keyword:
+            if hasattr(advance_filter, 'keyword') and advance_filter.keyword:
                 keyword = advance_filter.keyword
                 qs = qs.filter(
                     Q(number__icontains=keyword) | 
@@ -1110,11 +1161,11 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 )
                 
             # Filtrer par statut
-            if advance_filter.status:
+            if hasattr(advance_filter, 'status') and advance_filter.status:
                 qs = qs.filter(status=advance_filter.status)
                 
             # Filtrer par employé
-            if advance_filter.employee_id:
+            if hasattr(advance_filter, 'employee_id') and advance_filter.employee_id:
                 qs = qs.filter(employee_id=advance_filter.employee_id)
         
         # Si pas admin ou RH, montrer uniquement les acomptes de l'employé connecté
@@ -1123,7 +1174,14 @@ class HumanRessourcesQuery(graphene.ObjectType):
                 employee = Employee.objects.get(user=user)
                 qs = qs.filter(employee=employee)
             except Employee.DoesNotExist:
-                return AdvanceNodeType(nodes=[], total_count=0, page_info=PageInfoType(hasNextPage=False, hasPreviousPage=False))
+                return AdvanceNodeType(
+                    nodes=[], 
+                    total_count=0, 
+                    page_info=PageInfoType(
+                        hasNextPage=False, 
+                        hasPreviousPage=False
+                    )
+                )
         
         # Pagination
         total_count = qs.count()
@@ -1140,7 +1198,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
             
         # Retour
         return AdvanceNodeType(
-            nodes=qs,
+            nodes=list(qs),  # Convertir le queryset en liste pour éviter les problèmes de coroutines
             total_count=total_count,
             page_info=PageInfoType(
                 hasNextPage=has_next_page,
