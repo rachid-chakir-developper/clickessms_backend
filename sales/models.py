@@ -105,46 +105,24 @@ class Invoice(models.Model):
 	invoice_type = models.CharField(max_length=50, choices=INVOICE_TYPES, default= "STANDARD")
 	title = models.TextField(default='', null=True)
 	description = models.TextField(default='', null=True)
-	#********client************************************************************
-	client_logo_base64_encoded = models.TextField(null=True)
-	client_infos = models.CharField(max_length=255, null=True)
-	client_number = models.CharField(max_length=255, null=True)
-	client_name = models.CharField(max_length=255, null=True)
-	client_tva_number = models.CharField(max_length=255, null=True)
-	client_address = models.TextField(default='', null=True)
-	client_city = models.CharField(max_length=255, null=True)
-	client_country = models.CharField(max_length=255, null=True)
-	client_zip_code = models.CharField(max_length=255, null=True)
-	client_mobile = models.CharField(max_length=255, null=True)
-	client_fix = models.CharField(max_length=255, null=True)
-	client_email = models.EmailField(max_length=254, null=True)
-	client_iban = models.CharField(max_length=255, null=True)
-	client_bic = models.CharField(max_length=255, null=True)
-	client_bank_name = models.CharField(max_length=255, null=True)
+	#********financier************************************************************
+	financier_logo_base64_encoded = models.TextField(null=True)
+	financier_infos = models.CharField(max_length=255, null=True)
+	financier_number = models.CharField(max_length=255, null=True)
+	financier_name = models.CharField(max_length=255, null=True)
+	financier_tva_number = models.CharField(max_length=255, null=True)
+	financier_address = models.TextField(default='', null=True)
+	financier_city = models.CharField(max_length=255, null=True)
+	financier_country = models.CharField(max_length=255, null=True)
+	financier_zip_code = models.CharField(max_length=255, null=True)
+	financier_mobile = models.CharField(max_length=255, null=True)
+	financier_fix = models.CharField(max_length=255, null=True)
+	financier_email = models.EmailField(max_length=254, null=True)
+	financier_iban = models.CharField(max_length=255, null=True)
+	financier_bic = models.CharField(max_length=255, null=True)
+	financier_bank_name = models.CharField(max_length=255, null=True)
 	#**************************************************************************
-	#********establishment*****************************************************
-	establishment_logo_base64_encoded = models.TextField(null=True)
-	establishment_infos = models.CharField(max_length=255, null=True)
-	establishment_number = models.CharField(max_length=255, null=True)
-	establishment_name = models.CharField(max_length=255, null=True)
-	establishment_siret = models.CharField(max_length=255, null=True)
-	establishment_finess = models.CharField(max_length=255, null=True)
-	establishment_ape_code = models.CharField(max_length=255, null=True)
-	establishment_tva_number = models.CharField(max_length=255, null=True)
-	establishment_capacity = models.FloatField(null=True)
-	establishment_unit_price = models.DecimalField(decimal_places=2, max_digits=11, null=True, default=Decimal(0))
-	establishment_address = models.TextField(default='', null=True)
-	establishment_city = models.CharField(max_length=255, null=True)
-	establishment_country = models.CharField(max_length=255, null=True)
-	establishment_zip_code = models.CharField(max_length=255, null=True)
-	establishment_mobile = models.CharField(max_length=255, null=True)
-	establishment_fix = models.CharField(max_length=255, null=True)
-	establishment_email = models.EmailField(max_length=254, null=True)
-	establishment_iban = models.CharField(max_length=255, null=True)
-	establishment_bic = models.CharField(max_length=255, null=True)
-	establishment_bank_name = models.CharField(max_length=255, null=True)
-	#**************************************************************************
-	#********establishment*****************************************************
+	#********company*****************************************************
 	company_logo_base64_encoded = models.TextField(null=True)
 	company_infos = models.CharField(max_length=255, null=True)
 	company_number = models.CharField(max_length=255, null=True)
@@ -186,12 +164,10 @@ class Invoice(models.Model):
 
 	def update_totals(self):
 		# Recalculer le total HT et TTC
-		if self.total_ht==0:
-			total_ht = sum(Decimal(item.amount_ht) for item in self.invoice_items.all())
-			self.total_ht = Decimal(total_ht).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
-		if self.total_ttc==0:
-			total_ttc = sum(Decimal(item.amount_ttc) for item in self.invoice_items.all())
-			self.total_ttc = Decimal(total_ttc).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+		total_ht = sum(Decimal(item.amount_ht) for item in self.invoice_items.all())
+		self.total_ht = Decimal(total_ht).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+		total_ttc = sum(Decimal(item.amount_ttc) for item in self.invoice_items.all())
+		self.total_ttc = Decimal(total_ttc).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
 
 		# Recalculer la TVA totale si nécessaire
 		if self.total_ht > 0:
@@ -314,6 +290,83 @@ class Invoice(models.Model):
 	def __str__(self):
 		return self.number
 
+
+class InvoiceEstablishment(models.Model):
+	invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, null=True, related_name='invoice_establishments')
+	establishment = models.ForeignKey("companies.Establishment", on_delete=models.SET_NULL, related_name="invoice_establishments", null=True)
+	#********establishment*****************************************************
+	establishment_logo_base64_encoded = models.TextField(null=True)
+	establishment_infos = models.CharField(max_length=255, null=True)
+	establishment_number = models.CharField(max_length=255, null=True)
+	establishment_name = models.CharField(max_length=255, null=True)
+	establishment_siret = models.CharField(max_length=255, null=True)
+	establishment_finess = models.CharField(max_length=255, null=True)
+	establishment_ape_code = models.CharField(max_length=255, null=True)
+	establishment_tva_number = models.CharField(max_length=255, null=True)
+	establishment_capacity = models.FloatField(null=True)
+	establishment_unit_price = models.DecimalField(decimal_places=2, max_digits=11, null=True, default=Decimal(0))
+	establishment_address = models.TextField(default='', null=True)
+	establishment_city = models.CharField(max_length=255, null=True)
+	establishment_country = models.CharField(max_length=255, null=True)
+	establishment_zip_code = models.CharField(max_length=255, null=True)
+	establishment_mobile = models.CharField(max_length=255, null=True)
+	establishment_fix = models.CharField(max_length=255, null=True)
+	establishment_email = models.EmailField(max_length=254, null=True)
+	establishment_iban = models.CharField(max_length=255, null=True)
+	establishment_bic = models.CharField(max_length=255, null=True)
+	establishment_bank_name = models.CharField(max_length=255, null=True)
+	#**************************************************************************
+	comment = models.TextField(default='', null=True)
+	total_ht = models.DecimalField(decimal_places=2, max_digits=11, null=True, default=Decimal(0))
+	tva = models.DecimalField(decimal_places=2, max_digits=11, null=True, default=Decimal(0))
+	discount = models.DecimalField(decimal_places=2, max_digits=11, null=True, default=Decimal(0))
+	total_ttc = models.DecimalField(decimal_places=2, max_digits=11, null=True, default=Decimal(0))
+	payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD, default= "BANK_TRANSFER")
+	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def update_totals(self):
+		# Recalculer le total HT et TTC
+		total_ht = sum(Decimal(item.amount_ht) for item in self.invoice_items.all())
+		self.total_ht = Decimal(total_ht).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+		total_ttc = sum(Decimal(item.amount_ttc) for item in self.invoice_items.all())
+		self.total_ttc = Decimal(total_ttc).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
+		# Recalculer la TVA totale si nécessaire
+		if self.total_ht > 0:
+			self.tva = ((self.total_ttc - self.total_ht) / self.total_ht * Decimal(100)).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+		elif self.tva >= 0:
+			self.total_ht = (self.total_ttc / (1 + (self.tva / Decimal(100)))).quantize(Decimal('0.01'), rounding=ROUND_DOWN) 
+		else:
+			self.tva = Decimal(0)
+		
+		self.save()
+
+	def update_company_logo_base64(self):
+		"""
+		Update the establishment_logo_base64_encoded field with the base64 representation of the establishment's logo.
+		"""
+		if self.establishment and self.establishment.logo and self.establishment.logo.image:
+			logo_data=None,
+			try:
+				# Open the logo file
+				with self.establishment.logo.image.open('rb') as logo_file:
+					# Read the content of the file
+					logo_data = logo_file.read()
+					# Encode it to base64
+					self.establishment_logo_base64_encoded = f"data:image/png;base64,{base64.b64encode(logo_data).decode('utf-8')}"
+			except Exception as e:
+				raise ValueError(f"Erreur lors de l'encodage base64 du logo : {str(e)}")
+	
+	def save(self, *args, **kwargs):
+		self.update_company_logo_base64()
+		super().save(*args, **kwargs)
+	
+
+	def __str__(self):
+		return self.label
+
 class InvoiceItem(models.Model):
 	MEASUREMENT_UNITS = [
 		("HOUR", "Heure"),#
@@ -321,10 +374,9 @@ class InvoiceItem(models.Model):
 		("WEEK", "Semaine"),#
 		("MONTH", "Mois")#
 	]
-	invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, null=True, related_name='invoice_items')
+	invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='invoice_items', null=True)
+	invoice_establishment = models.ForeignKey(InvoiceEstablishment, on_delete=models.CASCADE, related_name="invoice_items", null=True)
 	label = models.TextField(default='', null=True)
-	establishment_number = models.CharField(max_length=255, null=True)
-	establishment_name = models.CharField(max_length=255, null=True)
 	preferred_name = models.CharField(max_length=255, null=True)
 	first_name = models.CharField(max_length=255, null=True)
 	last_name = models.CharField(max_length=255, null=True)
@@ -340,10 +392,12 @@ class InvoiceItem(models.Model):
 	amount_ht = models.DecimalField(decimal_places=2, max_digits=11, null=True, default=Decimal(0))
 	amount_ttc = models.DecimalField(decimal_places=2, max_digits=11, null=True, default=Decimal(0))
 	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, null=True, related_name='invoice_items')
-	establishment = models.ForeignKey("companies.Establishment", on_delete=models.SET_NULL, related_name="invoice_items", null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	def update_totals(self):
+		self.save()
 
 	def save(self, *args, **kwargs):
 		# Convertir les valeurs en Decimal pour éviter l'erreur
@@ -360,6 +414,7 @@ class InvoiceItem(models.Model):
 		super(InvoiceItem, self).save(*args, **kwargs)
 		
 		# Mettre à jour le total de la Invoice après chaque modification d'un InvoiceItem
+		self.invoice_establishment.update_totals()
 		self.invoice.update_totals()
 
 	def __str__(self):

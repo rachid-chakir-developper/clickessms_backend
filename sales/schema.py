@@ -9,10 +9,12 @@ from django.conf import settings
 from django.db.models import Q
 from datetime import datetime, timedelta
 
-from sales.models import Client, Invoice, InvoiceItem
+from sales.models import Client, Invoice, InvoiceEstablishment, InvoiceItem
 from medias.models import Folder, File
 from partnerships.models import Financier
 from companies.models import Establishment
+
+from sales.utils import calculate_amounts
 
 class ClientType(DjangoObjectType):
     class Meta:
@@ -61,6 +63,11 @@ class ClientInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
 
+class InvoiceEstablishmentType(DjangoObjectType):
+    class Meta:
+        model = InvoiceEstablishment
+        fields = "__all__"
+
 class InvoiceItemType(DjangoObjectType):
     class Meta:
         model = InvoiceItem
@@ -89,8 +96,6 @@ class InvoiceFilterInput(graphene.InputObjectType):
 class InvoiceItemInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     label = graphene.String(required=False)
-    establishment_number = graphene.String(required=False)
-    establishment_name = graphene.String(required=False)
     preferred_name = graphene.String(required=False)
     first_name = graphene.String(required=False)
     last_name = graphene.String(required=False)
@@ -98,6 +103,7 @@ class InvoiceItemInput(graphene.InputObjectType):
     entry_date = graphene.DateTime(required=False)
     release_date = graphene.DateTime(required=False)
     description = graphene.String(required=False)
+    measurement_unit = graphene.String(required=False)
     unit_price = graphene.Decimal(required=False)
     quantity = graphene.Float(required=False)
     tva = graphene.Decimal(required=False)
@@ -105,39 +111,21 @@ class InvoiceItemInput(graphene.InputObjectType):
     amount_ht = graphene.Decimal(required=False)
     amount_ttc = graphene.Decimal(required=False)
     beneficiary_id = graphene.Int(name="beneficiary", required=False)
-    establishment_id = graphene.Int(name="establishment", required=False)
+    invoice_establishment_id = graphene.Int(name="invoiceEstablishment", required=False)
 
-class InvoiceInput(graphene.InputObjectType):
+
+class InvoiceEstablishmentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
-    number = graphene.String(required=False)
-    invoice_type = graphene.String(required=False)
-    title = graphene.String(required=False)
-    description = graphene.String(required=False)
-    year = graphene.String(required=False)
-    month = graphene.String(required=False)
-    #********client*****************************************************
-    client_infos = graphene.String(required=False)
-    client_number = graphene.String(required=False)
-    client_name = graphene.String(required=False)
-    client_tva_number = graphene.String(required=False)
-    establishment_capacity = graphene.Float(required=False)
-    establishment_unit_price = graphene.Decimal(required=False)
-    client_address = graphene.String(required=False)
-    client_city = graphene.String(required=False)
-    client_country = graphene.String(required=False)
-    client_zip_code = graphene.String(required=False)
-    client_mobile = graphene.String(required=False)
-    client_fix = graphene.String(required=False)
-    client_email = graphene.String(required=False)
-    client_iban = graphene.String(required=False)
-    client_bic = graphene.String(required=False)
-    client_bank_name = graphene.String(required=False)
-    #*************************************************************
     #********establishment*****************************************************
-    establishment_infos = graphene.String(required=False)
     establishment_number = graphene.String(required=False)
     establishment_name = graphene.String(required=False)
+    establishment_siret = graphene.String(required=False)
+    establishment_finess = graphene.String(required=False)
+    establishment_ape_code = graphene.String(required=False)
+    establishment_capacity = graphene.Float(required=False)
+    establishment_unit_price = graphene.String(required=False)
     establishment_tva_number = graphene.String(required=False)
+    establishment_infos = graphene.String(required=False)
     establishment_address = graphene.String(required=False)
     establishment_city = graphene.String(required=False)
     establishment_country = graphene.String(required=False)
@@ -148,7 +136,43 @@ class InvoiceInput(graphene.InputObjectType):
     establishment_iban = graphene.String(required=False)
     establishment_bic = graphene.String(required=False)
     establishment_bank_name = graphene.String(required=False)
-    #*************************************************************
+
+    #**************************************************************************
+    comment = graphene.String(required=False)
+    total_ht = graphene.Decimal(required=False)
+    tva = graphene.Decimal(required=False)
+    discount = graphene.Decimal(required=False)
+    total_ttc = graphene.Decimal(required=False)
+    payment_method = graphene.String(required=False)
+    establishment_id = graphene.Int(name="establishment", required=False)
+    invoice_items = graphene.List(InvoiceItemInput, required=False)
+
+class InvoiceInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    number = graphene.String(required=False)
+    invoice_type = graphene.String(required=False)
+    title = graphene.String(required=False)
+    description = graphene.String(required=False)
+    year = graphene.String(required=False)
+    month = graphene.String(required=False)
+    #********financier**********************************************************
+    financier_infos = graphene.String(required=False)
+    financier_number = graphene.String(required=False)
+    financier_name = graphene.String(required=False)
+    financier_tva_number = graphene.String(required=False)
+    establishment_capacity = graphene.Float(required=False)
+    establishment_unit_price = graphene.Decimal(required=False)
+    financier_address = graphene.String(required=False)
+    financier_city = graphene.String(required=False)
+    financier_country = graphene.String(required=False)
+    financier_zip_code = graphene.String(required=False)
+    financier_mobile = graphene.String(required=False)
+    financier_fix = graphene.String(required=False)
+    financier_email = graphene.String(required=False)
+    financier_iban = graphene.String(required=False)
+    financier_bic = graphene.String(required=False)
+    financier_bank_name = graphene.String(required=False)
+    #****************************************************************************
     emission_date = graphene.DateTime(required=False)
     due_date = graphene.DateTime(required=False)
     payment_date = graphene.DateTime(required=False)
@@ -160,8 +184,7 @@ class InvoiceInput(graphene.InputObjectType):
     payment_method = graphene.String(required=False)
     status = graphene.String(required=False)
     financier_id = graphene.Int(name="financier", required=False)
-    establishment_id = graphene.Int(name="establishment", required=False)
-    invoice_items = graphene.List(InvoiceItemInput, required=False)
+    invoice_establishments = graphene.List(InvoiceEstablishmentInput, required=False)
 
 class GenerateInvoiceInput(graphene.InputObjectType):
     year = graphene.String(required=True)
@@ -454,26 +477,50 @@ class UpdateInvoice(graphene.Mutation):
             invoice = Invoice.objects.get(pk=id, company=creator.the_current_company)
         except Invoice.DoesNotExist:
             raise e
-        invoice_items = invoice_data.pop("invoice_items")
+        invoice_establishments = invoice_data.pop("invoice_establishments", None)
         Invoice.objects.filter(pk=id).update(**invoice_data)
         invoice.refresh_from_db()
         if not invoice.employee:
             invoice.employee = creator.get_employee_in_company()
             invoice.save()
-        invoice_item_ids = [
-            item.id for item in invoice_items if item.id is not None
-        ]
-        InvoiceItem.objects.filter(
-            invoice=invoice
-        ).exclude(id__in=invoice_item_ids).delete()
-        for item in invoice_items:
-            if id in item or "id" in item:
-                InvoiceItem.objects.filter(pk=item.id).update(**item)
-            else:
-                invoice_item = InvoiceItem(**item)
-                invoice_item.invoice = invoice
-                invoice_item.creator = creator
-                invoice_item.save()
+
+        if invoice_establishments is not None:
+            invoice_establishment_ids = [
+                item["id"] for item in invoice_establishments if "id" in item and item["id"] is not None
+            ]
+
+            # Supprime les établissements qui ne sont plus dans la liste
+            InvoiceEstablishment.objects.filter(invoice=invoice).exclude(id__in=invoice_establishment_ids).delete()
+
+            for item in invoice_establishments:
+                invoice_items = item.pop("invoice_items", None)  # Récupère bien invoice_items à chaque itération
+                
+                if "id" in item and item["id"] is not None:
+                    InvoiceEstablishment.objects.filter(pk=item["id"]).update(**item)
+                    invoice_establishment = InvoiceEstablishment.objects.get(pk=item["id"])
+                else:
+                    invoice_establishment = InvoiceEstablishment.objects.create(
+                        **item, invoice=invoice, creator=creator
+                    )
+
+                if invoice_items is not None:
+                    invoice_item_ids = [
+                        i_item["id"] for i_item in invoice_items if "id" in i_item and i_item["id"] is not None
+                    ]
+
+                    # Supprime les éléments non présents dans la liste
+                    InvoiceItem.objects.filter(invoice_establishment=invoice_establishment).exclude(id__in=invoice_item_ids).delete()
+
+                    for i_item in invoice_items:
+                        if "id" in i_item and i_item["id"] is not None:
+                            InvoiceItem.objects.filter(pk=i_item["id"]).update(**i_item)
+                            invoice_item = InvoiceItem.objects.get(pk=i_item["id"])
+                            invoice_item.update_totals()
+                        else:
+                            invoice_item = InvoiceItem.objects.create(
+                                **i_item, invoice=invoice, invoice_establishment=invoice_establishment, creator=creator
+                            )
+        invoice = Invoice.objects.get(pk=id, company=creator.the_current_company)
         return UpdateInvoice(invoice=invoice)
 
 
@@ -527,25 +574,25 @@ class GenerateInvoice(graphene.Mutation):
             ["year", "month", "financier", "establishments"],
         )
         invoice = None
-        invoices = []
+        managers = []
         try:
             try:
                 establishments = Establishment.objects.filter(id__in=establishment_ids, company=creator.the_current_company)
                 if not establishments:
                     return GenerateInvoice(invoice=invoice, success=False, message="Structures non trouvées.")
-                establishment=establishments.first()
+                the_establishment=establishments.first()
                 financier = Financier.objects.get(pk=financier_id, company=creator.the_current_company)
             except Financier.DoesNotExist:
                 return GenerateInvoice(invoice=invoice, success=False, message="Financeur non trouvé.")
             try:
                 action_message = "mise à jour"
-                invoice = Invoice.objects.get(establishment=establishment, financier=financier, year=year, month=month, status="DRAFT")
+                invoice = Invoice.objects.get(establishment=the_establishment, financier=financier, year=year, month=month, status="DRAFT")
                 # return GenerateInvoice(invoice=invoice, success=True, message=f"Facture {action_message} avec succée.")
             except Invoice.DoesNotExist:
                 action_message = "créée"
                 invoice = Invoice(creator=creator,
                         company=company,
-                        establishment=establishment, financier=financier,
+                        establishment=the_establishment, financier=financier,
                         year=year,
                         month=month
                     )
@@ -556,9 +603,7 @@ class GenerateInvoice(graphene.Mutation):
                 due_date += timedelta(days=2)
             elif due_date.weekday() == 6:
                 due_date += timedelta(days=1)
-            capacity = establishment.get_monthly_capacity(year, month)
-            unit_price = establishment.get_monthly_unit_price(year, month)
-            # Construction de establishment_infos avec des retours à la ligne
+
             company_infos = "\n".join(filter(None, [
                 company.address,  # Adresse principale
                 company.additional_address,  # Complément d'adresse (si présent)
@@ -568,18 +613,9 @@ class GenerateInvoice(graphene.Mutation):
                 f"{company.mobile}" if company.mobile else None,  # Mobile
                 f"{company.email}" if company.email else None,  # Email
             ]))
-            establishment_infos = "\n".join(filter(None, [
-                establishment.address,  # Adresse principale
-                establishment.additional_address,  # Complément d'adresse (si présent)
-                f"{establishment.zip_code} {establishment.city}",  # Code postal + ville
-                establishment.country,  # Pays
-                f"{establishment.fix}" if establishment.fix else None,  # Téléphone fixe
-                f"{establishment.mobile}" if establishment.mobile else None,  # Mobile
-                f"{establishment.email}" if establishment.email else None,  # Email
-            ]))
-            client_infos = "\n".join(filter(None, [
+            financier_infos = "\n".join(filter(None, [
                 financier.address,  # Adresse principale
-                establishment.additional_address,  # Complément d'adresse (si présent)
+                financier.additional_address,  # Complément d'adresse (si présent)
                 f"{financier.zip_code} {financier.city}",  # Code postal + ville
                 financier.country,  # Pays
                 f"{financier.fix}" if financier.fix else None,  # Téléphone fixe
@@ -587,43 +623,23 @@ class GenerateInvoice(graphene.Mutation):
                 f"{financier.email}" if financier.email else None,  # Email
             ]))
             invoice_fields = {
-                'title': f"Facture du {int(month):02d}/{year}  pour {establishment.name}",
-                'description': f"Facture du {int(month):02d}/{year}  pour {establishment.name}",
+                'title': f"Facture du {int(month):02d}/{year}  pour {the_establishment.name}",
+                'description': f"Facture du {int(month):02d}/{year}  pour {the_establishment.name}",
 
-                'client_number': financier.number,
-                'client_name': financier.name,
-                'client_tva_number': '',
-                'client_infos': client_infos,
-                'client_address': financier.address,
-                'client_city': financier.city,
-                'client_country': financier.country,
-                'client_zip_code': financier.zip_code,
-                'client_mobile': financier.mobile,
-                'client_fix': financier.fix,
-                'client_email': financier.email,
-                'client_iban': financier.iban,
-                'client_bic': financier.bic,
-                'client_bank_name': financier.bank_name,
-
-                'establishment_number': establishment.number,
-                'establishment_name': establishment.name,
-                'establishment_siret': establishment.siret,
-                'establishment_finess': establishment.finess,
-                'establishment_ape_code': establishment.ape_code,
-                'establishment_capacity': capacity,
-                'establishment_unit_price': unit_price,
-                'establishment_tva_number': '',
-                'establishment_infos': establishment_infos,
-                'establishment_address': establishment.address,
-                'establishment_city': establishment.city,
-                'establishment_country': establishment.country,
-                'establishment_zip_code': establishment.zip_code,
-                'establishment_mobile': establishment.mobile,
-                'establishment_fix': establishment.fix,
-                'establishment_email': establishment.email,
-                'establishment_iban': establishment.iban,
-                'establishment_bic': establishment.bic,
-                'establishment_bank_name': establishment.bank_name,
+                'financier_number': financier.number,
+                'financier_name': financier.name,
+                'financier_tva_number': '',
+                'financier_infos': financier_infos,
+                'financier_address': financier.address,
+                'financier_city': financier.city,
+                'financier_country': financier.country,
+                'financier_zip_code': financier.zip_code,
+                'financier_mobile': financier.mobile,
+                'financier_fix': financier.fix,
+                'financier_email': financier.email,
+                'financier_iban': financier.iban,
+                'financier_bic': financier.bic,
+                'financier_bank_name': financier.bank_name,
 
                 'company_number': company.number,
                 'company_name': company.name,
@@ -650,64 +666,102 @@ class GenerateInvoice(graphene.Mutation):
 
             # Save the invoice to update changes
             invoice.save()
-            managers = []
-            for manager in establishment.managers.all():
-                if manager.employee:
-                    managers.append(manager.employee)
+            for establishment in establishments:
+                capacity = establishment.get_monthly_capacity(year, month)
+                unit_price = establishment.get_monthly_unit_price(year, month)
+                # Construction de establishment_infos avec des retours à la ligne
+                establishment_infos = "\n".join(filter(None, [
+                    establishment.address,  # Adresse principale
+                    establishment.additional_address,  # Complément d'adresse (si présent)
+                    f"{establishment.zip_code} {establishment.city}",  # Code postal + ville
+                    establishment.country,  # Pays
+                    f"{establishment.fix}" if establishment.fix else None,  # Téléphone fixe
+                    f"{establishment.mobile}" if establishment.mobile else None,  # Mobile
+                    f"{establishment.email}" if establishment.email else None,  # Email
+                ]))
+
+                invoice_establishment = InvoiceEstablishment(
+                    invoice=invoice,
+                    establishment=establishment,
+                    establishment_number=establishment.number,
+                    establishment_name=establishment.name,
+                    establishment_siret=establishment.siret,
+                    establishment_finess=establishment.finess,
+                    establishment_ape_code=establishment.ape_code,
+                    establishment_capacity=capacity,
+                    establishment_unit_price=unit_price,
+                    establishment_tva_number='',
+                    establishment_infos=establishment_infos,
+                    establishment_address=establishment.address,
+                    establishment_city=establishment.city,
+                    establishment_country=establishment.country,
+                    establishment_zip_code=establishment.zip_code,
+                    establishment_mobile=establishment.mobile,
+                    establishment_fix=establishment.fix,
+                    establishment_email=establishment.email,
+                    establishment_iban=establishment.iban,
+                    establishment_bic=establishment.bic,
+                    establishment_bank_name=establishment.bank_name,
+                    creator=creator
+                )
+
+                # Save the invoice_establishment to update changes
+                invoice_establishment.save()
+
+                for manager in establishment.managers.all():
+                    if manager.employee:
+                        managers.append(manager.employee)
+
+                present_beneficiaries = establishment.get_present_beneficiaries(year, month)
+                present_beneficiaries = sorted(present_beneficiaries, key=lambda item: (item['beneficiary_entry'].beneficiary.id, item['beneficiary_entry'].beneficiary.first_name, item['beneficiary_entry'].beneficiary.last_name))
+                # Créer les éléments de facture à partir des bénéficiaires présents
+                invoice_items = []
+                for item in present_beneficiaries:
+                    release_date = item['beneficiary_entry'].release_date
+                    if release_date and release_date.year == int(year) and release_date.month == int(month):
+                        release_date = release_date
+                    else:
+                        release_date = None
+                    try:
+                        invoice_item = InvoiceItem.objects.get(invoice=invoice, invoice_establishment__establishment=item['establishment'], entry_date=item['beneficiary_entry'].entry_date)
+                    except InvoiceItem.DoesNotExist:
+                        amount_ht, amount_ttc = calculate_amounts(unit_price=unit_price, quantity=item['days_in_month'], tva=0, discount=0)
+                        invoice_item = InvoiceItem(
+                                invoice=invoice,
+                                invoice_establishment=invoice_establishment,
+                                label=f"Bénéficiaire : {item['beneficiary_entry'].beneficiary.preferred_name}",
+                                preferred_name=item['beneficiary_entry'].beneficiary.preferred_name,
+                                first_name=item['beneficiary_entry'].beneficiary.first_name,
+                                last_name=item['beneficiary_entry'].beneficiary.last_name,
+                                birth_date=item['beneficiary_entry'].beneficiary.birth_date,
+                                entry_date=item['beneficiary_entry'].entry_date,
+                                release_date=release_date,
+                                description=f"{item['days_in_month']} jour(s) dans le mois {month}/{year}",
+                                measurement_unit=establishment.measurement_activity_unit,
+                                unit_price=unit_price,
+                                quantity=item['days_in_month'],  # Utiliser le nombre de jours comme quantité
+                                amount_ht=amount_ht,  # Calcul automatique si nécessaire
+                                amount_ttc=amount_ttc,  # Calcul automatique si nécessaire
+                                beneficiary=item['beneficiary_entry'].beneficiary,
+                                creator=creator
+                            )
+                        invoice_items.append(invoice_item)
+                    except Exception as e:
+                        return GenerateInvoice(invoice=None, success=False, message=f"Erreur lors de la création des éléments de facture : {str(e)}")
+
+                # Bulk creation des éléments de facture
+                try:
+                    InvoiceItem.objects.bulk_create(invoice_items)
+                except Exception as e:
+                    return GenerateInvoice(invoice=None, success=False, message=f"Erreur lors de la création des éléments de facture : {str(e)}")
+
+                invoice_establishment.update_totals()
+
+            # Update invoice totals after adding all items
             if managers:
                 invoice.managers.set(managers)
                 invoice.set_signatures(employees=managers, creator=creator)
-
-            all_establishments = [establishment] + establishment.get_all_children()
-            # Récupérer tous les bénéficiaires présents pour ces établissements
-            present_beneficiaries = []
-            for est in all_establishments:
-                present_beneficiaries.extend(est.get_present_beneficiaries(year, month))
-            present_beneficiaries = sorted(present_beneficiaries, key=lambda item: (item['beneficiary_entry'].beneficiary.id, item['beneficiary_entry'].beneficiary.first_name, item['beneficiary_entry'].beneficiary.last_name))
-            # Créer les éléments de facture à partir des bénéficiaires présents
-            invoice_items = []
-            for item in present_beneficiaries:
-                release_date = item['beneficiary_entry'].release_date
-                if release_date and release_date.year == int(year) and release_date.month == int(month):
-                    release_date = release_date
-                else:
-                    release_date = None
-                try:
-                    invoice_item = InvoiceItem.objects.get(invoice=invoice, establishment=item['establishment'], entry_date=item['beneficiary_entry'].entry_date)
-                except InvoiceItem.DoesNotExist:
-                    invoice_item = InvoiceItem(
-                            invoice=invoice,
-                            label=f"Bénéficiaire : {item['beneficiary_entry'].beneficiary.preferred_name}",
-                            establishment_number=item['establishment'].number,
-                            establishment_name=item['establishment'].name,
-                            preferred_name=item['beneficiary_entry'].beneficiary.preferred_name,
-                            first_name=item['beneficiary_entry'].beneficiary.first_name,
-                            last_name=item['beneficiary_entry'].beneficiary.last_name,
-                            birth_date=item['beneficiary_entry'].beneficiary.birth_date,
-                            entry_date=item['beneficiary_entry'].entry_date,
-                            release_date=release_date,
-                            description=f"{item['days_in_month']} jour(s) dans le mois {month}/{year}",
-                            measurement_unit=establishment.measurement_activity_unit,
-                            unit_price=unit_price,
-                            quantity=item['days_in_month'],  # Utiliser le nombre de jours comme quantité
-                            # amount_ht=None,  # Calcul automatique si nécessaire
-                            # amount_ttc=None,  # Calcul automatique si nécessaire
-                            beneficiary=item['beneficiary_entry'].beneficiary,
-                            establishment=item['establishment'],
-                            creator=creator
-                        )
-                    invoice_items.append(invoice_item)
-
-            # Bulk creation des éléments de facture
-            try:
-                InvoiceItem.objects.bulk_create(invoice_items)
-            except Exception as e:
-                return GenerateInvoice(invoice=None, success=False, message=f"Erreur lors de la création des éléments de facture : {str(e)}")
-
-
-            # Update invoice totals after adding all items
             invoice.update_totals()
-            invoices.append(invoice)
             return GenerateInvoice(invoice=invoice, success=True, message=f"Facture {action_message} avec succée.")
 
         except Exception as e:
@@ -731,7 +785,7 @@ class DeleteInvoice(graphene.Mutation):
         current_user = info.context.user
         try:
             invoice = Invoice.objects.get(pk=id, company=current_user.the_current_company)
-        except Invoice.DoesNotExist:
+        except Invoice.DoesNotExist as e:
             raise e
         if (current_user.is_superuser or current_user.can_manage_finance() or invoice.creator==current_user) and invoice.status=="DRAFT":
             if invoice.status == 'DRAFT':
