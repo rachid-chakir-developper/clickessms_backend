@@ -606,6 +606,15 @@ class EmployeeInput(graphene.InputObjectType):
     observation = graphene.String(required=False)
     gender = graphene.String(required=False)
 
+class GenerateEmployeeInput(graphene.InputObjectType):
+    number = graphene.String(required=False)
+    first_name = graphene.String(required=False)
+    last_name = graphene.String(required=False)
+    email = graphene.String(required=False)
+    job_candidate_email = graphene.String(required=False)
+    mobile = graphene.String(required=False)
+    job_candidate_id = graphene.Int(name="jobCandidate", required=False)
+
 class EmployeeGroupInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
@@ -1365,6 +1374,62 @@ class UpdateEmployeeState(graphene.Mutation):
             employee=None
             message = "Une erreur s'est produite."
         return UpdateEmployeeState(done=done, success=success, message=message,employee=employee)
+
+class GenerateEmployee(graphene.Mutation):
+    class Arguments:
+        generate_employee_data = GenerateEmployeeInput(required=True)
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    employee = graphene.Field(EmployeeType)
+
+    def mutate(self, info, generate_employee_data=None):
+        creator = info.context.user
+        job_candidate_email = generate_employee_data.pop("job_candidate_email", None)
+        try:
+            job_candidate = JobCandidate.objects.get(id=generate_employee_data.job_candidate, company=creator.the_current_company)
+        except JobCandidate.DoesNotExist:
+            return GenerateEmployee(success=False, message="Candidat introuvable.")
+
+        # if job_candidate.employee:
+        #     return GenerateEmployee(success=True, employee=job_candidate.employee, message="Un employé avec ce numéro existe déjà.")
+
+        # Créer un nouvel objet Employee
+        employee = Employee(**generate_employee_data,
+            gender=job_candidate.gender,
+            birth_date=job_candidate.birth_date,
+            birth_address=job_candidate.birth_address,
+            birth_city=job_candidate.birth_city,
+            birth_country=job_candidate.birth_country,
+            nationality=job_candidate.nationality,
+            latitude=job_candidate.latitude,
+            longitude=job_candidate.longitude,
+            city=job_candidate.city,
+            country=job_candidate.country,
+            zip_code=job_candidate.zip_code,
+            address=job_candidate.address,
+            additional_address=job_candidate.additional_address,
+            other_contacts=job_candidate_email,
+            description=job_candidate.description,
+            observation=job_candidate.observation,
+            company=job_candidate.company,
+            creator=creator,
+        )
+
+        employee.save()
+        folder = Folder.objects.create(name=str(employee.id)+'_'+employee.first_name+'-'+employee.last_name, creator=creator)
+        employee.folder = folder
+        employee.save()
+        job_candidate.folder.folder = folder
+        job_candidate.folder.save()
+        job_candidate.employee = employee
+        job_candidate.save()
+
+        return GenerateEmployee(
+            success=True,
+            message="Compte roberp créé avec succès.",
+            employee=employee,
+        )
 
 class DeleteEmployee(graphene.Mutation):
     class Arguments:
@@ -2477,6 +2542,7 @@ class HumanRessourcesMutation(graphene.ObjectType):
     create_employee = CreateEmployee.Field()
     update_employee = UpdateEmployee.Field()
     update_employee_state = UpdateEmployeeState.Field()
+    generate_employee = GenerateEmployee.Field()
     delete_employee = DeleteEmployee.Field()
     
     create_employee_contract = CreateEmployeeContract.Field()

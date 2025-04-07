@@ -32,6 +32,7 @@ from sce.schema import SceQuery, SceMutation
 from blog.schema import BlogQuery, BlogMutation
 from planning.schema import PlanningQuery, PlanningMutation
 from building_estate.schema import BuildingEstateQuery, BuildingEstateMutation
+from printer.schema import PrinterMutation
 from robert_ia.schema import RobertIaMutation
 
 class ObtainJSONWebToken(mutations.ObtainJSONWebToken):
@@ -100,7 +101,7 @@ class Mutation(AuthMutation, UserMutation, MediasMutation, TheMailerMutation, Da
     VehiclesMutation, PartnershipsMutation, PurchasesMutation, SalesMutation, WorksMutation,
     CommentsMutation, NotificationsMutation, ChatMutation, LoansMutation, ActivitiesMutation,
     QualitiesMutation, AdministrativesMutation, FinanceMutation, GovernanceMutation, SceMutation,
-    BlogMutation, PlanningMutation,  BuildingEstateMutation, RobertIaMutation,
+    BlogMutation, PlanningMutation,  BuildingEstateMutation, PrinterMutation, RobertIaMutation,
     graphene.ObjectType):
    pass
 

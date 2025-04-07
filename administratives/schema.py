@@ -380,7 +380,10 @@ class AdministrativesQuery(graphene.ObjectType):
         meetings = Meeting.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_administration() and not user.can_manage_human_ressources():
             if user.is_manager():
-                meetings = meetings.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+                meetings = meetings.filter(
+                    Q(establishments__establishment__managers__employee=user.get_employee_in_company()) |
+                    Q(participants__employee=user.get_employee_in_company()) | Q(creator=user)
+                )
             else:
                 meetings = meetings.filter(Q(participants__employee=user.get_employee_in_company()) | Q(creator=user))
         if meeting_filter:

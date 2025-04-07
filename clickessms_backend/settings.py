@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django_filters',
     # Mes applications
     'the_mailer',
+    'printer',
     'data_management',
     'accounts',
     'medias',
@@ -135,27 +136,27 @@ ASGI_APPLICATION = "clickessms_backend.asgi.application"
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 #DEV
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-#PROD
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'roberp_db',
-        'USER' : 'roberp',
-        'PASSWORD' : 'roberp01/@X',
-        'HOST' : 'localhost',
-        'PORT' : '',
-        'OPTION':{
-                'init_command' : "SET sql_mode='STRICT_TRANS_TABLES'"
-                }
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+#PROD
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'roberp_db',
+#         'USER' : 'roberp',
+#         'PASSWORD' : 'roberp01/@X',
+#         'HOST' : 'localhost',
+#         'PORT' : '',
+#         'OPTION':{
+#                 'init_command' : "SET sql_mode='STRICT_TRANS_TABLES'"
+#                 }
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -191,7 +192,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-STATIC_URL = 'public/static/'
+# 1. Dossier où tu crées tes fichiers CSS, fonts, JS
+STATICFILES_DIRS = [
+    BASE_DIR / "static",  # ← ici tu mets ton "vrai" dossier static
+]
+
+# 2. Où collectstatic va les copier en production
+STATIC_ROOT = BASE_DIR / "public/static"  # ← jamais utilisé en dev directement
+
+# 3. URL d’accès dans le navigateur
+STATIC_URL = "public/static/"  # pas besoin de /public ici, tu t’en fiches pour dev
 
 MEDIA_ROOT = BASE_DIR / 'public/media'
 MEDIA_URL = '/public/media/'

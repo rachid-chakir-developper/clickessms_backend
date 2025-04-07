@@ -122,6 +122,11 @@ class JobPositionInput(graphene.InputObjectType):
     employee_id = graphene.Int(name="employee", required=False)
     establishment_id = graphene.Int(name="establishment", required=False)
 
+class JobPositionFieldInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    is_active = graphene.Boolean(required=False)
+    status = graphene.String(required=False)
+
 class JobPostingFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
@@ -569,6 +574,35 @@ class UpdateJobPosition(graphene.Mutation):
             job_position.employee = creator.get_employee_in_company()
             job_position.save()
         return UpdateJobPosition(job_position=job_position)
+
+class UpdateJobPositionFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        job_position_data = JobPositionFieldInput(required=True)
+
+    job_position = graphene.Field(JobPositionType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, job_position_data=None):
+        creator = info.context.user
+        try:
+            job_position = JobPosition.objects.get(pk=id, company=creator.the_current_company)
+        except JobPosition.DoesNotExist:
+            raise e
+        done = True
+        success = True
+        message = ''
+        try:
+            JobPosition.objects.filter(pk=id).update(**job_position_data)
+            job_position.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            job_position=None
+            message = "Une erreur s'est produite."
+        return UpdateJobPositionFields(done=done, success=success, message=message, job_position=job_position)
 
 class DeleteJobPosition(graphene.Mutation):
     class Arguments:
@@ -1305,6 +1339,7 @@ class DeleteJobCandidateInformationSheet(graphene.Mutation):
 class RecruitmentMutation(graphene.ObjectType):
     create_job_position = CreateJobPosition.Field()
     update_job_position = UpdateJobPosition.Field()
+    update_job_position_fields = UpdateJobPositionFields.Field()
     delete_job_position = DeleteJobPosition.Field()
 
     create_job_posting = CreateJobPosting.Field()
