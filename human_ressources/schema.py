@@ -1385,6 +1385,7 @@ class GenerateEmployee(graphene.Mutation):
     success = graphene.Boolean()
     message = graphene.String()
     employee = graphene.Field(EmployeeType)
+    employee_contract = graphene.Field(EmployeeContractType)
 
     def mutate(self, info, generate_employee_data=None):
         creator = info.context.user
@@ -1400,6 +1401,8 @@ class GenerateEmployee(graphene.Mutation):
 
             if not job_candidate_information_sheet.job_candidate:
                 return GenerateEmployee(success=False, message="Le candidat associé est introuvable.")
+            if not job_candidate_information_sheet.job_position:
+                return GenerateEmployee(success=False, message="Le poste associé est introuvable.")
 
             job_candidate = JobCandidate.objects.get(
                 id=job_candidate_information_sheet.job_candidate_id, 
@@ -1448,6 +1451,27 @@ class GenerateEmployee(graphene.Mutation):
 
             job_candidate.folder.folder = folder
             job_candidate.folder.save()
+        employee_contract = employee.current_contract
+        if not employee_contract:
+            job_position = job_candidate_information_sheet.job_position
+            employee_contract = EmployeeContract.objects.create(
+                title=job_position.title,
+                contract_type=job_position.contract_type,
+                starting_date=timezone.now(),
+                employee=employee,
+                position=job_position.title,
+                creator=creator,
+            )
+            folder = Folder.objects.create(name=str(employee_contract.id)+'_'+employee_contract.title,creator=creator)
+            employee_contract.folder = folder
+            employee_contract.save()
+
+            # Création de la relation avec l'établissement
+            EmployeeContractEstablishment.objects.create(
+                employee_contract=employee_contract,
+                establishment=job_position.establishment,
+                creator=creator
+            )
 
         if not employee.user:
             default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
@@ -1467,6 +1491,7 @@ class GenerateEmployee(graphene.Mutation):
             success=True,
             message="Compte roberp créé avec succès.",
             employee=employee,
+            employee_contract=employee_contract,
         )
 
 class DeleteEmployee(graphene.Mutation):

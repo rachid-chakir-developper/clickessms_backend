@@ -496,7 +496,7 @@ class GenerateContractContent(graphene.Mutation):
 		contract_content = None
 		message = ''
 		try:
-			employee_contract = EmployeeContract.objects.get(pk=employee_contract_id, company=creator.the_current_company)
+			employee_contract = EmployeeContract.objects.get(pk=employee_contract_id, employee__company=creator.the_current_company)
 			contract_template = ContractTemplate.objects.get(pk=contract_template_id, company=creator.the_current_company)
 			variables = re.findall(r'{{\s*(\w+(?:__\w+)?)(?:.size=(\d+))?\s*}}', contract_template.content)
 			context = {}
@@ -588,7 +588,7 @@ class GenerateContractContent(graphene.Mutation):
 		except Exception as e:
 			success = False
 			contract_content=None
-			message = "Une erreur s'est produite."
+			message = f"Une erreur s'est produite. {e}"
 		return GenerateContractContent(success=success, message=message,contract_content=contract_content)
 
 class DeleteContractTemplate(graphene.Mutation):

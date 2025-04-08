@@ -52,3 +52,23 @@ class Material(models.Model):
 	    
 	def __str__(self):
 		return self.name
+
+# Le matériel prêté à un employé
+class MaterialAssignment(models.Model):
+    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='assignments')
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, null=True, related_name='material_assignments')
+    quantity = models.PositiveIntegerField(default=1)
+    date_assigned = models.DateField(auto_now_add=True)
+    return_due_date = models.DateField(null=True, blank=True)
+    date_returned = models.DateField(null=True, blank=True)
+    returned_quantity = models.PositiveIntegerField(null=True, blank=True, help_text="Quantité réellement retournée")
+    notes = models.TextField(null=True, blank=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def is_fully_returned(self):
+        return self.returned_quantity == self.quantity
+
+    def __str__(self):
+        return f"{self.employee} - {self.material} ({self.quantity})"
