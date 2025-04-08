@@ -1,6 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.text import slugify
+import string
+import random
+from the_mailer.services.accounts_services import get_default_sent_email
 
 # Create your models here.
 class Role(models.Model):
@@ -316,6 +319,14 @@ class User(AbstractUser):
         if not finance_managers.exists():
             finance_managers = cls.objects.filter(roles__name='FINANCE_MANAGER', company=company).distinct()
         return finance_managers
+
+    def get_default_sent_email(self, default_password=None):
+        """Appelle le service pour récupérer l'email par défaut."""
+        if not default_password:
+            default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+        self.set_password(default_password)
+        self.save()
+        return get_default_sent_email(self, default_password)
 
     def save(self, *args, **kwargs):
         # Générer un nom d'utilisateur à partir de l'email si non fourni

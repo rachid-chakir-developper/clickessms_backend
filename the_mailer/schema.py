@@ -9,6 +9,8 @@ from django.db.models import Q
 from the_mailer.models import SentEmail
 from medias.models import Folder, File
 from medias.schema import MediaInput
+from accounts.models import User
+from human_ressources.models import Employee
 from recruitment.models import JobCandidateApplication
 
 from the_mailer.services.mail_services import send_this_email
@@ -45,8 +47,14 @@ class DefaultSentEmailType(graphene.ObjectType):
 	subject = graphene.String(required=False)
 	body = graphene.String(required=False)
 
+class emailUserInfosInput(graphene.InputObjectType):
+	user = graphene.Int(required=False)
+	employee = graphene.Int(required=False)
+	default_password = graphene.String(required=False)
+
 class DefaultSentEmailFilterInput(graphene.InputObjectType):
 	job_candidate_application = graphene.Int(required=False)
+	email_user_infos = graphene.Field(emailUserInfosInput, required=False)
 
 class TheMailerQuery(graphene.ObjectType):
 	sent_emails = graphene.Field(SentEmailNodeType, sent_email_filter= SentEmailFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -57,7 +65,7 @@ class TheMailerQuery(graphene.ObjectType):
 		user = info.context.user
 		company = user.the_current_company
 		total_count = 0
-		sent_emails = SentEmail.objects.filter(company__id=id_company) if id_company else SentEmail.objects.filter(company=company)
+		sent_emails = SentEmail.objects.filter(company=company, is_deleted=False)
 		if sent_email_filter:
 			keyword = sent_email_filter.get('keyword', '')
 			starting_date_time = sent_email_filter.get('starting_date_time')
@@ -91,7 +99,8 @@ class TheMailerQuery(graphene.ObjectType):
 		default_sent_email = DefaultSentEmailType(recipient='', subject='', body='')
 
 		if default_sent_email_filter:
-			job_candidate_application_id = default_sent_email_filter.get('job_candidate_application')
+			job_candidate_application_id = default_sent_email_filter.get('job_candidate_application', None)
+			email_user_infos = default_sent_email_filter.get('email_user_infos', None)
 
 			if job_candidate_application_id:
 				try:
@@ -105,6 +114,30 @@ class TheMailerQuery(graphene.ObjectType):
 
 				except JobCandidateApplication.DoesNotExist:
 					pass
+			elif email_user_infos:
+				user_id = email_user_infos.get('user', None)
+				employee_id = email_user_infos.get('employee', None)
+				default_password = email_user_infos.get('default_password', None)
+				user=None
+				if employee_id:
+					try:
+						employee = Employee.objects.get(pk=employee_id)
+						user= employee.user
+
+					except User.DoesNotExist:
+						pass
+				elif user_id:
+					try:
+						user = User.objects.get(pk=user_id)
+					except User.DoesNotExist:
+						pass
+				if user:
+					recipient, subject, body = user.get_default_sent_email(default_password)
+
+					# Mise à jour de l'email par défaut avec les valeurs récupérées
+					default_sent_email.recipient = recipient
+					default_sent_email.subject = subject
+					default_sent_email.body = body
 
 		return default_sent_email
 

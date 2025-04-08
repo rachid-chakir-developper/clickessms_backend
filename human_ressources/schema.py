@@ -7,12 +7,15 @@ from graphene_file_upload.scalars import Upload
 from human_ressources.models import Employee 
 
 from django.db.models import Q, Subquery, OuterRef, Max, F
+import string
+import random
 
 from human_ressources.models import CareerEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem, Advance
 from medias.models import Folder, File, DocumentRecord
 from data_management.models import EmployeeMission, AddressBookEntry
 from companies.models import Establishment
 from accounts.models import User
+from recruitment.models import JobCandidate, JobCandidateInformationSheet
 from medias.schema import MediaInput, DocumentRecordInput
 
 from data_management.schema import CustomFieldValueInput
@@ -613,7 +616,7 @@ class GenerateEmployeeInput(graphene.InputObjectType):
     email = graphene.String(required=False)
     job_candidate_email = graphene.String(required=False)
     mobile = graphene.String(required=False)
-    job_candidate_id = graphene.Int(name="jobCandidate", required=False)
+    job_candidate_information_sheet_id = graphene.Int(name="jobCandidateInformationSheet", required=False)
 
 class EmployeeGroupInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -1385,45 +1388,80 @@ class GenerateEmployee(graphene.Mutation):
 
     def mutate(self, info, generate_employee_data=None):
         creator = info.context.user
+        company = creator.the_current_company
         job_candidate_email = generate_employee_data.pop("job_candidate_email", None)
+        job_candidate_information_sheet_id = generate_employee_data.pop("job_candidate_information_sheet_id", None)
+
         try:
-            job_candidate = JobCandidate.objects.get(id=generate_employee_data.job_candidate, company=creator.the_current_company)
+            job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(
+                id=job_candidate_information_sheet_id, 
+                company=company
+            )
+
+            if not job_candidate_information_sheet.job_candidate:
+                return GenerateEmployee(success=False, message="Le candidat associé est introuvable.")
+
+            job_candidate = JobCandidate.objects.get(
+                id=job_candidate_information_sheet.job_candidate_id, 
+                company=company
+            )
+
+        except JobCandidateInformationSheet.DoesNotExist:
+            return GenerateEmployee(success=False, message="Fiche Candidat introuvable.")
         except JobCandidate.DoesNotExist:
             return GenerateEmployee(success=False, message="Candidat introuvable.")
 
-        # if job_candidate.employee:
-        #     return GenerateEmployee(success=True, employee=job_candidate.employee, message="Un employé avec ce numéro existe déjà.")
 
-        # Créer un nouvel objet Employee
-        employee = Employee(**generate_employee_data,
-            gender=job_candidate.gender,
-            birth_date=job_candidate.birth_date,
-            birth_address=job_candidate.birth_address,
-            birth_city=job_candidate.birth_city,
-            birth_country=job_candidate.birth_country,
-            nationality=job_candidate.nationality,
-            latitude=job_candidate.latitude,
-            longitude=job_candidate.longitude,
-            city=job_candidate.city,
-            country=job_candidate.country,
-            zip_code=job_candidate.zip_code,
-            address=job_candidate.address,
-            additional_address=job_candidate.additional_address,
-            other_contacts=job_candidate_email,
-            description=job_candidate.description,
-            observation=job_candidate.observation,
-            company=job_candidate.company,
-            creator=creator,
-        )
+        try:
+            employee = Employee.objects.get(
+                job_candidate=job_candidate, 
+                company=company
+            )
+        except Employee.DoesNotExist:
+            # Créer un nouvel objet Employee
+            employee = Employee(**generate_employee_data,
+                job_candidate=job_candidate,
+                gender=job_candidate.gender,
+                # birth_date=job_candidate.birth_date,
+                # birth_address=job_candidate.birth_address,
+                # birth_city=job_candidate.birth_city,
+                # birth_country=job_candidate.birth_country,
+                # nationality=job_candidate.nationality,
+                # latitude=job_candidate.latitude,
+                # longitude=job_candidate.longitude,
+                # city=job_candidate.city,
+                # country=job_candidate.country,
+                # zip_code=job_candidate.zip_code,
+                # address=job_candidate.address,
+                # additional_address=job_candidate.additional_address,
+                # other_contacts=job_candidate_email,
+                # description=job_candidate.description,
+                # observation=job_candidate.observation,
+                company=job_candidate.company,
+                creator=creator,
+            )
+            employee.save()
 
-        employee.save()
-        folder = Folder.objects.create(name=str(employee.id)+'_'+employee.first_name+'-'+employee.last_name, creator=creator)
-        employee.folder = folder
-        employee.save()
-        job_candidate.folder.folder = folder
-        job_candidate.folder.save()
-        job_candidate.employee = employee
-        job_candidate.save()
+            folder = Folder.objects.create(name=str(employee.id)+'_'+employee.first_name+'-'+employee.last_name, creator=creator)
+            employee.folder = folder
+            employee.save()
+
+            job_candidate.folder.folder = folder
+            job_candidate.folder.save()
+
+        if not employee.user:
+            default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+            user = User(
+                first_name=employee.first_name,
+                last_name=employee.last_name,
+                email=generate_employee_data.email,
+                creator=creator,
+                company=employee.company
+            )
+            user.set_password(default_password)
+            user.save()
+            if user:
+                user.set_employee_for_company(employee_id=employee.id)
 
         return GenerateEmployee(
             success=True,

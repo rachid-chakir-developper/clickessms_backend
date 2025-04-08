@@ -58,6 +58,7 @@ class Employee(models.Model):
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
     signature = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='signature_employees', null=True)
+    job_candidate = models.ForeignKey('recruitment.JobCandidate', on_delete=models.SET_NULL, related_name='employees', null=True)
     is_active = models.BooleanField(default=True, null=True)
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_employees', null=True)

@@ -1,0 +1,23 @@
+<h2>Bienvenue sur ROBERP 👋</h2>
+
+<p>Bonjour {{ user.first_name }},</p>
+
+<p>Un compte a été créé pour vous sur la plateforme <strong>ROBERP</strong>.</p>
+
+<p>Voici vos identifiants de connexion :</p>
+
+<ul>
+  <li><strong>Adresse email :</strong> {{ user.email }}</li>
+  <li><strong>Mot de passe temporaire :</strong> {{ default_password }}</li>
+</ul>
+
+<p>➡️ Nous vous recommandons de <strong>changer votre mot de passe dès votre première connexion</strong>.</p>
+
+<p>Vous pouvez vous connecter à l’adresse suivante :<br>
+👉 <a href="https://app.roberp.fr/login" target="_blank">https://app.roberp.fr/login</a></p>
+
+<p>Si vous avez besoin d'aide, n'hésitez pas à contacter notre support.</p>
+
+<br>
+<p>Bien cordialement,</p>
+<p>L’équipe <b>{{ user.company.name }}</b></p>
