@@ -164,7 +164,7 @@ def get_default_sent_email(job_candidate_application):
             job_candidate_information_sheet.generate_access_token()
             access_link = job_candidate_information_sheet.get_access_link()
             expiration_date = job_candidate_information_sheet.token_expiration.strftime('%d/%m/%Y') if job_candidate_information_sheet.token_expiration else ''
-            subject = "Complétez votre fiche de renseignement"
+            subject = "Votre candidature a été acceptée / Complétez votre fiche de renseignement"
             body = render_to_string("recruitment/application_accepted.html", {
                 "first_name": job_candidate_information_sheet.first_name,
                 "job_title": job_candidate_information_sheet.job_position.title,
@@ -177,7 +177,7 @@ def get_default_sent_email(job_candidate_application):
             job_candidate = job_candidate_application.job_candidate
             meeting = job_candidate.job_candidate_meetings.filter(job_position=job_position).order_by('-created_at').first()
             candidat = meeting.job_candidate
-            subject = "Votre candidature a été acceptée"
+            subject = "Invitation à un entretien"
             body = render_to_string("recruitment/interview_invitation.html", {
                 "first_name": candidat.first_name,  # Prénom du candidat
                 "interview_date": meeting.starting_date_time.date(),

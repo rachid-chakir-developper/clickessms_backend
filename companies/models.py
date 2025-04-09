@@ -75,12 +75,20 @@ class Company(models.Model):
     observation = models.TextField(default='', null=True)
     status = models.CharField(max_length=20, choices=COMPANY_STATUS_CHOICES, default='TRIAL')
     is_active = models.BooleanField(default=True, null=True)
-    company_media = models.ForeignKey(CompanyMedia, on_delete=models.SET_NULL, null=True, related_name='companies') 
+    company_media = models.ForeignKey(CompanyMedia, on_delete=models.SET_NULL, null=True, related_name='companies')
+    hidden_modules = models.TextField(blank=True, null=True) 
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='company_creator', null=True)
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def set_hidden_modules(self, module_list):
+        self.hidden_modules = ",".join(module_list)
+
+    @property
+    def company_hidden_modules(self):
+        return self.hidden_modules.split(",") if self.hidden_modules else []
 
     @property
     def company_admin(self):

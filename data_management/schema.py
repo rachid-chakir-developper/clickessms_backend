@@ -253,7 +253,7 @@ class AccountingNatureInput(graphene.InputObjectType):
     parent_id = graphene.Int(name="parent", required=False)
 
 class DataQuery(graphene.ObjectType):
-    datas = graphene.List(DataType, typeData = graphene.String(), id_parent = graphene.ID(required=False))
+    datas = graphene.List(DataType, typeData = graphene.String(), id_company = graphene.ID(required=False), id_parent = graphene.ID(required=False))
     data = graphene.Field(DataType, typeData = graphene.String(), id = graphene.ID())
     accounting_natures = graphene.Field(AccountingNatureNodeType, accounting_nature_filter= AccountingNatureFilterInput(required=False), id_parent = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     accounting_nature = graphene.Field(AccountingNatureType, id = graphene.ID())
@@ -261,11 +261,11 @@ class DataQuery(graphene.ObjectType):
     custom_field = graphene.Field(CustomFieldType, id = graphene.ID())
     custom_field_values = graphene.List(CustomFieldValueType, form_model = graphene.String(required=True), id_object = graphene.ID(required=True))
     
-    def resolve_datas(root, info, typeData, id_parent=None):
+    def resolve_datas(root, info, typeData, id_company=None, id_parent=None):
         user = info.context.user
-        company = user.the_current_company
+        company = user.the_current_company if user.is_authenticated else None
         # We can easily optimize query count in the resolve method
-        datas = apps.get_model('data_management', typeData).objects.filter(Q(company=company) | Q(creator__is_superuser=True), is_deleted=False)
+        datas = apps.get_model('data_management', typeData).objects.filter((Q(company__id=id_company) if id_company else Q(company=company)) | Q(creator__is_superuser=True), is_deleted=False)
         if id_parent:
             datas = datas.filter(parent_id=id_parent)
         else:

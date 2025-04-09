@@ -42,12 +42,15 @@ class CompanyType(DjangoObjectType):
     collective_agreement = graphene.String()
     company_agreement = graphene.String()
     company_admin = graphene.Field(UserType)
+    company_hidden_modules = graphene.List(graphene.String)
     def resolve_logo( instance, info, **kwargs ):
         return instance.logo and info.context.build_absolute_uri(instance.logo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
     def resolve_company_admin( instance, info, **kwargs ):
         return instance.company_admin
+    def resolve_company_hidden_modules( instance, info, **kwargs ):
+        return instance.company_hidden_modules
 
 class CompanyNodeType(graphene.ObjectType):
     nodes = graphene.List(CompanyType)
@@ -119,6 +122,7 @@ class CompanyAdminInput(graphene.InputObjectType):
 class CompanyFieldInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     is_active = graphene.Boolean(required=False)
+    hidden_modules = graphene.List(graphene.String, required=False)
     status = graphene.String(required=False)
 
 class CompanyInput(graphene.InputObjectType):
@@ -474,7 +478,7 @@ class UpdateCompany(graphene.Mutation):
 
 class UpdateCompanyFields(graphene.Mutation):
     class Arguments:
-        id = graphene.ID()
+        id = graphene.ID(required=False)
         company_fields = CompanyFieldInput(required=False)
 
     company = graphene.Field(CompanyType)
@@ -482,18 +486,29 @@ class UpdateCompanyFields(graphene.Mutation):
     success = graphene.Boolean()
     message = graphene.String()
 
-    def mutate(root, info, id, company_fields=None):
+    def mutate(root, info, id=None, company_fields=None):
         creator = info.context.user
-        if not creator.is_superuser:
-            raise ValueError("Vous n'êtes pas un Superuser.")
         done = True
         success = True
-        company = None
         message = ''
         try:
-            Company.objects.filter(pk=id).update(**company_fields)
-            company = Company.objects.get(pk=id)
+            if id:
+                if not creator.is_superuser:
+                    raise ValueError("Vous n'êtes pas un Superuser.")
+                company = Company.objects.get(pk=id)
+            else:
+                company = creator.the_current_company
         except Exception as e:
+            company = None
+        try:
+            Company.objects.filter(pk=company.id).update(**company_fields)
+            company.refresh_from_db()
+            if hasattr(company_fields, 'hidden_modules') and isinstance(company_fields.hidden_modules, list):
+                company.set_hidden_modules(company_fields.hidden_modules)
+                company.save()
+
+        except Exception as e:
+            print(e)
             done = False
             success = False
             message = "Une erreur s'est produite."
