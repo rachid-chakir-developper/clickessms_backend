@@ -94,7 +94,7 @@ class Employee(models.Model):
         return number
     @property
     def user(self):
-        managed_company = self.managed_companies.filter(company=self.company).first()
+        managed_company = self.managed_companies.filter(company=self.company, user__isnull=False).first()
         return managed_company.user if managed_company else self.employee_user.all().first()
 
     @property

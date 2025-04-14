@@ -1421,6 +1421,7 @@ class GenerateEmployee(graphene.Mutation):
                 company=company
             )
         except Employee.DoesNotExist:
+            print('heeeeerrrrrrrrrrrrrrrrr')
             # Créer un nouvel objet Employee
             employee = Employee(**generate_employee_data,
                 job_candidate=job_candidate,
@@ -1472,20 +1473,25 @@ class GenerateEmployee(graphene.Mutation):
                 establishment=job_position.establishment,
                 creator=creator
             )
-
-        if not employee.user:
-            default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-            user = User(
-                first_name=employee.first_name,
-                last_name=employee.last_name,
-                email=generate_employee_data.email,
-                creator=creator,
-                company=employee.company
-            )
-            user.set_password(default_password)
-            user.save()
-            if user:
-                user.set_employee_for_company(employee_id=employee.id)
+        try:
+            if not employee.user:
+                default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+                user = User(
+                    first_name=employee.first_name,
+                    last_name=employee.last_name,
+                    email=generate_employee_data.email,
+                    creator=creator,
+                    company=employee.company
+                )
+                user.set_password(default_password)
+                user.save()
+                user.status.verified = True
+                user.status.save(update_fields=["verified"])
+                if user:
+                    user.set_employee_for_company(employee_id=employee.id)
+                    user.save()
+        except Exception as e:
+            pass
 
         return GenerateEmployee(
             success=True,

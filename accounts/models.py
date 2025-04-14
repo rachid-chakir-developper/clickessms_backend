@@ -84,7 +84,7 @@ class User(AbstractUser):
 
     def get_employee_in_company(self, company=None):
         company = company or self.current_company or self.company
-        user_company = self.managed_companies.filter(company=company).first()
+        user_company = self.managed_companies.filter(company=company, employee__isnull=False).first()
         return user_company.employee if user_company and user_company.employee else self.employee
 
     def set_employee_for_company(self, employee_id, company=None):
@@ -356,7 +356,7 @@ class UserCompany(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.company.name}"
+        return f"{self.user} - {self.company.name}"
 
 # Create your models here.
 class Device(models.Model):
