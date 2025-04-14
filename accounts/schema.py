@@ -153,7 +153,7 @@ class UserQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        users = User.objects.filter(company__id=id_company) if id_company else User.objects.all()
+        users = User.objects.filter(company__id=id_company, is_deleted=False) if id_company else User.objects.filter(company=company, is_deleted=False)
         if user_filter:
             keyword = user_filter.get('keyword', '')
             starting_date_time = user_filter.get('starting_date_time')
@@ -441,7 +441,7 @@ class UpdateUserFields(graphene.Mutation):
         creator = info.context.user
         try:
             user = User.objects.get(pk=id, company=creator.the_current_company)
-        except User.DoesNotExist:
+        except User.DoesNotExist as e:
             raise e
         roles = user_data.pop("roles") if ('roles' in user_data) else None
         done = True
