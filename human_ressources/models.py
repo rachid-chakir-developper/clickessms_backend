@@ -676,7 +676,12 @@ class BeneficiaryEntry(models.Model):
                         end_date_aux = min(end_date_aux, today)
 
                     days_in_month = (min(end_date_aux, month_end) - max(start_date, month_start)).days + 1
-                    if entry.release_date is not None and entry.release_date <= month_end and entry.release_date.month == month_end.month:
+                    if (
+                        entry.release_date is not None 
+                        and entry.release_date <= month_end 
+                        and entry.release_date.month == month_end.month
+                        and entry.release_date.date() != start_date.date()
+                    ):
                         days_in_month += 1
 
                     # Ajouter au total des jours pour le mois
@@ -841,7 +846,12 @@ class BeneficiaryEntry(models.Model):
             for presence in presences:
                 # Calcul du nombre de jours de présence
                 days_count = (min(presence.release_date or end_of_month, end_of_month) - max(presence.entry_date, start_of_month)).days + 1
-                if presence.release_date is not None and presence.release_date <= end_of_month and presence.release_date.month == end_of_month.month:
+                if (
+                    presence.release_date is not None 
+                    and presence.release_date <= end_of_month 
+                    and presence.release_date.month == end_of_month.month
+                    and presence.release_date.date() != start_of_month.date()
+                ):
                     days_count += 1
                 for establishment in presence.establishments.all():
                     monthly_data[establishment.id][presence.beneficiary.id].append({

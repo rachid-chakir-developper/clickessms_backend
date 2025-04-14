@@ -333,8 +333,12 @@ class Establishment(models.Model):
             end_date = make_aware(end_date) if is_naive(end_date) else end_date
 
             days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days+1
-            if entry.release_date is not None and entry.release_date <= month_end and entry.release_date.month == month:
-                print(f'herrrr {entry.release_date}')
+            if (
+                entry.release_date is not None 
+                and entry.release_date <= month_end 
+                and entry.release_date.month == month
+                and entry.release_date.date() != entry.date()
+            ):
                 days_in_month += 1
 
             beneficiaries.append({
