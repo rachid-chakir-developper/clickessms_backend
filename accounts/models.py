@@ -33,11 +33,10 @@ class User(AbstractUser):
         ("PRO", "Pro"),
         ("STANDARD", "standard"),
     ]
-    email = models.EmailField(blank=False, max_length=255, verbose_name="email")
+    email = models.EmailField(blank=False, max_length=255, verbose_name="email", unique=True)
     account_type = models.CharField(max_length=50, choices=ACCOUNT_TYPES, default= "PRO", null=True)
     photo = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='user_photo', null=True)
     cover_image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='user_cover_image', null=True)
-    email = models.EmailField(max_length=254, null=True)
     is_cgu_accepted = models.BooleanField(null=True)
     is_online = models.BooleanField(default=False, null=True)
     is_must_change_password = models.BooleanField(default=True, null=True)
