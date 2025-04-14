@@ -468,11 +468,14 @@ class DashboardActivityType(graphene.ObjectType):
                     days_count=days_count,
                     )  # 'day' utilisé pour le nom du mois
                     activity_beneficiary_months.append(item)
+                past_months = [
+                    item for item in activity_beneficiary_months if (not item.is_current_month and not item.is_future_month)
+                ]
                 activity_beneficiaries.append(
                     ActivityBeneficiaryType(
                         year=year,
                         beneficiary=beneficiary,
-                        days_count=sum(m.days_count for m in activity_beneficiary_months),
+                        days_count=sum(m.days_count for m in past_months),
                         activity_beneficiary_months=activity_beneficiary_months
                         )
                     )
