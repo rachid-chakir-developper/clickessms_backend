@@ -9,11 +9,17 @@ from graphene_file_upload.scalars import Upload
 from django.contrib.auth.models import Group, Permission
 
 from django.db.models import Q
+import string
+import random
+import io
+import base64
+from openpyxl import Workbook
 
 from accounts.models import Role, User, UserCompany, Device
 from medias.models import File
 
 from human_ressources.schema import EmployeeType
+from human_ressources.models import Employee
 from partnerships.schema import PartnerType, FinancierType
 from purchases.schema import SupplierType
 
@@ -105,6 +111,10 @@ class PermissionType(DjangoObjectType):
     class Meta:
         model = Permission
         fields = "__all__"
+
+
+class GenerateUserInput(graphene.InputObjectType):
+    employees = graphene.List(graphene.Int, required=False)
 
 class UserInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -525,6 +535,123 @@ class UpdateUserCurrentLocalisation(graphene.Mutation):
             message = "Une erreur s'est produite."
         return UpdateUserCurrentLocalisation(done=done, success=success, message=message)
 
+class GenerateUser(graphene.Mutation):
+    class Arguments:
+        generate_user_data = GenerateUserInput(required=False)
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    count = graphene.Int()
+    generated_count = graphene.Int()
+    users = graphene.List(UserType)
+    excel_file_base64 = graphene.String()  # Pour télécharger le fichier Excel depuis le frontend
+
+    def mutate(self, info, generate_employee_data=None):
+        creator = info.context.user
+        company = creator.the_current_company
+        employee_ids=None
+        if generate_employee_data:
+            employee_ids = generate_employee_data.pop("employees", None)
+        users=[]
+        excel_data = []
+        count=0
+        generated_count=0
+        try:
+            employees = Employee.objects.filter(company=company, is_deleted=False)
+            if employee_ids:
+                employees = employees.filter(id__in=employees)
+            for employee in employees:
+                user = employee.user
+                if not user:
+                    default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+                    try:
+                        user = User.objects.get(email=employee.email)
+                        if not user.get_employee_in_company(employee.company):
+                            user.set_password(default_password)
+                            user.set_employee_for_company(employee_id=employee.id)
+                            user.save()
+                            excel_data.append([
+                                user.last_name,
+                                user.first_name,
+                                user.username,
+                                user.email,
+                                default_password
+                            ])
+                            users.append(user)
+                    except User.DoesNotExist as e:
+                        user = User(
+                            first_name=employee.first_name,
+                            last_name=employee.last_name,
+                            email=employee.email,
+                            creator=creator,
+                            company=employee.company
+                        )
+                        user.set_password(default_password)
+                        user.save()
+                        user.status.verified = True
+                        user.status.save(update_fields=["verified"])
+                        if user:
+                            user.set_employee_for_company(employee_id=employee.id)
+                            user.save()
+                        generated_count+=1
+                        excel_data.append([
+                            user.last_name,
+                            user.first_name,
+                            user.username,
+                            user.email,
+                            default_password
+                        ])
+                        users.append(user)
+                    count+=1
+                elif user.is_must_change_password:
+                    default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+                    user.set_password(default_password)
+                    user.save()
+                    count+=1
+
+                    excel_data.append([
+                        user.last_name,
+                        user.first_name,
+                        user.username,
+                        user.email,
+                        default_password
+                    ])
+                    users.append(user)
+
+            # Génération de l'excel
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Utilisateurs générés"
+            ws.append(["Nom", "Prénom", "Pseudo", "Email", "Mot de passe"])
+            for row in excel_data:
+                ws.append(row)
+
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+            encoded_excel = base64.b64encode(buffer.read()).decode('utf-8')
+
+        except Exception as e:
+
+            return GenerateUser(
+                success=False,
+                message=f"Comptes roberp non créé! {e}",
+                generated_count=generated_count,
+                count=count,
+                users=None,
+                excel_file_base64=None,
+            )
+
+
+        return GenerateUser(
+            success=True,
+            message="Comptes roberp créé avec succès.",
+            generated_count=generated_count,
+            count=count,
+            users=[],
+            excel_file_base64=encoded_excel,
+        )
+
 class DeleteUser(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -705,6 +832,7 @@ class UserMutation(graphene.ObjectType):
     update_user_fields = UpdateUserFields.Field()
     add_basic_infos = addBasicInfos.Field()
     update_user_current_localisation = UpdateUserCurrentLocalisation.Field()
+    generate_user = GenerateUser.Field()
     delete_user = DeleteUser.Field()
     logout_user = LogoutUser.Field()
     register_device = RegisterDevice.Field()

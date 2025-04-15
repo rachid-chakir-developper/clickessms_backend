@@ -1,217 +1,525 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
   <head>
     <meta charset="utf-8">
-    <title>Invoice</title>
-    <meta name="description" content="Invoice demo sample">
+    <title>Facture - ROBERP</title>
+    <meta name="description" content="Facture - ROBERP">
     <style type="text/css">
-        @font-face {
-            font-family: Pacifico;
-            src: url("{% static 'fonts/pacifico.ttf' %}") format("opentype");
-        }
 
-        @font-face {
-            font-family: 'Source Sans Pro';
-            font-weight: 400;
-            src: url("{% static 'fonts/sourcesanspro-regular.otf' %}") format("opentype");
-        }
-
-        @font-face {
-            font-family: 'Source Sans Pro';
-            font-weight: 700;
-            src: url("{% static 'fonts/sourcesanspro-bold.otf' %}") format("opentype");
+        :root {
+          --primary-color: #1a365d;
+          --secondary-color: #2c5282;
+          --accent-color: #4299e1;
+          --success-color: #2ecc71;
+          --warning-color: #f1c40f;
+          --light-gray: #f7fafc;
+          --medium-gray: #e2e8f0;
+          --dark-gray: #4a5568;
+          --dark-gray: #4a5568;
+          --text-color: #333;
+          --text-light: #666;
+          --muted-purple: #a9a;
+          --soft-gray: #888;
+          --gradient-primary: linear-gradient(135deg, #2c5282, #1a365d);
+          --gradient-accent: linear-gradient(135deg, #4299e1, #2b6cb0);
+          --gradient-success: linear-gradient(135deg, #2ecc71, #27ae60);
         }
 
         @page {
-            font-family: Pacifico;
-            margin: 3cm;
-            @bottom-left {
-              color: #1ee494;
-              content: '♥ Thank you!';
-            }
-            @bottom-right {
-              color: #a9a;
-              content: 'contact@courtbouillon.org | courtbouillon.org';
-              font-size: 9pt;
-            }
+          margin: 2cm;
+
+          @bottom-left {
+            color: var(--muted-purple);
+            content: 'Association grand lieu';
+            font-size: 9pt;
+          }
+
+          @bottom-center {
+            content: "Page " counter(page) " / " counter(pages);
+            font-size: 9pt;
+            color: var(--soft-gray);
+          }
+
+          @bottom-right {
+            color: var(--muted-purple);
+            content: 'roberp.fr';
+            font-size: 9pt;
+          }
         }
 
-        html {
-          color: #14213d;
-          font-family: Source Sans Pro;
-          font-size: 11pt;
-          line-height: 1.6;
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+          font-family: 'Arial', sans-serif;
         }
+
         body {
-          margin: 0;
-        }
-
-        h1 {
-          color: #1ee494;
-          font-family: Pacifico;
-          font-size: 40pt;
-          margin: 0;
-        }
-
-        aside {
+          background: #f0f2f5;
+          padding: 20px;
+          font-size: 0.7em;
+          min-height: 100vh;
           display: flex;
-          margin: 2em 0 4em;
-        }
-        aside address {
-          font-style: normal;
-          white-space: pre-line;
-        }
-        aside address#from {
-          color: #a9a;
-          flex: 1;
-        }
-        aside address#to {
-          text-align: right;
+          align-items: center;
+          justify-content: center;
         }
 
-        dl {
-          position: absolute;
-          right: 0;
-          text-align: right;
-          top: 0;
-        }
-        dt, dd {
-          display: inline;
-          margin: 0;
-        }
-        dt {
-          color: #a9a;
-        }
-        dt::before {
-          content: '';
-          display: block;
-        }
-        dt::after {
-          content: ':';
-        }
-
-        table {
-          border-collapse: collapse;
-          width: 100%;
-        }
-        th {
-          border-bottom: .2mm solid #a9a;
-          color: #a9a;
-          font-size: 10pt;
-          font-weight: 400;
-          padding-bottom: .25cm;
+        h6 {
+          font-size: 1.1em;
+          margin-bottom: 1.2em;
+          color: var(--primary-color);
+          font-weight: 600;
           text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
-        td {
-          padding-top: 7mm;
+
+        .container {
+          width: 21cm;
+          min-height: 29.7cm;
+          background: white;
+          box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+          border-radius: 8px;
+          overflow: hidden;
         }
-        td:last-of-type {
-          color: #1ee494;
-          font-weight: bold;
+
+        .invoice {
+          background: #fff;
+          width: 100%;
+          padding: 60px;
+        }
+
+        .company-info h1 {
+          color: var(--primary-color);
+          font-size: 2.2em;
+          margin-bottom: 0.8em;
+          font-weight: 700;
+          letter-spacing: -0.5px;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .address {
+          color: var(--dark-gray);
+          line-height: 1.6;
+          font-size: 0.95em;
+        }
+
+        .document-type {
+          text-align: right;
+          color: var(--primary-color);
+          font-size: 2.2em;
+          margin-bottom: 0.8em;
+          font-weight: 700;
+          letter-spacing: -0.5px;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .invoice-meta {
+          text-align: right;
+          color: var(--dark-gray);
+          font-size: 0.95em;
+        }
+
+        .invoice-meta p {
+          margin-bottom: 0.5em;
+          line-height: 1.4;
+        }
+
+        .invoice-meta p strong {
+          color: var(--primary-color);
+        }
+
+        .client-info, .establishment-info {
+          padding: 0.7rem;
+          background: var(--light-gray);
+          border-radius: 6px;
+          font-size: 0.9em;
+          flex-direction: row;
+          display:flex;
+          justify-content: space-between;
+        }
+
+        .establishment-info {
+          background: var(--light-gray);
+          border: 1px solid var(--medium-gray);
+        }
+
+        .establishment-XYZ {
+          color: var(--primary-color);
+          font-weight: 600;
+        }
+
+        .info-grid {
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+        }
+
+        .info-grid p {
+          line-height: 1.4;
+          margin-right: 10px;
+          margin-left: 10px;
+        }
+
+        .table {
+          margin-bottom: 2.5em;
+          border-collapse: separate;
+          border-spacing: 0;
+          width: 100%;
+          font-size: 0.85em;
+        }
+
+        .table th {
+          background-color: var(--primary-color);
+          color: white;
+          font-weight: 600;
+          padding: 0.5em;
+          text-align: left;
+          white-space: nowrap;
+        }
+
+        .table td {
+          border-bottom: 1px solid var(--medium-gray);
+          padding: 0.5em;
+          vertical-align: middle;
+          text-align: left;
+          white-space: nowrap;
+        }
+
+        .table th:nth-child(1),
+        .table td:nth-child(1) {
+          width: 15%;
+        }
+
+        .table th:nth-child(2),
+        .table td:nth-child(2) {
+          width: 15%;
+        }
+
+        .table th:nth-child(3),
+        .table td:nth-child(3),
+        .table th:nth-child(4),
+        .table td:nth-child(4),
+        .table th:nth-child(5),
+        .table td:nth-child(5) {
+          width: 12%;
+        }
+
+        .table th:nth-child(6),
+        .table td:nth-child(6) {
+          width: 8%;
+        }
+
+        .table th:nth-child(7),
+        .table td:nth-child(7),
+        .table th:nth-child(8),
+        .table td:nth-child(8),{
+          width: 12%;
           text-align: right;
         }
-        th, td {
+
+        .certification-section {
+          margin: 2em 0;
           text-align: center;
+          padding: 1.5em;
+          background: var(--light-gray);
+          border-radius: 6px;
+          border: 1px solid var(--medium-gray);
+          width: 66.66%;
         }
-        th:first-of-type, td:first-of-type {
+
+        .certified-amount {
+          color: var(--primary-color);
+          font-weight: 600;
+          margin-top: 1em;
+          font-size: 1.2em;
+        }
+
+        .payment-info {
+          margin: 3em 0;
+          padding: 1.5em;
+          background: var(--light-gray);
+          border-radius: 6px;
+          border: 1px solid var(--medium-gray);
+        }
+
+        .payment-info h6 {
+          color: var(--primary-color);
+        }
+
+        .bank-details {
+          margin-top: 1.5em;
+          color: var(--dark-gray);
+          font-size: 0.95em;
+        }
+
+        .signature-section {
+          margin: 2em 0;
+          padding-left: 1rem;
+          width: 33.33%;
+        }
+
+        .certification-container {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 2em;
+        }
+
+        .signature-container {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+        }
+
+        .signature {
+          margin-bottom: 1em;
+        }
+
+        .signature-line {
+          border-bottom: 2px solid var(--primary-color);
+          width: 200px;
+          margin-bottom: 0.5em;
+        }
+
+        .signature-details {
+          text-align: right;
+        }
+
+        .conditions {
+          font-size: 0.85em;
+          color: var(--dark-gray);
+          margin: 2.5em 0;
+          line-height: 1.6;
+          padding: 1.5em;
+          background: var(--light-gray);
+          border-radius: 6px;
+          border: 1px solid var(--medium-gray);
+        }
+
+        .bottom-page {
+          font-size: 0.8em;
+          color: var(--dark-gray);
+          margin-top: 2.5em;
+          line-height: 1.6;
+          padding-top: 1.5em;
+          border-top: 2px solid var(--primary-color);
+        }
+
+        .invoice-header {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 2em;
+        }
+
+        .company-section {
+          width: 60%;
+        }
+
+        .invoice-section {
+          width: 35%;
+        }
+
+        .establishment-section {
+          margin-bottom: 2em;
+        }
+
+        .services-section {
+          margin-bottom: 2em;
+        }
+
+        .total-section {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 2em;
+        }
+
+        .total-table {
+          width: 30%;
+        }
+
+        .total-table table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .total-table td {
+          padding: 0.5em;
+          text-align: right;
+        }
+
+        .total-table td:first-child {
           text-align: left;
         }
-        th:last-of-type, td:last-of-type {
-          text-align: right;
+
+        @media print {
+          body {
+            background: none;
+            padding: 0;
+          }
+          
+          .container {
+            width: 100%;
+            min-height: auto;
+            box-shadow: none;
+          }
+          
+          .invoice {
+            padding: 0;
+          }
         }
-        footer {
-          content: '';
-          display: block;
-          height: 6cm;
-        }
-        table#total {
-          background: #f6f6f6;
-          border-color: #f6f6f6;
-          border-style: solid;
-          border-width: 2cm 3cm;
-          bottom: 0;
-          font-size: 20pt;
-          margin: 0 -3cm;
-          position: absolute;
-          width: 18cm;
-        }
+
+        
     </style>
   </head>
 
   <body>
-    <h1>Invoicess</h1>
+    <div class="container">
+      <div class="invoice">
+        <div class="invoice-header">
+          <div class="company-section">
+            <div class="company-info">
+              <h1>ROBERP</h1>
+              <p class="address">
+                123 Avenue de la République<br />
+                75011 Paris, France<br />
+                Tél: 01 23 45 67 89<br />
+                Email: contact@roberp.fr<br />
+                Web: www.roberp.fr
+              </p>
+            </div>
+          </div>
+          <div class="invoice-section">
+            <h1 class="document-type">FACTURE</h1>
+            <div class="invoice-meta">
+              <p>
+                <strong>N°: </strong><span id="invoice-number">2024-001</span>
+              </p>
+              <p>
+                <strong>Date: </strong><span id="invoice-date">01/01/2024</span>
+              </p>
+              <p class="address">
+                <strong>Adresse: </strong><br />
+                <span id="client-address"
+                  >123 Rue du Client<br />
+                  75000 Paris<br />
+                  France</span
+                >
+              </p>
+            </div>
+          </div>
+        </div>
 
-    <aside>
-      <address id="from">
-        WeasyPrint
-        26 rue Emile Decorps
-        69100 Villeurbanne
-        France
-      </address>
+        <div class="establishment-section">
+          <div class="establishment-info">
+            <p class="establishment-XYZ">
+              Nom: <span id="establishment-name">Établissement XYZ</span>
+            </p>
+            <div class="info-grid">
+              <p>
+                Capacité: <span id="establishment-capacity">50 places</span>
+              </p>
+              <p>Prix de journée: <span id="daily-rate">100€</span></p>
+            </div>
+          </div>
+        </div>
 
-      <address id="to">
-        Our awesome developers
-        From all around the world
-        Earth
-      </address>
-    </aside>
+        <div class="services-section">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>NOMS</th>
+                <th>Prénoms</th>
+                <th>Date de naissance</th>
+                <th>Date d'admission</th>
+                <th>Date de sortie</th>
+                <th>Quantité</th>
+                <th>Prix unitaire</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for i in "x"|ljust:35 %}
+                <tr>
+                  <td><span id="client-lastname">Dupont</span></td>
+                  <td><span id="client-firstname">Jean</span></td>
+                  <td><span id="birth-date">01/01/1950</span></td>
+                  <td><span id="admission-date">01/01/2024</span></td>
+                  <td><span id="discharge-date">31/01/2024</span></td>
+                  <td><span id="quantity">31</span></td>
+                  <td><span id="unit-price">100€</span></td>
+                  <td><span id="total">3100€</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
-    <dl id="informations">
-      <dt>Invoice number</dt>
-      <dd>12345</dd>
-      <dt>Date</dt>
-      <dd>March 31, 2018</dd>
-    </dl>
+        <div class="total-section">
+          <div class="total-table">
+            <table>
+              <tr>
+                <td><strong>Total HT</strong></td>
+                <td><span id="total">2,550.00</span> €</td>
+              </tr>
+              <tr>
+                <td><strong>Total TTC</strong></td>
+                <td><span id="total">2,550.00</span> €</td>
+              </tr>
+            </table>
+          </div>
+        </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Description</th>
-          <th>Price</th>
-          <th>Quantity</th>
-          <th>Subtotal</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Website design</td>
-          <td>€34.20</td>
-          <td>100</td>
-          <td>€3,420.00</td>
-        </tr>
-        <tr>
-          <td>Website development</td>
-          <td>€45.50</td>
-          <td>100</td>
-          <td>€4,550.00</td>
-        </tr>
-        <tr>
-          <td>Website integration</td>
-          <td>€25.75</td>
-          <td>100</td>
-          <td>€2,575.00</td>
-        </tr>
-      </tbody>
-    </table>
-{% static 'fonts/sourcesanspro-regular.otf' %}
-    <footer>
-      <table id="total">
-        <thead>
-          <tr>
-            <th>Due by</th>
-            <th>Account number</th>
-            <th>Total due</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>May 10, 2018</td>
-            <td>132 456 789 012</td>
-            <td>€10,545.00</td>
-          </tr>
-        </tbody>
-      </table>
-    </footer>
+        <div class="certification-container">
+          <div class="certification-section">
+            <p>
+              Certifiée sincère et véritable le présent état arrêté à la somme
+              de :
+            </p>
+            <p class="certified-amount">Deux mille cinq cent cinquante euros</p>
+          </div>
+
+          <div class="signature-section">
+            <div class="signature">
+                
+              <p><strong>Nom:</strong> Jean Dupont</p>
+              <p><strong>Rôle:</strong> Directeur</p>
+              <br>
+
+              <p>Signature</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="payment-info">
+          <h6>Instructions de paiement</h6>
+          <p>
+            Règlement à effectuer au Nom de l'Association de la Maison Familiale
+          </p>
+          <div class="bank-details">
+            <p>CAISSE D'EPARGNE HAUTE NORMANDIE ROUEN</p>
+            <p>N° 11425 00900 08065518169 54</p>
+          </div>
+        </div>
+
+        <p class="conditions">
+          En votre aimable règlement<br />
+          Et avec nos remerciements.<br /><br />
+          Conditions de paiement : paiement à réception de facture.<br />
+          Aucun escompte consenti pour règlement anticipé.<br />
+          Règlement par virement bancaire uniquement.
+        </p>
+
+        <p class="bottom-page">
+          ROBERP - Établissement d'hébergement pour personnes âgées
+          dépendantes<br />
+          N° SIRET: 123 456 789 00000 - Code banque: 30002 - Code guichet:
+          00550<br />
+          N° de compte: 00012345678 - Clé RIB: 89<br />
+          Agrément N°: 123456789 - APE: 8730A
+        </p>
+      </div>
+    </div>
   </body>
 </html>
