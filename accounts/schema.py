@@ -606,29 +606,29 @@ class GenerateUser(graphene.Mutation):
                     count+=1
                 elif user.is_must_change_password:
                     default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-                    user.set_password(default_password)
-                    base_first_name = slugify(f"{user.first_name}")
-                    base_last_name = slugify(f"{user.last_name}")
-                    base_username = f"{base_first_name}.{base_last_name}"
+                    # user.set_password(default_password)
+                    # base_first_name = slugify(f"{user.first_name}")
+                    # base_last_name = slugify(f"{user.last_name}")
+                    # base_username = f"{base_first_name}.{base_last_name}"
 
-                    user_domain = user.email.split('@')[-1]
-                    base_email = f"{base_username}@{user_domain}"
-                    try:
-                        user_copy = User.objects.get(email=base_email)
-                    except User.DoesNotExist as e:
-                        user.username=base_username
-                        user.email=base_email
-                        # user.save()
-                        count+=1
+                    # user_domain = user.email.split('@')[-1]
+                    # base_email = f"{base_username}@{user_domain}"
+                    # try:
+                    #     user_copy = User.objects.get(email=base_email)
+                    # except User.DoesNotExist as e:
+                    #     user.username=base_username
+                    #     user.email=base_email
+                    #     user.save()
+                    #     count+=1
 
-                        excel_data.append([
-                            user.last_name,
-                            user.first_name,
-                            user.username,
-                            user.email,
-                            default_password
-                        ])
-                        users.append(user)
+                    #     excel_data.append([
+                    #         user.last_name,
+                    #         user.first_name,
+                    #         user.username,
+                    #         user.email,
+                    #         default_password
+                    #     ])
+                    #     users.append(user)
 
             # Génération de l'excel
             wb = Workbook()
