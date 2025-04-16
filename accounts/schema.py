@@ -610,7 +610,7 @@ class GenerateUser(graphene.Mutation):
                     base_first_name = slugify(f"{user.first_name}")
                     base_last_name = slugify(f"{user.last_name}")
                     base_username = f"{base_first_name}.{base_last_name}"
-                    
+
                     user_domain = user.email.split('@')[-1]
                     base_email = f"{base_username}@{user_domain}"
 
@@ -681,7 +681,7 @@ class DeleteUser(graphene.Mutation):
             user = User.objects.get(pk=id, company=current_user.the_current_company)
         except User.DoesNotExist as e:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or current_user.can_manage_administration():
             user = User.objects.get(pk=id)
             if not user.is_superuser:
                 user.delete()
