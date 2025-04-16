@@ -337,7 +337,7 @@ class Establishment(models.Model):
                 entry.release_date is not None 
                 and entry.release_date <= month_end 
                 and entry.release_date.month == month
-                and entry.release_date.date() != entry.date()
+                and entry.release_date.date() != start_date.date()
             ):
                 days_in_month += 1
 
