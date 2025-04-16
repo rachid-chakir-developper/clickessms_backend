@@ -323,6 +323,10 @@ class Establishment(models.Model):
             # Calcul du nombre de jours incluant entrée et sortie
             delta_days = (end_date.date() - start_date.date()).days
             days_in_month = max(delta_days, 0)
+            if entry.release_date and entry.release_date < month_end and entry.release_date.date() != start_date.date():
+                days_in_month+=1
+            elif entry.release_date and entry.release_date < month_end:
+                days_in_month+=2
 
             beneficiaries.append({
                 'beneficiary_entry': entry,
