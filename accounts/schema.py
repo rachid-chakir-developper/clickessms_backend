@@ -607,8 +607,8 @@ class GenerateUser(graphene.Mutation):
                 elif user.is_must_change_password:
                     default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
                     user.set_password(default_password)
-                    base_first_name = slugify(f"{self.first_name}")
-                    base_last_name = slugify(f"{self.last_name}")
+                    base_first_name = slugify(f"{user.first_name}")
+                    base_last_name = slugify(f"{user.last_name}")
                     base_username = f"{base_first_name}.{base_last_name}"
                     
                     user_domain = user.email.split('@')[-1]
