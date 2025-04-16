@@ -675,8 +675,7 @@ class BeneficiaryEntry(models.Model):
                     if start_date.year == today.year and start_date.month == today.month:
                         end_date_aux = min(end_date_aux, today)
 
-                    delta = (min(end_date_aux, month_end).date() - max(start_date, month_start).date()).days
-                    days_in_month = delta + 1 if delta >= 0 else 0
+                    days_in_month = (min(end_date_aux, month_end) - max(start_date, month_start)).days
                     if (
                         entry.release_date is not None 
                         and entry.release_date <= month_end 
