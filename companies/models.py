@@ -321,7 +321,7 @@ class Establishment(models.Model):
             end_date = make_aware(end_date) if is_naive(end_date) else end_date
 
             # Calcul du nombre de jours incluant entrée et sortie
-            delta_days = (end_date.date() - start_date.date()).days + 1
+            delta_days = (end_date.date() - start_date.date()).days
             days_in_month = max(delta_days, 0)
 
             beneficiaries.append({
