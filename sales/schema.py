@@ -79,7 +79,7 @@ class InvoiceType(DjangoObjectType):
         fields = "__all__"
     month_text = graphene.String()
     def resolve_month_text( instance, info, **kwargs ):
-        return instance.month and settings.MONTHS[int(instance.month)-1]
+        return instance.month_text
 
 class InvoiceNodeType(graphene.ObjectType):
     nodes = graphene.List(InvoiceType)

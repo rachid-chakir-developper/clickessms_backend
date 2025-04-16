@@ -1,8 +1,10 @@
 from django.db import models
+from django.conf import settings
 from datetime import datetime
 import random
 from decimal import Decimal, ROUND_DOWN
 import base64
+from num2words import num2words
 
 PAYMENT_METHOD = [
 	("CASH", "Espèces"),
@@ -161,6 +163,31 @@ class Invoice(models.Model):
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
+
+	@property
+	def month_text(self):
+		if self.month:
+			try:
+				return settings.MONTHS[int(self.month) - 1]
+			except (IndexError, ValueError):
+				return ""
+		return ""
+
+	@property
+	def total_ttc_text(self):
+		try:
+			value = float(self.total_ttc)
+			euros = int(value)
+			centimes = int(round((value - euros) * 100))
+
+			euros_text = num2words(euros, lang='fr')
+			if centimes > 0:
+				centimes_text = num2words(centimes, lang='fr')
+				return f"{euros_text} euros et {centimes_text} centimes".capitalize()
+			else:
+				return f"{euros_text} euros".capitalize()
+		except Exception:
+			return str(self.total_ttc)
 
 	def update_totals(self):
 		# Recalculer le total HT et TTC

@@ -30,8 +30,8 @@
 
           @bottom-left {
             color: var(--muted-purple);
-            content: 'Association grand lieu';
-            font-size: 9pt;
+            content: '{{ invoice.company_name }}';
+            font-size: 7pt;
           }
 
           @bottom-center {
@@ -42,8 +42,8 @@
 
           @bottom-right {
             color: var(--muted-purple);
-            content: 'roberp.fr';
-            font-size: 9pt;
+            content: '{{ invoice.financier_name }}';
+            font-size: 7pt;
           }
         }
 
@@ -62,6 +62,10 @@
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+        .avoid-page-break {
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
         h6 {
@@ -88,6 +92,12 @@
           padding: 60px;
         }
 
+        .company-info img {
+          height: 100px;
+          max-height: 100px;
+          margin-bottom: 0.4em;
+        }
+
         .company-info h1 {
           color: var(--primary-color);
           font-size: 2.2em;
@@ -103,18 +113,20 @@
           line-height: 1.6;
           font-size: 0.95em;
         }
+        .address.address_client {
+          margin-top: 3em;
+        }
 
         .document-type {
           text-align: right;
           color: var(--primary-color);
           font-size: 2.2em;
-          margin-bottom: 0.8em;
+          margin-bottom: 0.6em;
           font-weight: 700;
           letter-spacing: -0.5px;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
-
         .invoice-meta {
           text-align: right;
           color: var(--dark-gray);
@@ -122,7 +134,7 @@
         }
 
         .invoice-meta p {
-          margin-bottom: 0.5em;
+          margin-bottom: 0.3em;
           line-height: 1.4;
         }
 
@@ -286,6 +298,11 @@
         .signature-details {
           text-align: right;
         }
+        .signature img{
+          width: 100px;
+          max-width: 100px;
+          margin: 10px;
+        }
 
         .conditions {
           font-size: 0.85em;
@@ -326,7 +343,7 @@
         }
 
         .services-section {
-          margin-bottom: 2em;
+          margin-bottom: 1em;
         }
 
         .total-section {
@@ -351,6 +368,16 @@
 
         .total-table td:first-child {
           text-align: left;
+        }
+        .total-table.total_ttc {
+          width: 40%;
+        }
+
+        .total-table.total_ttc table{
+          background: var(--light-gray);
+        }
+        .total-table.total_ttc table td{
+          font-size: 1.5em;
         }
 
         @media print {
@@ -380,13 +407,10 @@
         <div class="invoice-header">
           <div class="company-section">
             <div class="company-info">
-              <h1>ROBERP</h1>
+              <img src="{{ invoice.company_logo_base64_encoded }}" height="100px" />
               <p class="address">
-                123 Avenue de la République<br />
-                75011 Paris, France<br />
-                Tél: 01 23 45 67 89<br />
-                Email: contact@roberp.fr<br />
-                Web: www.roberp.fr
+                {{ invoice.company_name }}<br />
+                {{ invoice.company_infos |linebreaksbr }}<br />
               </p>
             </div>
           </div>
@@ -394,116 +418,130 @@
             <h1 class="document-type">FACTURE</h1>
             <div class="invoice-meta">
               <p>
-                <strong>N°: </strong><span id="invoice-number">2024-001</span>
+                Facture, {{ invoice.month_text }} {{ invoice.year }}
+              <p>
+                <strong>N°: </strong><span id="invoice-number">{{ invoice.number }}</span>
               </p>
               <p>
-                <strong>Date: </strong><span id="invoice-date">01/01/2024</span>
+                <strong>Date: </strong><span id="invoice-date">{{ invoice.emission_date |date:"d/m/Y" }}</span>
               </p>
-              <p class="address">
-                <strong>Adresse: </strong><br />
-                <span id="client-address"
-                  >123 Rue du Client<br />
-                  75000 Paris<br />
-                  France</span
-                >
+              <p>
+                <strong>Date d'échéance: </strong><span id="invoice-date">{{ invoice.due_date |date:"d/m/Y" }}</span>
+              </p>
+              <p class="address address_client">
+                <!-- <strong>Adresse: </strong><br /> -->
+                <span id="client-address">
+                  Monsieur le Président du:<br />
+                  <b>{{ invoice.financier_name }}</b><br />
+                  {{ invoice.financier_infos |linebreaksbr }}
+                </span>
               </p>
             </div>
           </div>
         </div>
-
-        <div class="establishment-section">
-          <div class="establishment-info">
-            <p class="establishment-XYZ">
-              Nom: <span id="establishment-name">Établissement XYZ</span>
-            </p>
-            <div class="info-grid">
-              <p>
-                Capacité: <span id="establishment-capacity">50 places</span>
+        {% for invoice_establishment in invoice.invoice_establishments.all %}
+          <div class="establishment-section avoid-page-break">
+            <div class="establishment-info">
+              <p class="establishment-XYZ">
+                Nom: <span id="establishment-name">{{ invoice_establishment.establishment_name }}</span>
               </p>
-              <p>Prix de journée: <span id="daily-rate">100€</span></p>
+              <div class="info-grid">
+                <p>
+                  Capacité: <span id="establishment-capacity">{{ invoice_establishment.establishment_capacity |floatformat:"-0" }} places</span>
+                </p>
+                <p>Prix de journée: <span id="daily-rate">{{ invoice_establishment.establishment_unit_price }}€</span></p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="services-section">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>NOMS</th>
-                <th>Prénoms</th>
-                <th>Date de naissance</th>
-                <th>Date d'admission</th>
-                <th>Date de sortie</th>
-                <th>Quantité</th>
-                <th>Prix unitaire</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for i in "x"|ljust:35 %}
+          <div class="services-section">
+            <table class="table">
+              <thead>
                 <tr>
-                  <td><span id="client-lastname">Dupont</span></td>
-                  <td><span id="client-firstname">Jean</span></td>
-                  <td><span id="birth-date">01/01/1950</span></td>
-                  <td><span id="admission-date">01/01/2024</span></td>
-                  <td><span id="discharge-date">31/01/2024</span></td>
-                  <td><span id="quantity">31</span></td>
-                  <td><span id="unit-price">100€</span></td>
-                  <td><span id="total">3100€</span></td>
+                  <th>NOMS</th>
+                  <th>Prénoms</th>
+                  <th>Date&nbsp;de&nbsp;naissance</th>
+                  <th>Date&nbsp;d'admission</th>
+                  <th>Date&nbsp;de&nbsp;sortie</th>
+                  <th>Nbr&nbsp;journée</th>
+                  <th>Prix&nbsp;journée</th>
+                  <th>Total</th>
                 </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {% for invoice_item in invoice_establishment.invoice_items.all %}
+                  <tr>
+                    <td><span id="client-lastname">{{ invoice_item.last_name }}</span></td>
+                    <td><span id="client-firstname">{{ invoice_item.first_name }}</span></td>
+                    <td><span id="birth-date">{{ invoice_item.birth_date |date:"d/m/Y" }}</span></td>
+                    <td><span id="admission-date">{{ invoice_item.entry_date |date:"d/m/Y" }}</span></td>
+                    <td><span id="discharge-date">{{ invoice_item.release_date |date:"d/m/Y" }}</span></td>
+                    <td><span id="quantity">{{ invoice_item.quantity|floatformat:"-0" }}</span></td>
+                    <td><span id="unit-price">{{ invoice_item.unit_price }}€</span></td>
+                    <td><span id="total">{{ invoice_item.amount_ttc }}€</span></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
 
-        <div class="total-section">
-          <div class="total-table">
+          <div class="total-section avoid-page-break">
+            <div class="total-table">
+              <table>
+                <tr>
+                  <td><strong>Sous total TTC</strong></td>
+                  <td><span id="total">{{ invoice_establishment.total_ttc }}</span> €</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        {% endfor %}
+        <div class="total-section avoid-page-break">
+          <div class="total-table total_ttc">
             <table>
               <tr>
-                <td><strong>Total HT</strong></td>
-                <td><span id="total">2,550.00</span> €</td>
-              </tr>
-              <tr>
                 <td><strong>Total TTC</strong></td>
-                <td><span id="total">2,550.00</span> €</td>
+                <td><span id="total">{{ invoice.total_ttc }}</span> €</td>
               </tr>
             </table>
           </div>
         </div>
-
-        <div class="certification-container">
+        <div class="certification-container avoid-page-break">
           <div class="certification-section">
             <p>
               Certifiée sincère et véritable le présent état arrêté à la somme
               de :
             </p>
-            <p class="certified-amount">Deux mille cinq cent cinquante euros</p>
+            <p class="certified-amount">{{ invoice.total_ttc_text }}</p>
           </div>
 
           <div class="signature-section">
-            <div class="signature">
-                
-              <p><strong>Nom:</strong> Jean Dupont</p>
-              <p><strong>Rôle:</strong> Directeur</p>
-              <br>
+            {% for signature in invoice.signatures.all %}
+              <div class="signature">
+                  
+                <p><strong>Nom:</strong> {{ signature.author_name }}</p>
+                <p><strong>Rôle:</strong> {{ signature.author_position }}</p>
+                <br>
 
-              <p>Signature</p>
-            </div>
+                <p>Signature</p>
+                <img src="{{signature.base64_encoded}}" width="40px" />
+              </div>
+            {% endfor %}
           </div>
         </div>
 
-        <div class="payment-info">
+        <div class="payment-info avoid-page-break">
           <h6>Instructions de paiement</h6>
           <p>
-            Règlement à effectuer au Nom de l'Association de la Maison Familiale
+            Règlement à effectuer au Nom de l'{{ invoice.company_name }}
           </p>
           <div class="bank-details">
-            <p>CAISSE D'EPARGNE HAUTE NORMANDIE ROUEN</p>
-            <p>N° 11425 00900 08065518169 54</p>
+            <p>{{ invoice.company_bank_name }}</p>
+            <p>N° {{ invoice.company_iban }}</p>
           </div>
         </div>
 
-        <p class="conditions">
+        <p class="conditions avoid-page-break">
           En votre aimable règlement<br />
           Et avec nos remerciements.<br /><br />
           Conditions de paiement : paiement à réception de facture.<br />
@@ -511,11 +549,9 @@
           Règlement par virement bancaire uniquement.
         </p>
 
-        <p class="bottom-page">
-          ROBERP - Établissement d'hébergement pour personnes âgées
-          dépendantes<br />
-          N° SIRET: 123 456 789 00000 - Code banque: 30002 - Code guichet:
-          00550<br />
+        <p class="bottom-page avoid-page-break">
+          {{ invoice.company_name }}<br />
+          N° SIRET: 123 456 789 00000 - Code banque: 30002 - Code guichet: 00550<br />
           N° de compte: 00012345678 - Clé RIB: 89<br />
           Agrément N°: 123456789 - APE: 8730A
         </p>
