@@ -292,10 +292,6 @@ class Establishment(models.Model):
         return last_decision_document_item.price if last_decision_document_item and last_decision_document_item.price else Decimal(0)
 
     def get_present_beneficiaries(self, year, month):
-        """
-        Retourne une liste des `BeneficiaryEntry` toujours présents pour cet établissement
-        dans un mois donné, avec le nombre de jours passés dans le mois.
-        """
         year = int(year)
         month = int(month)
 
@@ -309,37 +305,24 @@ class Establishment(models.Model):
         month_start = make_aware(month_start) if is_naive(month_start) else month_start
         month_end = make_aware(month_end) if is_naive(month_end) else month_end
 
-        # Utilisation de la relation inversée pour filtrer les bénéficiaires liés à cet établissement
         queryset = self.establishments_beneficiary_entries.filter(
-            Q(entry_date__lt=month_end),  # Entré avant ou pendant le mois
-            Q(release_date__isnull=True) | Q(release_date__gte=month_start),  # Pas encore sorti ou sortie après le début du mois
+            Q(entry_date__lt=month_end),
+            Q(release_date__isnull=True) | Q(release_date__gte=month_start),
             beneficiary__is_deleted=False
         )
 
         beneficiaries = []
         for entry in queryset:
-            # Ajuster start_date en fonction de entry_date
-            start_date = entry.entry_date if entry.entry_date >= month_start else month_start
-            
-            # Ajuster end_date en fonction de release_date
-            if entry.release_date is None:
-                end_date = month_end
-            elif entry.release_date > month_end:
-                end_date = month_end
-            else:
-                end_date = entry.release_date
+            # Déterminer les bornes ajustées
+            start_date = max(entry.entry_date, month_start)
+            end_date = entry.release_date if entry.release_date and entry.release_date < month_end else month_end
 
             start_date = make_aware(start_date) if is_naive(start_date) else start_date
             end_date = make_aware(end_date) if is_naive(end_date) else end_date
 
-            days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days+1
-            if (
-                entry.release_date is not None 
-                and entry.release_date <= month_end 
-                and entry.release_date.month == month
-                and entry.release_date.date() != start_date.date()
-            ):
-                days_in_month += 20
+            # Calcul du nombre de jours incluant entrée et sortie
+            delta_days = (end_date.date() - start_date.date()).days + 1
+            days_in_month = max(delta_days, 0)
 
             beneficiaries.append({
                 'beneficiary_entry': entry,
