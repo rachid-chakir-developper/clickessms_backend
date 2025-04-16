@@ -618,7 +618,7 @@ class GenerateUser(graphene.Mutation):
                     except User.DoesNotExist as e:
                         user.username=base_username
                         user.email=base_email
-                        user.save()
+                        # user.save()
                         count+=1
 
                         excel_data.append([
