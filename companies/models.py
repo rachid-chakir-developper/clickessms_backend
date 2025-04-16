@@ -332,12 +332,13 @@ class Establishment(models.Model):
             start_date = make_aware(start_date) if is_naive(start_date) else start_date
             end_date = make_aware(end_date) if is_naive(end_date) else end_date
 
-            days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days
+            days_in_month = (min(end_date, month_end) - max(start_date, month_start)).days+1
             if (
                 entry.release_date is not None 
                 and entry.release_date <= month_end 
                 and entry.release_date.month == month
                 and entry.release_date.date() != start_date.date()
+                and False
             ):
                 days_in_month += 1
 
