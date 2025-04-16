@@ -473,6 +473,9 @@ class UpdateCompany(graphene.Mutation):
                 employee.refresh_from_db()
                 if employee:
                     user.set_employee_for_company(employee_id=employee.id)
+                if user.status.verified is False:
+                    user.status.verified = True
+                    user.status.save(update_fields=["verified"])
         return UpdateCompany(company=company)
 
 
