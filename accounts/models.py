@@ -331,7 +331,9 @@ class User(AbstractUser):
         # 1. Génération du username
         if not self.username:
             if self.first_name and self.last_name:
-                base_username = slugify(f"{self.first_name}.{self.last_name}")
+                base_first_name = slugify(f"{self.first_name}")
+                base_last_name = slugify(f"{self.last_name}")
+                base_username = f"{base_first_name}.{base_last_name}"
             elif self.email:
                 base_username = slugify(self.email.split('@')[0])
             else:

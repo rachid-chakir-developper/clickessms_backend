@@ -14,6 +14,7 @@ import random
 import io
 import base64
 from openpyxl import Workbook
+from django.utils.text import slugify
 
 from accounts.models import Role, User, UserCompany, Device
 from medias.models import File
@@ -606,6 +607,15 @@ class GenerateUser(graphene.Mutation):
                 elif user.is_must_change_password:
                     default_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
                     user.set_password(default_password)
+                    base_first_name = slugify(f"{self.first_name}")
+                    base_last_name = slugify(f"{self.last_name}")
+                    base_username = f"{base_first_name}.{base_last_name}"
+                    
+                    user_domain = user.email.split('@')[-1]
+                    base_email = f"{base_username}@{user_domain}"
+
+                    user.username=base_username
+                    user.email=base_username
                     user.save()
                     count+=1
 
