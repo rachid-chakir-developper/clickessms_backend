@@ -338,9 +338,8 @@ class Establishment(models.Model):
                 and entry.release_date <= month_end 
                 and entry.release_date.month == month
                 and entry.release_date.date() != start_date.date()
-                and False
             ):
-                days_in_month += 1
+                days_in_month += 20
 
             beneficiaries.append({
                 'beneficiary_entry': entry,
