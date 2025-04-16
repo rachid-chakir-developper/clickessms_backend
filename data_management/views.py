@@ -38,7 +38,10 @@ class ExportDataView(View):
             return HttpResponse("Modèle introuvable", status=404)
 
         # Retrieve all data for the specified model
-        queryset = model.objects.filter(company=company, is_deleted=False)
+        if user.is_admin():
+            queryset = model.objects.filter(company=company, is_deleted=False)
+        else:
+            queryset = model.objects.filter(company=company, creator=user, is_deleted=False)
 
         # Create an in-memory Excel workbook and sheet
         workbook = openpyxl.Workbook()
