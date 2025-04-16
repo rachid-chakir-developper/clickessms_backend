@@ -615,7 +615,7 @@ class GenerateUser(graphene.Mutation):
                     base_email = f"{base_username}@{user_domain}"
 
                     user.username=base_username
-                    user.email=base_username
+                    user.email=base_email
                     user.save()
                     count+=1
 
