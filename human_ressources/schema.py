@@ -608,6 +608,7 @@ class EmployeeInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     gender = graphene.String(required=False)
+    establishments = graphene.List(graphene.Int, required=False)
 
 class GenerateEmployeeInput(graphene.InputObjectType):
     number = graphene.String(required=False)
@@ -1253,6 +1254,7 @@ class CreateEmployee(graphene.Mutation):
 
     def mutate(self, info, photo=None, cover_image=None, signature=None,  employee_data=None):
         creator = info.context.user
+        establishment_ids = employee_data.pop("establishments", None)
         employee = Employee(**employee_data)
         employee.creator = creator
         employee.company = creator.the_current_company
@@ -1284,6 +1286,8 @@ class CreateEmployee(graphene.Mutation):
                 signature_file.save()
                 employee.signature = signature_file
         employee.save()
+        if establishment_ids and establishment_ids is not None:
+            employee.establishments.set(establishment_ids)
         folder = Folder.objects.create(name=str(employee.id)+'_'+employee.first_name+'-'+employee.last_name,creator=creator)
         employee.folder = folder
         employee.save()
@@ -1301,12 +1305,15 @@ class UpdateEmployee(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None, signature=None,  employee_data=None):
         creator = info.context.user
+        establishment_ids = employee_data.pop("establishments", None)
         try:
             employee = Employee.objects.get(pk=id, company=creator.the_current_company)
         except Employee.DoesNotExist:
             raise e
         Employee.objects.filter(pk=id).update(**employee_data)
         employee.refresh_from_db()
+        if establishment_ids and establishment_ids is not None:
+            employee.establishments.set(establishment_ids)
         if not employee.folder or employee.folder is None:
             folder = Folder.objects.create(name=str(employee.id)+'_'+employee.first_name+'-'+employee.last_name,creator=creator)
             Employee.objects.filter(pk=id).update(folder=folder)

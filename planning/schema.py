@@ -45,7 +45,8 @@ class EmployeeAbsenceFilterInput(graphene.InputObjectType):
 class EmployeeAbsenceInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
-    title = graphene.String(required=False)
+    label = graphene.String(required=False)
+    entry_type = graphene.String(required=False)
     leave_type = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
@@ -199,8 +200,7 @@ class CreateEmployeeAbsence(graphene.Mutation):
         employee_absence = EmployeeAbsence(**employee_absence_data)
         employee_absence.creator = creator
         employee_absence.company = creator.the_current_company
-        folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.title,creator=creator)
-        employee_absence.folder = folder
+        employee_absence.save()
         if info.context.FILES:
             # file1 = info.context.FILES['1']
             if document and isinstance(document, UploadedFile):
@@ -230,6 +230,10 @@ class CreateEmployeeAbsence(graphene.Mutation):
                         employee=employee,
                         creator=creator
                     )
+        
+        employee_absence.label = employee_absence.generate_label()
+        folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.label,creator=creator)
+        employee_absence.folder = folder
         employee_absence.save()
         return CreateEmployeeAbsence(employee_absence=employee_absence)
 
@@ -253,9 +257,6 @@ class UpdateEmployeeAbsence(graphene.Mutation):
             raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
         EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
         employee_absence.refresh_from_db()
-        if not employee_absence.folder or employee_absence.folder is None:
-            folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.title,creator=creator)
-            EmployeeAbsence.objects.filter(pk=id).update(folder=folder)
         if not document and employee_absence.document:
             document_file = employee_absence.document
             document_file.delete()
@@ -289,6 +290,11 @@ class UpdateEmployeeAbsence(graphene.Mutation):
                         employee=employee,
                         creator=creator
                     )
+        employee_absence.label = employee_absence.generate_label()
+        employee_absence.save()
+        if not employee_absence.folder or employee_absence.folder is None:
+            folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.label,creator=creator)
+            EmployeeAbsence.objects.filter(pk=id).update(folder=folder)
         return UpdateEmployeeAbsence(employee_absence=employee_absence)
 
 class UpdateEmployeeAbsenceFields(graphene.Mutation):

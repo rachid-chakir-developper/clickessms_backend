@@ -4,6 +4,10 @@ import holidays
 
 # Create your models here.
 class EmployeeAbsence(models.Model):
+	ABSENCE_TYPES = [
+		('LEAVE', "Congé"),
+		('ABSENCE', "Absence"),
+	]
 	LEAVE_TYPE_CHOICES = [
 		('PAID', 'Congés payés (CP)'),
 		('UNPAID', 'Congé Sans Solde'),
@@ -18,7 +22,31 @@ class EmployeeAbsence(models.Model):
 		('MARRIAGE', 'Congé de Mariage'),
 		('STUDY', 'Congé de Formation'),
 		('ADOPTION', "Congé d'Adoption"),
-		('ABSENCE', "Absence"),
+		('SABBATICAL', 'Congé Sabbatique'),
+		('CAREGIVER', 'Congé de Proche Aidant'),
+		('FAMILY_SOLIDARITY', 'Congé de Solidarité Familiale'),
+		('MOBILITY', 'Congé de Mobilité'),
+		('RECONVERSION', 'Congé de Reconversion'),
+		('BUSINESS_CREATION', 'Congé pour Création ou Reprise d’Entreprise'),
+		('MANDATE', 'Congé pour Exercice de Mandat'),
+		('CHILD_SICKNESS', 'Congé pour Enfant Malade'),
+		('CHILD_BEREAVEMENT', 'Congé pour Deuil d’un Enfant'),
+
+		('ABSENCE', "Absence absence Injustifiée"),
+	    ('SICK_LEAVE', 'Arrêt Maladie'),
+	    ('WORK_ACCIDENT', 'Accident du Travail'),
+	    ('PROFESSIONAL_ILLNESS', 'Maladie Professionnelle'),
+	    ('LONG_TERM_LEAVE', 'Arrêt Longue Durée'),
+	    ('CHILDCARE_LEAVE', 'Garde d’Enfant Malade'),
+	    ('FAMILY_REASON', 'Absence pour Motif Familial'),
+	    ('UNPAID_AUTHORIZED', 'Absence Autorisée Sans Solde'),
+	    ('LATE', 'Retard Non Justifié'),
+	    ('EXCEPTIONAL', 'Absence Exceptionnelle'),
+	    ('RELIGIOUS_HOLIDAY', 'Jour Férié Religieux (Non Chômé)'),
+	    ('TRAINING_INTERRUPTION', 'Interruption de Formation'),
+	    ('CONTRACT_SUSPENSION', 'Suspension du Contrat (hors maladie)'),
+	    ('OTHER', 'Autre'),
+
 	]
 	STATUS_CHOICES = [
 		('PENDING', 'En Attente'),
@@ -26,7 +54,7 @@ class EmployeeAbsence(models.Model):
 		('REJECTED', 'Rejeté'),
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
-	title = models.CharField(max_length=255)
+	label = models.CharField(max_length=255, blank=True, null=True)
 	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='employee_absences', null=True)
 	starting_date_time = models.DateTimeField(null=True)
 	ending_date_time = models.DateTimeField(null=True)
@@ -37,6 +65,7 @@ class EmployeeAbsence(models.Model):
 	observation = models.TextField(default='', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_absences', null=True)
+	entry_type = models.CharField(max_length=50, choices=ABSENCE_TYPES, default='ABSENCE')
 	leave_type = models.CharField(max_length=50, choices=LEAVE_TYPE_CHOICES, default='ABSENCE')
 	status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='PENDING')
 	approved_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='approved_employee_absences', null=True)
@@ -64,6 +93,25 @@ class EmployeeAbsence(models.Model):
 				current_date += timedelta(days=1)
 			return total_days
 		return 0
+
+	def generate_label(self):
+	    absence_items = self.employees.all()
+	    if not absence_items.exists():
+	        return ''
+
+	    employee_names = []
+	    for item in absence_items:
+	        if item.employee:
+	            last_name = item.employee.last_name.upper()
+	            first_name = item.employee.first_name.capitalize()
+	            employee_names.append(f"{last_name} {first_name}")
+
+	    names_str = ", ".join(employee_names)
+	    leave_type_label = dict(self.LEAVE_TYPE_CHOICES).get(self.leave_type, 'Unknown Type')
+	    start_date_str = self.starting_date_time.strftime('%d/%m/%Y') if self.starting_date_time else '??/??/????'
+	    duration = self.duration  # Durée de l'absence
+
+	    return f"{leave_type_label} - {names_str} - {start_date_str} - {duration} jour(s)"
 
 	def __str__(self):
 		return str(self.id)
