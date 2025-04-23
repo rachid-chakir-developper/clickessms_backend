@@ -14,6 +14,8 @@ def generate_pdf_from_rml(document_type, id, data):
             invoice = Invoice.objects.get(pk=id)
             template = f"sales/{document_type}.html"
             datas["invoice"] = invoice
+        if document_type=='activity_month':
+            template = f"activities/{document_type}.html"
         
         html_content = render_to_string(template, datas)
 

@@ -50,6 +50,7 @@ class Company(models.Model):
     siret = models.CharField(max_length=255, null=True)
     finess = models.CharField(max_length=255, null=True)
     ape_code = models.CharField(max_length=255, null=True)
+    approval_number = models.CharField(max_length=255, null=True)
     logo = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='company_logo', null=True)
     cover_image = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='company_cover_image', null=True)
     primary_color = models.TextField(default='#ffffff', null=True)

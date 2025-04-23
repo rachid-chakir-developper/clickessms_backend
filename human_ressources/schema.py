@@ -973,11 +973,6 @@ class HumanRessourcesQuery(graphene.ObjectType):
         company = user.the_current_company
         total_count = 0
         beneficiaries = Beneficiary.objects.filter(company__id=id_company, is_deleted=False) if id_company else Beneficiary.objects.filter(company=company, is_deleted=False)
-        # if not user.can_manage_administration():
-        #     if user.is_manager():
-        #         beneficiaries = beneficiaries.filter(Q(beneficiary_entries__establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
-        #     else:
-        #         beneficiaries = beneficiaries.filter(creator=user)
         the_order_by = '-created_at'
         if beneficiary_filter:
             keyword = beneficiary_filter.get('keyword', '')
@@ -987,6 +982,43 @@ class HumanRessourcesQuery(graphene.ObjectType):
             list_type = beneficiary_filter.get('list_type') # OUT / ALL
             order_by = beneficiary_filter.get('order_by')
             if list_type:
+                if not user.can_manage_administration() and not user.can_manage_activity():
+                    if user.is_manager():
+                        employee = user.get_employee_in_company()
+
+                        last_entry_subquery = BeneficiaryEntry.objects.filter(
+                            beneficiary=OuterRef('pk')
+                        ).order_by('-entry_date').values('id')[:1]
+
+                        beneficiaries = beneficiaries.filter(
+                            Q(
+                                beneficiary_entries__id=Subquery(last_entry_subquery),
+                                beneficiary_entries__establishments__managers__employee=employee
+                            ) | Q(creator=user)
+                        )
+                    elif user.is_support_worker():
+                        employee = user.get_employee_in_company()
+                        employee_current_estabs = employee.current_contract.establishments.values_list('establishment', flat=True)
+
+                        last_entry_subquery = BeneficiaryEntry.objects.filter(
+                            beneficiary=OuterRef('pk')
+                        ).order_by('-entry_date').values('id')[:1]
+
+                        beneficiaries = beneficiaries.annotate(
+                            last_entry_id=Subquery(last_entry_subquery)
+                        ).filter(
+                            Q(
+                                beneficiary_entries__id=F('last_entry_id'),
+                                beneficiary_entries__establishments__in=employee.establishments.all()
+                            ) |
+                            Q(
+                                beneficiary_entries__id=F('last_entry_id'),
+                                beneficiary_entries__establishments__in=employee_current_estabs
+                            ) |
+                            Q(creator=user)
+                        ).distinct()
+                    else:
+                        beneficiaries = beneficiaries.filter(creator=user)
                 if list_type == 'OUT':
                     today = timezone.now().date()
                     # Sous-requête pour récupérer la dernière date de sortie
@@ -1314,6 +1346,7 @@ class UpdateEmployee(graphene.Mutation):
         employee.refresh_from_db()
         if establishment_ids and establishment_ids is not None:
             employee.establishments.set(establishment_ids)
+            employee.save()
         if not employee.folder or employee.folder is None:
             folder = Folder.objects.create(name=str(employee.id)+'_'+employee.first_name+'-'+employee.last_name,creator=creator)
             Employee.objects.filter(pk=id).update(folder=folder)
@@ -1354,7 +1387,7 @@ class UpdateEmployee(graphene.Mutation):
                 signature_file.save()
                 employee.signature = signature_file
             employee.save()
-        employee = Employee.objects.get(pk=id)
+        employee.refresh_from_db()
         return UpdateEmployee(employee=employee)
 
 class UpdateEmployeeState(graphene.Mutation):

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <title>Effectifs de l'Association de la Maison Familiale</title>
+    <meta name="description" content="Effectifs de l'Association de la Maison Familiale">
+    <style type="text/css">
+      :root {
+        --primary-color: #1a365d;
+        --secondary-color: #2c5282;
+        --accent-color: #4299e1;
+        --success-color: #2ecc71;
+        --warning-color: #f1c40f;
+        --danger-color: #e53e3e;
+        --light-gray: #f7fafc;
+        --medium-gray: #e2e8f0;
+        --dark-gray: #4a5568;
+        --gradient-primary: linear-gradient(135deg, #2c5282, #1a365d);
+      }
+
+      * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+          font-family: 'Arial', sans-serif;
+      }
+
+      body {
+          background: #f0f2f5;
+          padding: 20px;
+          font-size: 0.7em;
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .container {
+          width: 21cm;
+          background: white;
+          padding: 1rem;
+          box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+          border-radius: 8px;
+      }
+
+      .header {
+          text-align: center;
+          margin-bottom: 1rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+      }
+
+      .logo {
+          width: 80px;
+          margin-bottom: 0.5rem;
+      }
+
+      h1 {
+          color: var(--primary-color);
+          font-size: 1.2em;
+          margin-bottom: 0.3rem;
+          font-weight: 700;
+      }
+
+      h2 {
+          color: var(--secondary-color);
+          font-size: 1em;
+          margin-bottom: 1rem;
+      }
+
+      h3 {
+          color: var(--primary-color);
+          font-size: 1em;
+          margin: 1rem 0 0.5rem;
+          text-align: center;
+      }
+
+      table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 1rem;
+      }
+
+      th {
+          background-color: var(--primary-color);
+          color: white;
+          padding: 0.4rem;
+          text-align: left;
+          font-weight: 600;
+          white-space: nowrap;
+          font-size: 0.9em;
+      }
+
+      td {
+          padding: 0.4rem;
+          border-bottom: 1px solid var(--medium-gray);
+          font-size: 0.9em;
+      }
+
+      .capacity-table tr:hover {
+          background-color: var(--light-gray);
+      }
+
+      .subtotal {
+          background-color: #f8b86c !important;
+          font-weight: 600;
+      }
+
+      .negative {
+          color: var(--danger-color);
+          font-weight: 600;
+      }
+
+      .age-range {
+          color: var(--dark-gray);
+          font-style: italic;
+          font-size: 0.85em;
+      }
+
+      .presence-list {
+          margin-top: 1.5rem;
+      }
+
+      .date-info {
+          margin: 0.5rem 0;
+          color: var(--dark-gray);
+      }
+
+      .group-header {
+          background-color: var(--primary-color);
+          color: white;
+          font-weight: 600;
+      }
+
+      .group-total {
+          background-color: var(--light-gray);
+          font-weight: 600;
+          font-size: 0.9em;
+      }
+
+      /* Ajustements pour les colonnes du tableau */
+      .presence-list table th,
+      .presence-list table td {
+          padding: 0.3rem;
+          font-size: 0.85em;
+      }
+
+      /* Optimisation de l'espace pour le tableau de capacité */
+      .capacity-table th,
+      .capacity-table td {
+          padding: 0.3rem 0.4rem;
+      }
+
+      @media print {
+          body {
+              background: none;
+              padding: 0;
+          }
+
+          .container {
+              width: 100%;
+              box-shadow: none;
+              padding: 0.5rem;
+          }
+      }
+    </style>
+  <body>
+    <div class="container">
+      <div class="header">
+        <img src="logo.png" alt="Logo Maison Familiale" class="logo" />
+        <h1>EFFECTIFS DE L'ASSOCIATION DE LA MAISON FAMILIALE</h1>
+        <h2>AU 30 11 2024</h2>
+      </div>
+
+      <div class="capacity-table">
+        <table>
+          <thead>
+            <tr>
+              <th>0</th>
+              <th>Capacité CD27</th>
+              <th>Places Hors département</th>
+              <th>Places occupées</th>
+              <th>Places disponibles</th>
+              <th class="age-range"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Groupe A</td>
+              <td>12</td>
+              <td></td>
+              <td>10</td>
+              <td>2</td>
+              <td class="age-range">(15-17 ans)</td>
+            </tr>
+            <tr>
+              <td>Groupe B</td>
+              <td>11</td>
+              <td>1</td>
+              <td>11</td>
+              <td>0</td>
+              <td class="age-range">(12-15 ans)</td>
+            </tr>
+            <tr>
+              <td>Groupe C</td>
+              <td>11</td>
+              <td>1</td>
+              <td>8</td>
+              <td>3</td>
+              <td class="age-range">(6-12 ans)</td>
+            </tr>
+            <tr>
+              <td>Groupe grands mineurs - Jeunes Majeurs</td>
+              <td>12</td>
+              <td></td>
+              <td>8</td>
+              <td>4</td>
+              <td class="age-range">(17-20 ans)</td>
+            </tr>
+            <tr class="subtotal">
+              <td>Sous-total</td>
+              <td>46</td>
+              <td>2</td>
+              <td>37</td>
+              <td>9</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>PMD</td>
+              <td>16</td>
+              <td></td>
+              <td>26</td>
+              <td class="negative">-10</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>MASEPRO</td>
+              <td>6</td>
+              <td></td>
+              <td>2</td>
+              <td>4</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>MOSP</td>
+              <td>6</td>
+              <td></td>
+              <td>4</td>
+              <td>2</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>PMD Urgence</td>
+              <td>6</td>
+              <td></td>
+              <td>5</td>
+              <td>1</td>
+              <td></td>
+            </tr>
+            <tr class="subtotal">
+              <td>Sous-total</td>
+              <td>34</td>
+              <td>0</td>
+              <td>37</td>
+              <td class="negative">-3</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>SHAMNA</td>
+              <td>30</td>
+              <td></td>
+              <td>29</td>
+              <td>1</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="presence-list">
+        <h3>LISTE DES PRESENTS</h3>
+        <div class="date-info">
+          <p>A date : 30/11/2024</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>NOM Prénom</th>
+              <th>Date de naissance</th>
+              <th>DATE D'ENTREE DANS LE SERVICE</th>
+              <th>DATE DE SORTIE DU SERVICE</th>
+              <th>DATE ECHEANCE</th>
+              <th>IEF</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="group-header">
+              <td colspan="7">Groupe A - Groupe A places</td>
+            </tr>
+            <tr>
+              <td></td>
+              <td>ANDRE Loeliza</td>
+              <td>29/05/2008</td>
+              <td>19/01/2024</td>
+              <td></td>
+              <td>31/01/2025</td>
+              <td>Mme FRERET</td>
+            </tr>
+            <!-- Ajoutez les autres lignes du Groupe A ici -->
+            <tr class="group-total">
+              <td>TOTAL Groupe A</td>
+              <td colspan="6">
+                Nombre de présent : 10 / Nombre de places libre : 2
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>

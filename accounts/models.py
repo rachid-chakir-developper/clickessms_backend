@@ -14,6 +14,7 @@ class Role(models.Model):
         ('SCE_MANAGER', 'Responsable CSE'),
         ('QUALITY_MANAGER', 'Responsable Qualité'),
         ('ACTIVITY_MANAGER', 'Responsable Activité'),
+        ('SUPPORT_WORKER', 'Accompagnant'),
         ('ADMINISTRATIVE_MANAGER', 'Responsable Administratif'),
         ('HR_MANAGER', 'Responsable RH'),
         ('FACILITY_MANAGER', 'Responsable Services Généraux'),
@@ -215,6 +216,9 @@ class User(AbstractUser):
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def is_manager(self, user=None):
         roles = ['MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+    def is_support_worker(self, user=None):
+        roles = ['SUPPORT_WORKER']
         return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def can_manage_sce(self, user=None):
         if self.is_superuser:

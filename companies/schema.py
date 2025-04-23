@@ -132,6 +132,7 @@ class CompanyInput(graphene.InputObjectType):
     siret = graphene.String(required=False)
     finess = graphene.String(required=False)
     ape_code = graphene.String(required=False)
+    approval_number = graphene.String(required=False)
     primary_color = graphene.String(required=False)
     secondary_color = graphene.String(required=False)
     text_color = graphene.String(required=False)
