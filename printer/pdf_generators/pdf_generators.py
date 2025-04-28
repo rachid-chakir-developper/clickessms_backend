@@ -3,6 +3,7 @@ from io import BytesIO
 from weasyprint import HTML
 
 from sales.models import Invoice
+from purchases.models import PurchaseOrder
 
 def generate_pdf_from_rml(document_type, id, data):
     """ Génère un PDF à partir d'un template HTML/RML et des données fournies et retourne un BytesIO. """
@@ -14,6 +15,10 @@ def generate_pdf_from_rml(document_type, id, data):
             invoice = Invoice.objects.get(pk=id)
             template = f"sales/{document_type}.html"
             datas["invoice"] = invoice
+        if document_type=='purchase_order':
+            purchase_order = PurchaseOrder.objects.get(pk=id)
+            template = f"purchases/{document_type}.html"
+            datas["purchase_order"] = purchase_order
         if document_type=='activity_month':
             template = f"activities/{document_type}.html"
         

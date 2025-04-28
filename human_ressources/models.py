@@ -288,6 +288,8 @@ class EmployeeContract(models.Model):
             rounded_remaining_days = Decimal(remaining_days).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
             if rounded_remaining_days == rounded_remaining_days.to_integral():
                 rounded_remaining_days = int(rounded_remaining_days)
+            else:
+                rounded_remaining_days = float(rounded_remaining_days)
             reported_paid_leave_days_per_year[f"{acquisition_start.year}-{acquisition_start.year + 1}"] = rounded_remaining_days
             acquisition_start = date(acquisition_start.year + 1, 6, 1)
             reported_paid_leave_days = 0

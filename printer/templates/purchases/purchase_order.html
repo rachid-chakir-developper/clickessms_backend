@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <title>Bon de Commande {{ purchase_order.number }} - {{ purchase_order.number }}</title>
+    <meta name="description" content="Bon de Commande {{ purchase_order.number }} - {{ purchase_order.number }}">
+    <style type="text/css">
+
+      :root {
+        --primary-color: #1a365d;
+        --secondary-color: #2c5282;
+        --accent-color: #4299e1;
+        --success-color: #2ecc71;
+        --warning-color: #f1c40f;
+        --light-gray: #f7fafc;
+        --medium-gray: #e2e8f0;
+        --dark-gray: #4a5568;
+        --dark-gray: #4a5568;
+        --text-color: #333;
+        --text-light: #666;
+        --muted-purple: #a9a;
+        --soft-gray: #888;
+        --gradient-primary: linear-gradient(135deg, #2c5282, #1a365d);
+        --gradient-accent: linear-gradient(135deg, #4299e1, #2b6cb0);
+	          --gradient-success: linear-gradient(135deg, #2ecc71, #27ae60);
+			}
+
+      @page {
+        margin: 2cm;
+        size: A4;
+        @bottom-left {
+          color: var(--muted-purple);
+          content: '{{ purchase_order.number }}';
+          font-size: 7pt;
+        }
+
+        @bottom-center {
+          content: "Page " counter(page) " / " counter(pages);
+          font-size: 9pt;
+          color: var(--soft-gray);
+        }
+
+        @bottom-right {
+          color: var(--muted-purple);
+          content: '{{ purchase_order.number }}';
+          font-size: 7pt;
+        }
+      }
+
+			* {
+			    margin: 0;
+			    padding: 0;
+			    box-sizing: border-box;
+			    font-family: 'Arial', sans-serif;
+			}
+
+			body {
+			    background: #f0f2f5;
+			    padding: 40px;
+			    font-size: 0.7em;
+			    min-height: 100vh;
+			    display: flex;
+			    align-items: center;
+			    justify-content: center;
+			}
+
+			.container {
+			    width: 21cm;
+			    background: white;
+			    padding: 2rem;
+			    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+			    border-radius: 8px;
+			}
+
+			.order {
+			    width: 100%;
+			}
+
+			.order-header {
+			    display: flex;
+			    justify-content: space-between;
+			    margin-bottom: 2em;
+			}
+
+			.company-section {
+			    width: 60%;
+			}
+
+			.order-section {
+			    width: 35%;
+			}
+
+			.company-info h1 {
+			    color: var(--primary-color);
+			    font-size: 2.2em;
+			    margin-bottom: 0.8em;
+			    font-weight: 700;
+			    letter-spacing: -0.5px;
+			    -webkit-background-clip: text;
+			    -webkit-text-fill-color: transparent;
+			}
+
+			.address {
+			    color: var(--dark-gray);
+			    line-height: 1.6;
+			    font-size: 0.95em;
+			}
+
+			.document-type {
+			    text-align: right;
+			    color: var(--primary-color);
+			    font-size: 2.2em;
+			    margin-bottom: 0.8em;
+			    font-weight: 700;
+			    letter-spacing: -0.5px;
+			    -webkit-background-clip: text;
+			    -webkit-text-fill-color: transparent;
+			}
+
+			.order-meta {
+			    text-align: right;
+			    color: var(--dark-gray);
+			    font-size: 0.95em;
+			}
+
+			.order-meta p {
+			    margin-bottom: 0.5em;
+			    line-height: 1.4;
+			}
+
+			h6 {
+			    color: var(--primary-color);
+			    font-size: 1.1em;
+			    margin-bottom: 1em;
+			    font-weight: 600;
+			    text-transform: uppercase;
+			    letter-spacing: 0.5px;
+			}
+			.supplier-info{
+			    display:flex;
+			    flex-direction: row-reverse;
+			    margin-bottom: 2em;
+			    padding: 1.5em;
+			}
+
+			.order-details, .conditions-section {
+			    margin-bottom: 2em;
+			    padding: 1.5em;
+			    background: var(--light-gray);
+			    border-radius: 6px;
+			    border: 1px solid var(--medium-gray);
+			}
+
+			table {
+			    width: 100%;
+			    border-collapse: collapse;
+			    margin-bottom: 1em;
+			}
+
+			th {
+			    background-color: var(--primary-color);
+			    color: white;
+			    padding: 0.8rem;
+			    text-align: left;
+			    font-weight: 600;
+			}
+
+			td {
+			    padding: 0.8rem;
+			    border-bottom: 1px solid var(--medium-gray);
+			}
+
+			.order-summary {
+			    display: flex;
+			    justify-content: flex-end;
+			    margin: 2em 0;
+			}
+
+			.total-section {
+			    width: 40%;
+			}
+
+			.total-section table {
+			    width: 100%;
+			}
+
+			.total-section td {
+			    padding: 0.5em;
+			}
+
+			.total-section td:last-child {
+			    text-align: right;
+			    font-weight: 600;
+			}
+
+			.conditions-section ul {
+			    list-style: none;
+			    margin-left: 0;
+			}
+
+			.conditions-section li {
+			    margin-bottom: 0.8em;
+			    color: var(--dark-gray);
+			}
+
+			.certification-container {
+			    display: flex;
+			    justify-content: space-between;
+			    align-items: flex-start;
+			    margin-bottom: 2em;
+			}
+
+			.certification-section {
+			    margin: 2em 0;
+			    text-align: center;
+			    padding: 1.5em;
+			    background: var(--light-gray);
+			    border-radius: 6px;
+			    border: 1px solid var(--medium-gray);
+			    width: 66.66%;
+			}
+
+			.signature-section {
+			    margin: 2em 0;
+			    padding-left: 1rem;
+			    width: 33.33%;
+			}
+
+			.signature {
+			    margin-bottom: 1em;
+			}
+
+			.certified-amount {
+			    color: var(--primary-color);
+			    font-weight: 600;
+			    margin-top: 1em;
+			    font-size: 1.2em;
+			}
+
+			.signature-line {
+			    width: 200px;
+			    border-bottom: 2px solid var(--primary-color);
+			    margin: 1.5em 0 0.5em;
+			}
+
+			.signature-info {
+			    text-align: right;
+			}
+
+			.signature-date {
+			    color: var(--dark-gray);
+			    margin-top: 0.5em;
+			}
+
+			[contenteditable="true"] {
+			    border-bottom: 1px dashed var(--medium-gray);
+			    padding: 0 0.2em;
+			    min-width: 2em;
+			    display: inline-block;
+			}
+
+			[contenteditable="true"]:hover {
+			    background-color: var(--light-gray);
+			}
+
+			.bottom-page {
+			    margin-top: 3em;
+			    padding-top: 1.5em;
+			    border-top: 2px solid var(--primary-color);
+			    color: var(--dark-gray);
+			    font-size: 0.9em;
+			    line-height: 1.6;
+			}
+
+			@media print {
+	          body {
+	            background: none;
+	            padding: 0;
+	          }
+	          
+	          .container {
+	            width: 100%;
+	            min-height: auto;
+	            box-shadow: none;
+	          }
+			}
+
+    </style>
+  </head>
+
+  
+  <body>
+    <div class="container">
+      <div class="order">
+        <div class="order-header">
+          <div class="company-section">
+            <div class="company-info">
+              <p class="address">
+                123 Avenue de la République<br />
+                75011 Paris, France<br />
+                Tél: 01 23 45 67 89<br />
+                Email: contact@roberp.fr<br />
+                Web: www.roberp.fr
+              </p>
+            </div>
+          </div>
+          <div class="order-section">
+            <h1 class="document-type">BON DE COMMANDE</h1>
+            <div class="order-meta">
+              <p>
+                <strong>N° BC:</strong> <span id="order-number">2024-001</span>
+              </p>
+              <p><strong>Date:</strong> <span id="order-date"></span></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="supplier-info">
+          <p class="address">
+            <span id="supplier-name">ROBERP</span><br />
+            <span id="supplier-address">123 Avenue de la République</span><br />
+            <span id="supplier-city">75011 Paris, France</span><br />
+            <span id="supplier-country">France</span>
+          </p>
+        </div>
+
+        <div class="order-details">
+          <h6>DÉTAILS DE LA COMMANDE</h6>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Référence</th>
+                <th>Description</th>
+                <th>Quantité</th>
+                <th>Prix unitaire HT</th>
+                <th>Total HT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span contenteditable="true">REF001</span></td>
+                <td>
+                  <span contenteditable="true">Description de l'article</span>
+                </td>
+                <td><span contenteditable="true">1</span></td>
+                <td><span contenteditable="true">100.00</span> €</td>
+                <td><span contenteditable="true">100.00</span> €</td>
+              </tr>
+              <!-- Lignes supplémentaires pour les articles -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="order-summary">
+          <div class="total-section">
+            <table>
+              <tr>
+                <td><strong>Total HT</strong></td>
+                <td><span id="total-ht">100.00</span> €</td>
+              </tr>
+              <!-- <tr>
+                <td><strong>TVA 20%</strong></td>
+                <td><span id="total-tva">20.00</span> €</td>
+              </tr> -->
+              <tr>
+                <td><strong>Total TTC</strong></td>
+                <td><span id="total-ttc">120.00</span> €</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="certification-container">
+          <div class="certification-section">
+            <p>
+              Certifiée sincère et véritable le présent état arrêté à la somme
+              de :
+            </p>
+            <p class="certified-amount">Cent vingt euros</p>
+          </div>
+
+          <div class="signature-section">
+            <div class="signature">
+              <p><strong>Nom:</strong> Jean Dupont</p>
+              <p><strong>Rôle:</strong> Directeur des Achats</p>
+              <br />
+              <p>Signature</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="conditions-section">
+          <h6>CONDITIONS DE LA COMMANDE</h6>
+          <ul>
+            <li>
+              Délai de livraison souhaité :
+              <span contenteditable="true">30 jours</span>
+            </li>
+            <li>
+              Mode de paiement :
+              <span contenteditable="true">Virement bancaire</span>
+            </li>
+            <li>
+              Conditions de paiement :
+              <span contenteditable="true">30 jours fin de mois</span>
+            </li>
+          </ul>
+        </div>
+
+        <p class="bottom-page">
+          ROBERP - Établissement d'hébergement pour personnes âgées
+          dépendantes<br />
+          N° SIRET: 123 456 789 00000 - Code APE: 8730A<br />
+          N° TVA Intracommunautaire: FR 12 345 678 900
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

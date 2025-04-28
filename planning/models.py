@@ -12,7 +12,7 @@ class EmployeeAbsence(models.Model):
 		('PAID', 'Congés payés (CP)'),
 		('UNPAID', 'Congé Sans Solde'),
 		('RWT', 'Temps de Travail Réduit (RTT)'),
-		('TEMPORARY', 'Congé Temporaire (CT)'),
+		('TEMPORARY', 'Congé Trimestriel (CT)'),
 		('ANNUAL', 'Congé Annuel'),
 		('SICK', 'Congé Maladie'),
 		('MATERNITY', 'Congé Maternité'),
