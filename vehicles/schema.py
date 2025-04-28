@@ -607,7 +607,7 @@ class DeleteVehicle(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteVehicle(deleted=deleted, success=success, message=message, id=id)
 
 #***************************************************************************************************
@@ -755,7 +755,7 @@ class DeleteVehicleInspection(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteVehicleInspection(deleted=deleted, success=success, message=message, id=id)
 
 #*************************************************************************#
@@ -876,7 +876,7 @@ class DeleteVehicleTechnicalInspection(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteVehicleTechnicalInspection(deleted=deleted, success=success, message=message, id=id)
 
 
@@ -1021,7 +1021,7 @@ class DeleteVehicleRepair(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteVehicleRepair(deleted=deleted, success=success, message=message, id=id)
 
 

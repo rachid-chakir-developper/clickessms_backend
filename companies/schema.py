@@ -543,10 +543,11 @@ class DeleteCompany(graphene.Mutation):
         if current_user.is_superuser:
             # company = Company.objects.get(pk=id)
             # company.delete()
+            Company.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteCompany(deleted=deleted, success=success, message=message, id=id)
 
 
@@ -852,13 +853,14 @@ class DeleteEstablishment(graphene.Mutation):
             establishment = Establishment.objects.get(pk=id, company=current_user.the_current_company)
         except Establishment.DoesNotExist:
             raise e
-        if current_user.is_superuser:
-            establishment = Establishment.objects.get(pk=id)
-            establishment.delete()
+        if current_user.is_superuser or establishment.creator==current_user:
+            # establishment = Establishment.objects.get(pk=id)
+            # establishment.delete()
+            Establishment.objects.filter(pk=id).update(is_deleted=True)
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteEstablishment(deleted=deleted, success=success, message=message, id=id)
 
         

@@ -698,7 +698,7 @@ class DeleteUser(graphene.Mutation):
             else:
                 message = "Je suis un superuser. vous ne pouvez pas me supprimer."
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteUser(deleted=deleted, success=success, message=message, id=id)
 
 
@@ -838,7 +838,7 @@ class DeleteGroup(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteGroup(deleted=deleted, success=success, message=message, id=id)
 
 #**************************************************************************************

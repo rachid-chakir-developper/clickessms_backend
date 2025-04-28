@@ -1728,7 +1728,7 @@ class DeleteEmployeeContract(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteEmployeeContract(deleted=deleted, success=success, message=message, id=id)
 
 #***********************************************************************************************
@@ -1873,7 +1873,7 @@ class DeleteEmployeeGroup(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteEmployeeGroup(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
@@ -2430,7 +2430,7 @@ class DeleteBeneficiaryAdmission(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteBeneficiaryAdmission(
             deleted=deleted, success=success, message=message, id=id
         )
@@ -2642,7 +2642,7 @@ class DeleteBeneficiaryGroup(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteBeneficiaryGroup(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************

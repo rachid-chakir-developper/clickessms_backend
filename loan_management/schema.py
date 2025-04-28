@@ -203,7 +203,7 @@ class DeleteTheObject(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteTheObject(deleted=deleted, success=success, message=message, id=id)
 
 #***********************************************************************************************************
@@ -333,7 +333,7 @@ class DeleteObjectRecovery(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteObjectRecovery(deleted=deleted, success=success, message=message, id=id)
 
 #*************************************************************************#

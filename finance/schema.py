@@ -1059,7 +1059,7 @@ class DeleteDecisionDocument(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteDecisionDocument(
             deleted=deleted, success=success, message=message, id=id
         )
@@ -1197,7 +1197,7 @@ class DeleteBankAccount(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteBankAccount(
             deleted=deleted, success=success, message=message, id=id
         )
@@ -1292,7 +1292,7 @@ class DeleteBalance(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteBalance(deleted=deleted, success=success, message=message, id=id)
 
 
@@ -1450,7 +1450,7 @@ class DeleteCashRegister(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteCashRegister(
             deleted=deleted, success=success, message=message, id=id
         )
@@ -1550,7 +1550,7 @@ class DeleteCashRegisterTransaction(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteCashRegisterTransaction(deleted=deleted, success=success, message=message, id=id)
 
 
@@ -1739,7 +1739,7 @@ class DeleteBudget(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteBudget(
             deleted=deleted, success=success, message=message, id=id
         )
@@ -1834,7 +1834,7 @@ class DeleteEndowment(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteEndowment(deleted=deleted, success=success, message=message, id=id)
 
 #*************************************************************************#
@@ -1927,7 +1927,7 @@ class DeleteBankCard(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteBankCard(deleted=deleted, success=success, message=message, id=id)
 # *************************************************************************#
 

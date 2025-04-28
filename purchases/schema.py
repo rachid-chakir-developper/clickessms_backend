@@ -623,7 +623,7 @@ class DeleteSupplier(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteSupplier(deleted=deleted, success=success, message=message, id=id)
 
 # ************************************************************************
@@ -751,7 +751,7 @@ class DeletePurchaseContract(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeletePurchaseContract(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
@@ -971,7 +971,7 @@ class DeleteExpense(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteExpense(
             deleted=deleted, success=success, message=message, id=id
         )
@@ -1205,7 +1205,7 @@ class DeletePurchaseOrder(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeletePurchaseOrder(
             deleted=deleted, success=success, message=message, id=id
         )
@@ -1405,7 +1405,7 @@ class DeleteExpenseReport(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteExpenseReport(
             deleted=deleted, success=success, message=message, id=id
         )

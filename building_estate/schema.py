@@ -212,7 +212,7 @@ class DeleteSpaceRoom(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteSpaceRoom(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************

@@ -221,7 +221,7 @@ class DeleteNotification(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteNotification(deleted=deleted, success=success, message=message, id=id)
 
 # ************************************************************************
@@ -405,7 +405,7 @@ class DeleteMessageNotification(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteMessageNotification(
             deleted=deleted, success=success, message=message, id=id
         )

@@ -289,7 +289,7 @@ class DeleteMaterial(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteMaterial(deleted=deleted, success=success, message=message, id=id)
 
 
@@ -387,7 +387,7 @@ class DeleteMaterialAssignment(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteMaterialAssignment(deleted=deleted, success=success, message=message, id=id)
 
 

@@ -629,7 +629,7 @@ class DeleteJobPosition(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteJobPosition(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
@@ -721,7 +721,7 @@ class DeleteJobPosting(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteJobPosting(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
@@ -886,7 +886,7 @@ class DeleteJobCandidate(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteJobCandidate(deleted=deleted, success=success, message=message, id=id)
         
 #*******************************************************************************************************************************
@@ -1134,7 +1134,7 @@ class DeleteJobCandidateApplication(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteJobCandidateApplication(deleted=deleted, success=success, message=message, id=id)
         
 #*******************************************************************************************************************************
@@ -1330,7 +1330,7 @@ class DeleteJobCandidateInformationSheet(graphene.Mutation):
             deleted = True
             success = True
         else:
-            message = "Vous n'êtes pas un Superuser."
+            message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
         return DeleteJobCandidateInformationSheet(deleted=deleted, success=success, message=message, id=id)
         
 #*******************************************************************************************************************************

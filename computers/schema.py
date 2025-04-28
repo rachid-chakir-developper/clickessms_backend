@@ -319,7 +319,7 @@ class DeleteSoftware(graphene.Mutation):
 			deleted = True
 			success = True
 		else:
-			message = "Vous n'êtes pas un Superuser."
+			message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
 		return DeleteSoftware(deleted=deleted, success=success, message=message, id=id)
 
 #*************************************************************************#
@@ -410,7 +410,7 @@ class DeleteTheBackup(graphene.Mutation):
 			deleted = True
 			success = True
 		else:
-			message = "Vous n'êtes pas un Superuser."
+			message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
 		return DeleteTheBackup(deleted=deleted, success=success, message=message, id=id)
 
 #*************************************************************************#
@@ -501,7 +501,7 @@ class DeleteThePassword(graphene.Mutation):
 			deleted = True
 			success = True
 		else:
-			message = "Vous n'êtes pas un Superuser."
+			message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
 		return DeleteThePassword(deleted=deleted, success=success, message=message, id=id)
 
 #*************************************************************************#

@@ -293,7 +293,7 @@ class DeleteFolder(graphene.Mutation):
 				deleted = True
 				success = True
 			else:
-				message = "Vous n'êtes pas un Superuser."
+				message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
 		except Folder.DoesNotExist:
 			message = "Ce fichier n'exite pas pour le supprimer."
 		return DeleteFolder(deleted=deleted, success=success, message=message, id=id)
@@ -359,7 +359,7 @@ class DeleteFile(graphene.Mutation):
 				deleted = True
 				success = True
 			else:
-				message = "Vous n'êtes pas un Superuser."
+				message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
 		except File.DoesNotExist:
 			message = "Ce fichier n'exite pas pour le supprimer."
 		return DeleteFile(deleted=deleted, success=success, message=message, id=id)
@@ -616,7 +616,7 @@ class DeleteContractTemplate(graphene.Mutation):
 			deleted = True
 			success = True
 		else:
-			message = "Vous n'êtes pas un Superuser."
+			message = "Oups ! Vous n'avez pas les droits pour supprimer cet élément."
 		return DeleteContractTemplate(deleted=deleted, success=success, message=message, id=id)
 
 #************************************************************************
