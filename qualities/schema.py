@@ -141,7 +141,13 @@ class QualitiesQuery(graphene.ObjectType):
             if user.is_manager():
                 undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
             else:
-                undesirable_events = undesirable_events.filter(creator=user)
+                employee = user.get_employee_in_company()
+                employee_current_estabs = employee.current_contract.establishments.values_list('establishment', flat=True)
+                undesirable_events = undesirable_events.filter(
+                    Q(establishments__establishment__in=employee.establishments.all()) |
+                    Q(establishments__establishment__in=employee_current_estabs) |
+                    Q(creator=user)
+                    ).exclude(Q(status='DRAFT') & ~Q(creator=user))
         else:
             undesirable_events = undesirable_events.exclude(Q(status='DRAFT') & ~Q(creator=user))
         the_order_by = '-created_at'

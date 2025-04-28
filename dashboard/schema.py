@@ -267,13 +267,14 @@ class DashboardType(graphene.ObjectType):
                 tasks = tasks.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
             else:
                 tasks = tasks.filter(workers__employee=user.get_employee_in_company(), status__in=['TO_DO'])
+        tasks = tasks.distinct()
         return tasks
 
     def resolve_task_actions(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
-        return TaskAction.objects.filter(company=company, employees=user.get_employee_in_company()).exclude(status="DONE").order_by('-due_date')[0:10]
+        return TaskAction.objects.filter(company=company, employees=user.get_employee_in_company()).exclude(status="DONE").order_by('-due_date').distinct()[0:10]
 
     def resolve_undesirable_events(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
