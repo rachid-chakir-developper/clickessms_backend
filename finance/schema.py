@@ -1053,7 +1053,7 @@ class DeleteDecisionDocument(graphene.Mutation):
             decision_document = DecisionDocument.objects.get(pk=id, company=current_user.the_current_company)
         except DecisionDocument.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or decision_document.creator==current_user:
             decision_document = DecisionDocument.objects.get(pk=id)
             decision_document.delete()
             deleted = True
@@ -1191,7 +1191,7 @@ class DeleteBankAccount(graphene.Mutation):
             bank_account = BankAccount.objects.get(pk=id, company=current_user.the_current_company)
         except BankAccount.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or bank_account.creator==current_user:
             bank_account = BankAccount.objects.get(pk=id)
             bank_account.delete()
             deleted = True
@@ -1286,7 +1286,7 @@ class DeleteBalance(graphene.Mutation):
             balance = Balance.objects.get(pk=id, company=current_user.the_current_company)
         except Balance.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or balance.creator==current_user:
             balance = Balance.objects.get(pk=id)
             balance.delete()
             deleted = True
@@ -1444,7 +1444,7 @@ class DeleteCashRegister(graphene.Mutation):
             cash_register = CashRegister.objects.get(pk=id, company=current_user.the_current_company)
         except CashRegister.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or cash_register.creator==current_user:
             cash_register = CashRegister.objects.get(pk=id)
             cash_register.delete()
             deleted = True
@@ -1544,7 +1544,7 @@ class DeleteCashRegisterTransaction(graphene.Mutation):
             cash_register_transaction = CashRegisterTransaction.objects.get(pk=id, cash_register__company=current_user.the_current_company)
         except CashRegisterTransaction.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or cash_register_transaction.creator==current_user:
             cash_register_transaction = CashRegisterTransaction.objects.get(pk=id)
             cash_register_transaction.delete()
             deleted = True
@@ -1733,7 +1733,7 @@ class DeleteBudget(graphene.Mutation):
             budget = Budget.objects.get(pk=id, company=current_user.the_current_company)
         except Budget.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or budget.creator==current_user:
             budget = Budget.objects.get(pk=id)
             budget.delete()
             deleted = True
@@ -1828,7 +1828,7 @@ class DeleteEndowment(graphene.Mutation):
             endowment = Endowment.objects.get(pk=id, company=current_user.the_current_company)
         except Endowment.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or endowment.creator==current_user:
             endowment = Endowment.objects.get(pk=id)
             endowment.delete()
             deleted = True
@@ -1921,7 +1921,7 @@ class DeleteBankCard(graphene.Mutation):
             bank_card = BankCard.objects.get(pk=id, company=current_user.the_current_company)
         except BankCard.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or bank_card.creator==current_user:
             bank_card = BankCard.objects.get(pk=id)
             bank_card.delete()
             deleted = True

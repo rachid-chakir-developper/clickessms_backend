@@ -1722,7 +1722,7 @@ class DeleteEmployeeContract(graphene.Mutation):
             employee_contract = EmployeeContract.objects.get(pk=id, employee__company=current_user.the_current_company)
         except EmployeeContract.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or employee_contract.creator==current_user:
             employee_contract = EmployeeContract.objects.get(pk=id)
             employee_contract.delete()
             deleted = True
@@ -1867,7 +1867,7 @@ class DeleteEmployeeGroup(graphene.Mutation):
             employee_group = EmployeeGroup.objects.get(pk=id, company=current_user.the_current_company)
         except EmployeeGroup.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or employee_group.creator==current_user:
             employee_group = EmployeeGroup.objects.get(pk=id)
             employee_group.delete()
             deleted = True
@@ -2424,7 +2424,7 @@ class DeleteBeneficiaryAdmission(graphene.Mutation):
             beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id, company=current_user.the_current_company)
         except BeneficiaryAdmission.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or beneficiary_admission.creator==current_user:
             beneficiary_admission = BeneficiaryAdmission.objects.get(pk=id)
             beneficiary_admission.delete()
             deleted = True
@@ -2636,7 +2636,7 @@ class DeleteBeneficiaryGroup(graphene.Mutation):
             beneficiary_group = BeneficiaryGroup.objects.get(pk=id, company=current_user.the_current_company)
         except BeneficiaryGroup.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or beneficiary_group.creator==current_user:
             beneficiary_group = BeneficiaryGroup.objects.get(pk=id)
             beneficiary_group.delete()
             deleted = True

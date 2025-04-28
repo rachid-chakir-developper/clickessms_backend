@@ -288,7 +288,7 @@ class DeleteFolder(graphene.Mutation):
 		current_user = info.context.user
 		try:
 			folder = Folder.objects.get(pk=id)
-			if current_user.is_superuser or folder.creator.id == current_user.id:
+			if current_user.is_superuser or folder.creator==current_user:
 				folder.delete()
 				deleted = True
 				success = True
@@ -354,7 +354,7 @@ class DeleteFile(graphene.Mutation):
 		current_user = info.context.user
 		try:
 			file = File.objects.get(pk=id)
-			if current_user.is_superuser or file.creator.id == current_user.id:
+			if current_user.is_superuser or file.creator==current_user:
 				file.delete()
 				deleted = True
 				success = True
@@ -610,7 +610,7 @@ class DeleteContractTemplate(graphene.Mutation):
 			contract_template = ContractTemplate.objects.get(pk=id, company=current_user.the_current_company)
 		except ContractTemplate.DoesNotExist:
 			raise e
-		if current_user.is_superuser:
+		if current_user.is_superuser or contract_template.creator==current_user:
 			contract_template = ContractTemplate.objects.get(pk=id)
 			contract_template.delete()
 			deleted = True

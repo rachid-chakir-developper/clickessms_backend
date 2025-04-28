@@ -49,9 +49,12 @@ class EmployeeAbsence(models.Model):
 
 	]
 	STATUS_CHOICES = [
-		('PENDING', 'En Attente'),
+		('PENDING', 'En attente de traitement'),
 		('APPROVED', 'Approuvé'),
 		('REJECTED', 'Rejeté'),
+	    ('NOT_JUSTIFIED', 'Non Justifié'),
+	    ('TO_JUSTIFY', 'À Justifier'),
+	    ('JUSTIFIED', 'Justifié'),
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	label = models.CharField(max_length=255, blank=True, null=True)

@@ -197,8 +197,8 @@ class DeleteTheObject(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            the_object = TheObject.objects.get(pk=id)
+        the_object = TheObject.objects.get(pk=id)
+        if current_user.is_superuser or the_object.creator==current_user:
             the_object.delete()
             deleted = True
             success = True
@@ -327,8 +327,8 @@ class DeleteObjectRecovery(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            object_recovery = ObjectRecovery.objects.get(pk=id)
+        object_recovery = ObjectRecovery.objects.get(pk=id)
+        if current_user.is_superuser or object_recovery.creator==current_user:
             object_recovery.delete()
             deleted = True
             success = True

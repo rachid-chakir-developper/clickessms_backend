@@ -715,7 +715,7 @@ class DeleteBoxIdea(graphene.Mutation):
             box_idea = BoxIdea.objects.get(pk=id, company=current_user.the_current_company)
         except BoxIdea.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or box_idea.creator==current_user:
             box_idea = BoxIdea.objects.get(pk=id)
             box_idea.delete()
             deleted = True

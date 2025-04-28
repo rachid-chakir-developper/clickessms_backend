@@ -600,7 +600,7 @@ class DeleteVehicle(graphene.Mutation):
             vehicle = Vehicle.objects.get(pk=id, company=current_user.the_current_company)
         except Vehicle.DoesNotExist:
             raise e
-        if current_user.can_manage_facility() or current_user.is_manager() or vehicle.creator == current_user:
+        if current_user.can_manage_facility() or current_user.is_manager() or vehicle.creator==current_user:
             # vehicle = Vehicle.objects.get(pk=id)
             # vehicle.delete()
             Vehicle.objects.filter(pk=id).update(is_deleted=True)
@@ -748,7 +748,7 @@ class DeleteVehicleInspection(graphene.Mutation):
             vehicle_inspection = VehicleInspection.objects.get(pk=id, company=current_user.the_current_company)
         except VehicleInspection.DoesNotExist:
             raise e
-        if current_user.can_manage_facility() or current_user.is_manager() or vehicle_inspection.creator == current_user:
+        if current_user.can_manage_facility() or current_user.is_manager() or vehicle_inspection.creator==current_user:
             # vehicle_inspection = VehicleInspection.objects.get(pk=id)
             # vehicle_inspection.delete()
             VehicleInspection.objects.filter(pk=id).update(is_deleted=True)
@@ -869,7 +869,7 @@ class DeleteVehicleTechnicalInspection(graphene.Mutation):
             vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id, company=current_user.the_current_company)
         except VehicleTechnicalInspection.DoesNotExist:
             raise e
-        if current_user.can_manage_facility() or current_user.is_manager() or vehicle_technical_inspection.creator == current_user:
+        if current_user.can_manage_facility() or current_user.is_manager() or vehicle_technical_inspection.creator==current_user:
             # vehicle_technical_inspection = VehicleTechnicalInspection.objects.get(pk=id)
             # vehicle_technical_inspection.delete()
             VehicleTechnicalInspection.objects.filter(pk=id).update(is_deleted=True)
@@ -1014,7 +1014,7 @@ class DeleteVehicleRepair(graphene.Mutation):
             vehicle_repair = VehicleRepair.objects.get(pk=id, company=current_user.the_current_company)
         except VehicleRepair.DoesNotExist:
             raise e
-        if current_user.can_manage_facility() or current_user.is_manager() or vehicle_repair.creator == current_user:
+        if current_user.can_manage_facility() or current_user.is_manager() or vehicle_repair.creator==current_user:
             # vehicle_repair = VehicleRepair.objects.get(pk=id)
             # vehicle_repair.delete()
             VehicleRepair.objects.filter(pk=id).update(is_deleted=True)

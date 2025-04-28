@@ -215,7 +215,7 @@ class DeleteNotification(graphene.Mutation):
             notification = Notification.objects.get(pk=id, recipient=current_user)
         except Notification.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or notification.creator==current_user:
             notification = Notification.objects.get(pk=id)
             notification.delete()
             deleted = True
@@ -399,7 +399,7 @@ class DeleteMessageNotification(graphene.Mutation):
             message_notification = MessageNotification.objects.get(pk=id, company=current_user.the_current_company)
         except MessageNotification.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or message_notification.creator==current_user:
             message_notification = MessageNotification.objects.get(pk=id)
             message_notification.delete()
             deleted = True

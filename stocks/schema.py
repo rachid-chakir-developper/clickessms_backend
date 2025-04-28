@@ -283,7 +283,7 @@ class DeleteMaterial(graphene.Mutation):
             material = Material.objects.get(pk=id, company=current_user.the_current_company)
         except Material.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or material.creator==current_user:
             material = Material.objects.get(pk=id)
             material.delete()
             deleted = True
@@ -381,7 +381,7 @@ class DeleteMaterialAssignment(graphene.Mutation):
             material_assignment = MaterialAssignment.objects.get(pk=id, cash_register__company=current_user.the_current_company)
         except MaterialAssignment.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or material_assignment.creator==current_user:
             material_assignment = MaterialAssignment.objects.get(pk=id)
             material_assignment.delete()
             deleted = True

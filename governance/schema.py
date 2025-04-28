@@ -232,7 +232,7 @@ class DeleteGovernanceMember(graphene.Mutation):
             governance_member = GovernanceMember.objects.get(pk=id, company=current_user.the_current_company)
         except GovernanceMember.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or governance_member.creator==current_user:
             governance_member = GovernanceMember.objects.get(pk=id)
             governance_member.delete()
             deleted = True

@@ -313,7 +313,7 @@ class DeleteSoftware(graphene.Mutation):
 			software = Software.objects.get(pk=id, company=current_user.the_current_company)
 		except Software.DoesNotExist:
 			raise e
-		if current_user.is_superuser:
+		if current_user.is_superuser or software.creator==current_user:
 			software = Software.objects.get(pk=id)
 			software.delete()
 			deleted = True
@@ -404,7 +404,7 @@ class DeleteTheBackup(graphene.Mutation):
 			the_backup = TheBackup.objects.get(pk=id, company=current_user.the_current_company)
 		except TheBackup.DoesNotExist:
 			raise e
-		if current_user.is_superuser:
+		if current_user.is_superuser or the_backup.creator==current_user:
 			the_backup = TheBackup.objects.get(pk=id)
 			the_backup.delete()
 			deleted = True
@@ -495,7 +495,7 @@ class DeleteThePassword(graphene.Mutation):
 			the_password = ThePassword.objects.get(pk=id, company=current_user.the_current_company)
 		except ThePassword.DoesNotExist:
 			raise e
-		if current_user.is_superuser:
+		if current_user.is_superuser or the_password.creator==current_user:
 			the_password = ThePassword.objects.get(pk=id)
 			the_password.delete()
 			deleted = True

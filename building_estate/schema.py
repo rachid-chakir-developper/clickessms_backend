@@ -206,7 +206,7 @@ class DeleteSpaceRoom(graphene.Mutation):
             space_room = SpaceRoom.objects.get(pk=id, company=current_user.the_current_company)
         except SpaceRoom.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or space_room.creator==current_user:
             space_room = SpaceRoom.objects.get(pk=id)
             space_room.delete()
             deleted = True

@@ -832,8 +832,8 @@ class DeleteGroup(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            group = Group.objects.get(pk=id)
+        group = Group.objects.get(pk=id)
+        if current_user.is_superuser or group.creator==current_user:
             group.delete()
             deleted = True
             success = True

@@ -227,8 +227,8 @@ class DeleteSentEmail(graphene.Mutation):
 		success = False
 		message = ''
 		current_user = info.context.user
-		if current_user.is_superuser:
-			sent_email = SentEmail.objects.get(pk=id)
+		sent_email = SentEmail.objects.get(pk=id)
+		if current_user.is_superuser or sent_email.creator==current_user:
 			sent_email.delete()
 			deleted = True
 			success = True

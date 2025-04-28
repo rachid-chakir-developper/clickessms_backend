@@ -190,8 +190,8 @@ class DeleteConversation(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            conversation = Conversation.objects.get(pk=id)
+        conversation = Conversation.objects.get(pk=id)
+        if current_user.is_superuser or conversation.creator==current_user:
             conversation.delete()
             deleted = True
             success = True
@@ -307,8 +307,8 @@ class DeleteMessage(graphene.Mutation):
         success = False
         message_response = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            message = Message.objects.get(pk=id)
+        message = Message.objects.get(pk=id)
+        if current_user.is_superuser or message.creator==current_user:
             message.delete()
             deleted = True
             success = True

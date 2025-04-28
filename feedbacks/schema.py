@@ -347,8 +347,8 @@ class DeleteComment(graphene.Mutation):
         success = False
         message = ''
         current_user = info.context.user
-        if current_user.is_superuser:
-            comment = Comment.objects.get(pk=id)
+        comment = Comment.objects.get(pk=id)
+        if current_user.is_superuser or comment.creator==current_user:
             broadcastCommentDeleted(comment)
             comment.delete()
             deleted = True
@@ -466,8 +466,8 @@ class DeleteFeedback(graphene.Mutation):
         success = False
         message = ""
         current_user = info.context.user
-        if current_user.is_superuser:
-            feedback = Feedback.objects.get(pk=id)
+        feedback = Feedback.objects.get(pk=id)
+        if current_user.is_superuser or feedback.creator==current_user:
             feedback.delete()
             deleted = True
             success = True

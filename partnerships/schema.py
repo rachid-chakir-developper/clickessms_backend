@@ -381,7 +381,7 @@ class DeletePartner(graphene.Mutation):
             partner = Partner.objects.get(pk=id, company=current_user.the_current_company)
         except Partner.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or partner.creator==current_user:
             partner = Partner.objects.get(pk=id)
             partner.delete()
             deleted = True
@@ -526,7 +526,7 @@ class DeleteFinancier(graphene.Mutation):
             financier = Financier.objects.get(pk=id, company=current_user.the_current_company)
         except Financier.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or financier.creator==current_user:
             financier = Financier.objects.get(pk=id)
             financier.delete()
             deleted = True

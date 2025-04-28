@@ -623,7 +623,7 @@ class DeleteJobPosition(graphene.Mutation):
             job_position = JobPosition.objects.get(pk=id, company=current_user.the_current_company)
         except JobPosition.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or job_position.creator==current_user:
             job_position = JobPosition.objects.get(pk=id)
             job_position.delete()
             deleted = True
@@ -715,7 +715,7 @@ class DeleteJobPosting(graphene.Mutation):
             job_posting = JobPosting.objects.get(pk=id, company=current_user.the_current_company)
         except JobPosting.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or job_posting.creator==current_user:
             job_posting = JobPosting.objects.get(pk=id)
             job_posting.delete()
             deleted = True
@@ -880,7 +880,7 @@ class DeleteJobCandidate(graphene.Mutation):
             job_candidate = JobCandidate.objects.get(pk=id, company=current_user.the_current_company)
         except JobCandidate.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or job_candidate.creator==current_user:
             job_candidate = JobCandidate.objects.get(pk=id)
             job_candidate.delete()
             deleted = True
@@ -1128,7 +1128,7 @@ class DeleteJobCandidateApplication(graphene.Mutation):
             job_candidate_application = JobCandidateApplication.objects.get(pk=id, company=current_user.the_current_company)
         except JobCandidateApplication.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or job_candidate_application.creator==current_user:
             job_candidate_application = JobCandidateApplication.objects.get(pk=id)
             job_candidate_application.delete()
             deleted = True
@@ -1324,7 +1324,7 @@ class DeleteJobCandidateInformationSheet(graphene.Mutation):
             job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id, company=current_user.the_current_company)
         except JobCandidateInformationSheet.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or job_candidate_information_sheet.creator==current_user:
             job_candidate_information_sheet = JobCandidateInformationSheet.objects.get(pk=id)
             job_candidate_information_sheet.delete()
             deleted = True

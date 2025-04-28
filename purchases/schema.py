@@ -617,7 +617,7 @@ class DeleteSupplier(graphene.Mutation):
             supplier = Supplier.objects.get(pk=id, company=current_user.the_current_company)
         except Supplier.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or supplier.creator==current_user:
             supplier = Supplier.objects.get(pk=id)
             supplier.delete()
             deleted = True
@@ -745,7 +745,7 @@ class DeletePurchaseContract(graphene.Mutation):
             purchase_contract = PurchaseContract.objects.get(pk=id, company=current_user.the_current_company)
         except PurchaseContract.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or purchase_contract.creator==current_user:
             purchase_contract = PurchaseContract.objects.get(pk=id)
             purchase_contract.delete()
             deleted = True
@@ -965,7 +965,7 @@ class DeleteExpense(graphene.Mutation):
             expense = Expense.objects.get(pk=id, company=current_user.the_current_company)
         except Expense.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or expense.creator==current_user:
             expense = Expense.objects.get(pk=id)
             expense.delete()
             deleted = True
@@ -1199,7 +1199,7 @@ class DeletePurchaseOrder(graphene.Mutation):
             purchase_order = PurchaseOrder.objects.get(pk=id, company=current_user.the_current_company)
         except PurchaseOrder.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or purchase_order.creator==current_user:
             purchase_order = PurchaseOrder.objects.get(pk=id)
             purchase_order.delete()
             deleted = True
@@ -1399,7 +1399,7 @@ class DeleteExpenseReport(graphene.Mutation):
             expense_report = ExpenseReport.objects.get(pk=id, company=current_user.the_current_company)
         except ExpenseReport.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or expense_report.creator==current_user:
             expense_report = ExpenseReport.objects.get(pk=id)
             expense_report.delete()
             deleted = True

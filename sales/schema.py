@@ -426,7 +426,7 @@ class DeleteClient(graphene.Mutation):
             client = Client.objects.get(pk=id, company=current_user.the_current_company)
         except Client.DoesNotExist:
             raise e
-        if current_user.is_superuser:
+        if current_user.is_superuser or client.creator==current_user:
             client = Client.objects.get(pk=id)
             client.delete()
             deleted = True
