@@ -72,6 +72,7 @@ class UndesirableEventFilterInput(graphene.InputObjectType):
     beneficiaries = graphene.List(graphene.Int, required=False)
     establishments = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)
+    list_type = graphene.String(required=False)
     order_by = graphene.String(required=False)
 
 class UndesirableEventInput(graphene.InputObjectType):
@@ -158,6 +159,7 @@ class QualitiesQuery(graphene.ObjectType):
             beneficiaries = undesirable_event_filter.get('beneficiaries')
             establishments = undesirable_event_filter.get('establishments')
             employees = undesirable_event_filter.get('employees')
+            list_type = undesirable_event_filter.get('list_type') # ALL_EI_REQUESTS / MY_EIS / MY_EI_REQUESTS / ALL
             order_by = undesirable_event_filter.get('order_by')
             if beneficiaries:
                 undesirable_events = undesirable_events.filter(beneficiaries__beneficiary__id__in=beneficiaries)
@@ -165,6 +167,11 @@ class QualitiesQuery(graphene.ObjectType):
                 undesirable_events = undesirable_events.filter(establishments__establishment__id__in=establishments)
             if employees:
                 undesirable_events = undesirable_events.filter(employees__employee__id__in=employees)
+            if list_type:
+                if list_type == 'MY_EIS':
+                    undesirable_events = undesirable_events.filter(creator=user)
+                elif list_type == 'ALL':
+                    pass
             if keyword:
                 undesirable_events = undesirable_events.filter(Q(title__icontains=keyword))
             if starting_date_time:
@@ -346,6 +353,8 @@ class UpdateUndesirableEvent(graphene.Mutation):
             undesirable_event = UndesirableEvent.objects.get(pk=id, company=creator.the_current_company)
         except UndesirableEvent.DoesNotExist:
             raise e
+        if not creator.can_manage_quality() and not creator.is_manager() and undesirable_event.creator!=creator:
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
         declarant_ids = undesirable_event_data.pop("declarants")
         establishment_ids = undesirable_event_data.pop("establishments")
         beneficiary_ids = undesirable_event_data.pop("beneficiaries")
