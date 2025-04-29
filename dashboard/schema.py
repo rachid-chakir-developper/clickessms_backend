@@ -230,7 +230,7 @@ class DashboardType(graphene.ObjectType):
             tasks_week[task['day'].weekday()].count = task['count']
         return tasks_week
         
-    def resolve_undesirable_events_week ( instance, info, **kwargs ):
+    def resolve_undesirable_events_week( instance, info, **kwargs ):
         user = info.context.user
         company = user.the_current_company
         date = datetime.date.today()

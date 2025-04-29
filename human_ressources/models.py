@@ -428,6 +428,15 @@ class Beneficiary(models.Model):
             return round(age, 2)  # Round the age to 2 decimal places
         return None  # Return None if birth_date is not set
 
+    def get_custom_field_value(self, label):
+        """
+        Retourne la valeur du champ personnalisé correspondant au label donné.
+        """
+        try:
+            return self.custom_field_values.select_related('custom_field').get(custom_field__label=label).value
+        except Exception as e:
+            return ''
+
     @property
     def balance_details(self):
         """
