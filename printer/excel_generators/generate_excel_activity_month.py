@@ -218,11 +218,12 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                             f"Sort le {entry.release_date and entry.release_date.date().strftime('%d/%m/%Y')}" if entry.release_date else ""
                         ]
                     )
-                for i, row in enumerate(main_data, start=next_row + 1):
+                for k, row in enumerate(main_data, start=next_row + 1):
                     for j, value in enumerate(row, start=1):
-                        cell = ws.cell(row=i, column=j, value=value)
+                        cell = ws.cell(row=k, column=j, value=value)
                         cell.alignment = Alignment(horizontal="center")
                         cell.border = border
+                next_row = k + 1
 
 
             # Ajustement largeur colonnes
