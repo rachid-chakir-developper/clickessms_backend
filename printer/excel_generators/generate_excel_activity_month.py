@@ -45,9 +45,9 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                 year=the_year
             if the_month:
                 month=the_month
-            if establishment_ids:
-                order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
-                establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
+            # if establishment_ids:
+            #     order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
+            #     establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
 
         present_beneficiaries = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=establishments, company=company)
 
@@ -57,19 +57,7 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
             capacity = establishment.get_monthly_capacity(year, month)
             count_occupied_places= len(beneficiary_entries)
             count_available_places=capacity-count_occupied_places
-            # activity_month_establishments.append(
-            #     ActivityMonthEstablishmentType(
-            #         month=settings.MONTHS[int(month)-1],
-            #         year=year,
-            #         establishment=establishment,
-            #         capacity=capacity,
-            #         count_outside_places_department=0,
-            #         count_occupied_places=count_occupied_places,
-            #         count_available_places=capacity-count_occupied_places,
-            #         ages_text=get_age_range(beneficiary_entries),
-            #         beneficiary_entries=beneficiary_entries
-            #         )
-            #     )
+
             last_day = monthrange(int(year), int(month))[1]
 
             # Créer une nouvelle feuille pour l’établissement
@@ -201,8 +189,9 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
             next_row = i + 1
             
             cells_to_ignore_width = ["A3", "G6"]
+            present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
             for i, children_establishment in enumerate(children_establishments):
-                beneficiary_entries=present_beneficiaries.get(children_establishment.id, [])
+                beneficiary_entries=present_beneficiaries_children.get(children_establishment.id, [])
                 ws[f"A{next_row}"] = f"{children_establishment.name}"
                 cells_to_ignore_width.append(f"A{next_row}")
                 ws[f"A{next_row}"].font = Font(bold=True)
