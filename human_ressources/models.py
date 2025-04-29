@@ -430,10 +430,28 @@ class Beneficiary(models.Model):
 
     def get_custom_field_value(self, label):
         """
-        Retourne la valeur du champ personnalisé correspondant au label donné.
+        Retourne la valeur lisible du champ personnalisé correspondant au label donné.
+        Prend en charge les champs à options (SELECT, RADIO, CHECKBOX...).
         """
         try:
-            return self.custom_field_values.select_related('custom_field').get(custom_field__label=label).value
+            # Recherche du champ personnalisé
+            custom_field_value = self.custom_field_values.select_related('custom_field').get(custom_field__label=label)
+            field = custom_field_value.custom_field
+
+            # Champs à choix multiples
+            if field.field_type in ['SELECT_MULTIPLE', 'CHECKBOX']:
+                selected_values = custom_field_value.value.split(',') if custom_field_value.value else []
+                labels = field.options.filter(value__in=selected_values).values_list('label', flat=True)
+                return ', '.join(labels)
+
+            # Champs à choix unique
+            elif field.field_type in ['SELECT', 'RADIO']:
+                option = field.options.filter(value=custom_field_value.value).first()
+                return option.label if option else custom_field_value.value
+
+            # Autres types (texte, nombre, date...)
+            return custom_field_value.value
+
         except Exception as e:
             return ''
 
