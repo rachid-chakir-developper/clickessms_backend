@@ -136,17 +136,18 @@ class QualitiesQuery(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
+        employee = user.get_employee_in_company()
         total_count = 0
         undesirable_events = UndesirableEvent.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_quality():
             if user.is_manager():
-                undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
+                undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=employee) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
             else:
-                employee = user.get_employee_in_company()
                 employee_current_estabs = employee.current_contract.establishments.values_list('establishment', flat=True)
                 undesirable_events = undesirable_events.filter(
                     Q(establishments__establishment__in=employee.establishments.all()) |
                     Q(establishments__establishment__in=employee_current_estabs) |
+                    Q(employee=employee) |
                     Q(creator=user)
                     ).exclude(Q(status='DRAFT') & ~Q(creator=user))
         else:
@@ -169,7 +170,7 @@ class QualitiesQuery(graphene.ObjectType):
                 undesirable_events = undesirable_events.filter(employees__employee__id__in=employees)
             if list_type:
                 if list_type == 'MY_EIS':
-                    undesirable_events = undesirable_events.filter(creator=user)
+                    undesirable_events = undesirable_events.filter(Q(employee=employee) | Q(creator=user))
                 elif list_type == 'ALL':
                     pass
             if keyword:
@@ -353,7 +354,7 @@ class UpdateUndesirableEvent(graphene.Mutation):
             undesirable_event = UndesirableEvent.objects.get(pk=id, company=creator.the_current_company)
         except UndesirableEvent.DoesNotExist:
             raise e
-        if not creator.can_manage_quality() and not creator.is_manager() and undesirable_event.creator!=creator:
+        if not creator.can_manage_quality() and not creator.is_manager() and undesirable_event.employee!=creator.get_employee_in_company() and undesirable_event.creator!=creator:
             raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
         declarant_ids = undesirable_event_data.pop("declarants")
         establishment_ids = undesirable_event_data.pop("establishments")
