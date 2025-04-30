@@ -239,13 +239,23 @@ class WorksQuery(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
+        employee = user.get_employee_in_company()
         total_count = 0
         tasks = Task.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_facility():
             if user.is_manager():
-                tasks = tasks.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
+                tasks = tasks.filter(Q(establishments__establishment__managers__employee=employee) | Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
             else:
-                tasks = tasks.filter(workers__employee=user.get_employee_in_company(), status__in=['TO_DO', 'IN_PROGRESS', 'COMPLETED'])
+                if employee:
+                    employee_current_estabs = []
+                    if employee.current_contract:
+                        employee_current_estabs = employee.current_contract.establishments.values_list('establishment', flat=True)
+                    tasks = tasks.filter(
+                        Q(workers__employee=employee) |
+                        Q(establishments__establishment__in=employee.establishments.all()) |
+                        Q(establishments__establishment__in=employee_current_estabs) |
+                        Q(creator=user),
+                        ).exclude(Q(status='DRAFT') & ~Q(creator=user))
         the_order_by = '-created_at'
         if task_filter:
             keyword = task_filter.get('keyword', '')
