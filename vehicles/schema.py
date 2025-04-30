@@ -254,8 +254,23 @@ class VehiclesQuery(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
+        employee = user.get_employee_in_company()
         total_count = 0
         vehicles = Vehicle.objects.filter(company=company, is_deleted=False)
+        if not user.can_manage_parking():
+            if user.is_manager():
+                vehicles = vehicles.filter(Q(vehicle_establishments__establishments__managers__employee=employee) | Q(vehicle_employees__employees=employee) | Q(creator=user))
+            else:
+                if employee:
+                    employee_current_estabs = []
+                    if employee.current_contract:
+                        employee_current_estabs = employee.current_contract.establishments.values_list('establishment', flat=True)
+                    vehicles = vehicles.filter(
+                        Q(vehicle_establishments__establishments__in=employee.establishments.all()) |
+                        Q(vehicle_establishments__establishments__in=employee_current_estabs) |
+                        Q(vehicle_employees__employees=employee) |
+                        Q(creator=user)
+                        )
         the_order_by = '-created_at'
         if vehicle_filter:
             keyword = vehicle_filter.get('keyword', '')
