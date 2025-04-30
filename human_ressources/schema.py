@@ -998,7 +998,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
                         )
                     elif user.is_support_worker():
                         employee = user.get_employee_in_company()
-                        employee_current_estabs = employee.current_contract.establishments.values_list('establishment', flat=True)
+                        employee_current_estabs = employee.current_contract and employee.current_contract.establishments.values_list('establishment', flat=True)
 
                         last_entry_subquery = BeneficiaryEntry.objects.filter(
                             beneficiary=OuterRef('pk')
