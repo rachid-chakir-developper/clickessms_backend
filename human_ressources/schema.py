@@ -998,25 +998,28 @@ class HumanRessourcesQuery(graphene.ObjectType):
                         )
                     elif user.is_support_worker():
                         employee = user.get_employee_in_company()
-                        employee_current_estabs = employee.current_contract and employee.current_contract.establishments.values_list('establishment', flat=True)
+                        if employee:
+                            employee_current_estabs = []
+                            if employee.current_contract:
+                                employee_current_estabs = employee.current_contract.establishments.values_list('establishment', flat=True)
 
-                        last_entry_subquery = BeneficiaryEntry.objects.filter(
-                            beneficiary=OuterRef('pk')
-                        ).order_by('-entry_date').values('id')[:1]
+                            last_entry_subquery = BeneficiaryEntry.objects.filter(
+                                beneficiary=OuterRef('pk')
+                            ).order_by('-entry_date').values('id')[:1]
 
-                        beneficiaries = beneficiaries.annotate(
-                            last_entry_id=Subquery(last_entry_subquery)
-                        ).filter(
-                            Q(
-                                beneficiary_entries__id=F('last_entry_id'),
-                                beneficiary_entries__establishments__in=employee.establishments.all()
-                            ) |
-                            Q(
-                                beneficiary_entries__id=F('last_entry_id'),
-                                beneficiary_entries__establishments__in=employee_current_estabs
-                            ) |
-                            Q(creator=user)
-                        ).distinct()
+                            beneficiaries = beneficiaries.annotate(
+                                last_entry_id=Subquery(last_entry_subquery)
+                            ).filter(
+                                Q(
+                                    beneficiary_entries__id=F('last_entry_id'),
+                                    beneficiary_entries__establishments__in=employee.establishments.all()
+                                ) |
+                                Q(
+                                    beneficiary_entries__id=F('last_entry_id'),
+                                    beneficiary_entries__establishments__in=employee_current_estabs
+                                ) |
+                                Q(creator=user)
+                            ).distinct()
                     else:
                         beneficiaries = beneficiaries.filter(creator=user)
                 if list_type == 'OUT':
