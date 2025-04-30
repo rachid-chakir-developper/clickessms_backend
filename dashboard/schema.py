@@ -240,7 +240,7 @@ class DashboardType(graphene.ObjectType):
         for i, day in enumerate(settings.DAYS):
             item = UndesirableEventsWeekType(day = day,  count = 0)
             undesirable_events_week.append(item)
-        undesirable_events = UndesirableEvent.objects.filter(company=company).exclude(status='DRAFT')
+        undesirable_events = UndesirableEvent.objects.filter(company=company, is_deleted=False).exclude(status='DRAFT')
         if not user.can_manage_quality():
             if user.is_manager():
                 undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -261,7 +261,7 @@ class DashboardType(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
-        tasks = Task.objects.filter(company=company, status__in=['TO_DO', 'PENDING'])
+        tasks = Task.objects.filter(company=company, is_deleted=False, status__in=['TO_DO', 'PENDING'])
         if not user.can_manage_facility():
             if user.is_manager():
                 tasks = tasks.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user) | Q(workers__employee=user.get_employee_in_company()))
@@ -274,13 +274,13 @@ class DashboardType(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
-        return TaskAction.objects.filter(company=company, employees=user.get_employee_in_company()).exclude(status="DONE").order_by('-due_date').distinct()[0:10]
+        return TaskAction.objects.filter(company=company, is_deleted=False, employees=user.get_employee_in_company()).exclude(status="DONE").order_by('-due_date').distinct()[0:10]
 
     def resolve_undesirable_events(root, info, **kwargs):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
-        undesirable_events = UndesirableEvent.objects.filter(company=company, status="NEW")
+        undesirable_events = UndesirableEvent.objects.filter(company=company, is_deleted=False, status="NEW")
         if not user.can_manage_quality():
             if user.is_manager():
                 undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
