@@ -326,7 +326,7 @@ class UpdateEmployeeAbsenceFields(graphene.Mutation):
                     EmployeeAbsence.objects.filter(pk=id).update(approved_by=creator)
                 elif employee_absence_data.status == 'REJECTED' :
                     EmployeeAbsence.objects.filter(pk=id).update(rejected_by=creator)
-                else:
+                elif employee_absence_data.status == 'PENDING':
                     EmployeeAbsence.objects.filter(pk=id).update(put_on_hold_by=creator)
                 employee_absence.refresh_from_db()
                 for employee in employee_absence.employees.all():
@@ -335,6 +335,7 @@ class UpdateEmployeeAbsenceFields(graphene.Mutation):
                         notify_employee_absence(sender=creator, recipient=employee_user, employee_absence=employee_absence)
             employee_absence.refresh_from_db()
         except Exception as e:
+            print(e)
             done = False
             success = False
             employee_absence=None

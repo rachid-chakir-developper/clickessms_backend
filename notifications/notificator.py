@@ -85,10 +85,24 @@ def notify_employee_absence(sender, recipient, employee_absence, action=None):
 			notification_type = "EMPLOYEE_ABSENCE_PENDING"
 			title = "Demande de congé en attente de décision."
 			message = "Votre demande de congé est en attente de décision."
-		if employee_absence.status == 'APPROVED':
+		elif employee_absence.status == 'APPROVED':
 			notification_type = "EMPLOYEE_ABSENCE_APPROVED"
 			title = "Demande de congé approuvée."
 			message = "Votre demande de congé a été approuvée."
+		elif employee_absence.status == 'NOT_JUSTIFIED':
+		    notification_type = "EMPLOYEE_ABSENCE_NOT_JUSTIFIED"
+		    title = "Absence non justifiée."
+		    message = "Votre absence a été marquée comme non justifiée."
+
+		elif employee_absence.status == 'TO_JUSTIFY':
+		    notification_type = "EMPLOYEE_ABSENCE_TO_JUSTIFY"
+		    title = "Justification d'absence requise."
+		    message = "Vous devez fournir une justification pour votre absence."
+
+		elif employee_absence.status == 'JUSTIFIED':
+		    notification_type = "EMPLOYEE_ABSENCE_JUSTIFIED"
+		    title = "Absence justifiée."
+		    message = "Votre absence a été justifiée avec succès."
 		elif employee_absence.status == 'REJECTED':
 			notification_type = "EMPLOYEE_ABSENCE_REJECTED"
 			title = "Demande de congé rejetée."
