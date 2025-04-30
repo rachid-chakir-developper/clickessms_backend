@@ -141,7 +141,7 @@ class QualitiesQuery(graphene.ObjectType):
         undesirable_events = UndesirableEvent.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_quality():
             if user.is_manager():
-                undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=employee) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
+                undesirable_events = undesirable_events.filter(Q(establishments__establishment__managers__employee=employee) | Q(declarants=employee) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
             else:
                 if employee:
                     employee_current_estabs = []
@@ -151,6 +151,7 @@ class QualitiesQuery(graphene.ObjectType):
                         Q(establishments__establishment__in=employee.establishments.all()) |
                         Q(establishments__establishment__in=employee_current_estabs) |
                         Q(employee=employee) |
+                        Q(declarants=employee) |
                         Q(creator=user)
                         ).exclude(Q(status='DRAFT') & ~Q(creator=user))
         else:
@@ -173,7 +174,7 @@ class QualitiesQuery(graphene.ObjectType):
                 undesirable_events = undesirable_events.filter(employees__employee__id__in=employees)
             if list_type:
                 if list_type == 'MY_EIS':
-                    undesirable_events = undesirable_events.filter(Q(employee=employee) | Q(creator=user))
+                    undesirable_events = undesirable_events.filter(Q(employee=employee) | Q(declarants=employee) | Q(creator=user))
                 elif list_type == 'ALL':
                     pass
             if keyword:

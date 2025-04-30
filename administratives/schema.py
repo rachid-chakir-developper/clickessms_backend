@@ -1099,7 +1099,7 @@ class DeleteMeeting(graphene.Mutation):
             meeting = Meeting.objects.get(pk=id, company=current_user.the_current_company)
         except Meeting.DoesNotExist:
             raise e
-        if current_user.is_superuser or (meeting.meeting_mode=='PV_SCE' and current_user.can_manage_sce()) or (meeting.creator == current_user):
+        if current_user.is_superuser or (meeting.meeting_mode=='PV_SCE' and current_user.can_manage_sce()) or (meeting.creator==current_user):
             # meeting = Meeting.objects.get(pk=id)
             # meeting.delete()
             Meeting.objects.filter(pk=id).update(is_deleted=True)

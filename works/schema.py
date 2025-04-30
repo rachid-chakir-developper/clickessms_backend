@@ -353,13 +353,28 @@ class WorksQuery(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
+        employee = user.get_employee_in_company()
         total_count = 0
         tickets = Ticket.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_quality():
             if user.is_manager():
-                tickets = tickets.filter(Q(establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
+                tickets = tickets.filter(Q(establishments__managers__employee=employee) | Q(undesirable_event__declarants=employee) | Q(undesirable_event__creator=user) | Q(creator=user)).exclude(Q(status='DRAFT') & ~Q(creator=user))
             else:
-                tickets = tickets.filter(creator=user)
+                if employee:
+                    employee_current_estabs = []
+                    if employee.current_contract:
+                        employee_current_estabs = employee.current_contract.establishments.values_list('establishment', flat=True)
+                    tickets = tickets.filter(
+                        Q(establishments__in=employee.establishments.all()) |
+                        Q(undesirable_event__establishments__establishment__in=employee.establishments.all()) |
+                        Q(establishments__in=employee_current_estabs) |
+                        Q(undesirable_event__establishments__establishment__in=employee_current_estabs) |
+                        Q(employee=employee) |
+                        Q(undesirable_event__employee=employee) |
+                        Q(undesirable_event__declarants=employee) |
+                        Q(undesirable_event__creator=user) |
+                        Q(creator=user)
+                        ).exclude(Q(status='DRAFT') & ~Q(creator=user))
         the_order_by = '-created_at'
         if ticket_filter:
             keyword = ticket_filter.get('keyword', '')
@@ -962,6 +977,8 @@ class UpdateTicket(graphene.Mutation):
             ticket = Ticket.objects.get(pk=id, company=creator.the_current_company)
         except Ticket.DoesNotExist:
             raise e
+        if not creator.is_manager() and not creator.can_manage_quality():
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
         establishment_ids = ticket_data.pop("establishments") if "establishments" in ticket_data else None
         task_actions = ticket_data.pop("actions")
         efc_reports = ticket_data.pop("efc_reports")
@@ -1039,6 +1056,8 @@ class UpdateTicketFields(graphene.Mutation):
             ticket = Ticket.objects.get(pk=id, company=creator.the_current_company)
         except Ticket.DoesNotExist:
             raise e
+        if not creator.is_manager() and not creator.can_manage_quality():
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
         done = True
         success = True
         message = ''
