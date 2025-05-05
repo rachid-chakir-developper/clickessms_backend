@@ -683,10 +683,10 @@ class BeneficiaryEntry(models.Model):
                     monthly_data[establishment.id][entry.entry_date.month]["entry_beneficiary_entries"].append(entry)
                 if entry.release_date and entry.release_date.year == year:
                     monthly_data[establishment.id][entry.release_date.month]["total_releases"] += 1
-                    monthly_data[establishment.id][entry.entry_date.month]["release_beneficiary_entries"].append(entry)
+                    monthly_data[establishment.id][entry.release_date.month]["release_beneficiary_entries"].append(entry)
                 if entry.due_date and entry.due_date.year == year:
                     monthly_data[establishment.id][entry.due_date.month]["total_due"] += 1
-                    monthly_data[establishment.id][entry.entry_date.month]["due_beneficiary_entries"].append(entry)
+                    monthly_data[establishment.id][entry.due_date.month]["due_beneficiary_entries"].append(entry)
                 start_date = entry.entry_date if entry.entry_date >= start_of_year else start_of_year
                 
                 # Ajuster end_date en fonction de release_date

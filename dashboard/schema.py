@@ -303,10 +303,11 @@ def get_item_count(monthly_statistics, establishment_id, month, key):
     month_data = establishment_data.get(month, {})
     value = month_data.get(key, 0)
     return round(value if value else 0, 2)
-def get_item_object(monthly_statistics, establishment_id, month, key, default=[]):
+def get_item_object(monthly_statistics, establishment_id, month, key):
     establishment_data = monthly_statistics.get(establishment_id, {})
     month_data = establishment_data.get(month, {})
-    return month_data.get(key, default)
+    value = month_data.get(key, [])
+    return value
 class DashboardActivityType(graphene.ObjectType):
     activity_tracking_establishments = graphene.List(ActivityTrackingEstablishmentType)
     activity_beneficiary_establishments = graphene.List(ActivityBeneficiaryEstablishmentType)
