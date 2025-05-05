@@ -557,35 +557,48 @@ class OnCommentAdded(channels_graphql_ws.Subscription):
         # if you wish to suppress the notification to a particular
         # client. For example, this allows to avoid notifications for
         # the actions made by this particular client.
-        if task_id and task_id is not None:
-            if 'comment' in payload and payload['comment'].task:
-                if str(task_id) != str(payload['comment'].task.id):
-                    return OnCommentAdded.SKIP
-        if task_action_id and task_action_id is not None:
-            if 'comment' in payload and payload['comment'].task_action:
-                if str(task_action_id) != str(payload['comment'].task_action.id):
-                    return OnCommentAdded.SKIP
-        if task_step_id and task_step_id is not None:
-            if 'taskStep' in payload and 'comment' in payload and 'task_step' in payload['comment']:
-                if str(task_step_id) != str(payload['comment']['task_step']['id']):
-                    return OnCommentAdded.SKIP
-        if ticket_id and ticket_id is not None:
-            if 'comment' in payload and payload['comment'].ticket:
-                if str(ticket_id) != str(payload['comment'].ticket.id):
-                    return OnCommentAdded.SKIP
-        if expense_id and expense_id is not None:
-            if 'comment' in payload and payload['comment'].expense:
-                if str(expense_id) != str(payload['comment'].expense.id):
-                    return OnCommentAdded.SKIP
-        if beneficiary_admission_id and beneficiary_admission_id is not None:
-            if 'comment' in payload and payload['comment'].beneficiary_admission:
-                if str(beneficiary_admission_id) != str(payload['comment'].beneficiary_admission.id):
-                    return OnCommentAdded.SKIP
-        if employee_absence_id and employee_absence_id is not None:
-            if 'comment' in payload and payload['comment'].employee_absence:
-                if str(employee_absence_id) != str(payload['comment'].employee_absence.id):
-                    return OnCommentAdded.SKIP
-        return OnCommentAdded(comment=payload['comment'])
+
+        comment = payload.get('comment')
+
+        if task_id is not None:
+            if hasattr(comment, 'task') and comment.task and str(comment.task.id) == str(task_id):
+                return OnCommentAdded(comment=comment)
+            return OnCommentAdded.SKIP
+
+        if task_action_id is not None:
+            if hasattr(comment, 'task_action') and comment.task_action and str(comment.task_action.id) == str(task_action_id):
+                return OnCommentAdded(comment=comment)
+            return OnCommentAdded.SKIP
+
+        if task_step_id is not None:
+            task_step = comment.get('task_step') if isinstance(comment, dict) else getattr(comment, 'task_step', None)
+            if task_step and str(task_step.get('id')) == str(task_step_id):
+                return OnCommentAdded(comment=comment)
+            return OnCommentAdded.SKIP
+
+        if ticket_id is not None:
+            if hasattr(comment, 'ticket') and comment.ticket and str(comment.ticket.id) == str(ticket_id):
+                return OnCommentAdded(comment=comment)
+            return OnCommentAdded.SKIP
+
+        if expense_id is not None:
+            if hasattr(comment, 'expense') and comment.expense and str(comment.expense.id) == str(expense_id):
+                return OnCommentAdded(comment=comment)
+            return OnCommentAdded.SKIP
+
+        if beneficiary_admission_id is not None:
+            if hasattr(comment, 'beneficiary_admission') and comment.beneficiary_admission and str(comment.beneficiary_admission.id) == str(beneficiary_admission_id):
+                return OnCommentAdded(comment=comment)
+            return OnCommentAdded.SKIP
+
+        if employee_absence_id is not None:
+            if hasattr(comment, 'employee_absence') and comment.employee_absence and str(comment.employee_absence.id) == str(employee_absence_id):
+                return OnCommentAdded(comment=comment)
+            return OnCommentAdded.SKIP
+
+        # Par défaut, ne rien envoyer si aucun ID n'est utilisé comme filtre
+        return OnCommentAdded.SKIP
+
 
 class OnCommentDeleted(channels_graphql_ws.Subscription):
     """Simple GraphQL subscription."""
