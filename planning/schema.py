@@ -41,6 +41,7 @@ class EmployeeAbsenceFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     employees = graphene.List(graphene.Int, required=False)
+    order_by = graphene.String(required=False)
 
 class EmployeeAbsenceInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -107,11 +108,13 @@ class PlanningQuery(graphene.ObjectType):
                 employee_absences = employee_absences.filter(Q(employees__employee__employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
             else:
                 employee_absences = employee_absences.filter(creator=user)
+        the_order_by = '-created_at'
         if employee_absence_filter:
             keyword = employee_absence_filter.get('keyword', '')
             starting_date_time = employee_absence_filter.get('starting_date_time')
             ending_date_time = employee_absence_filter.get('ending_date_time')
             employees = employee_absence_filter.get('employees')
+            order_by = employee_absence_filter.get('order_by')
             if employees:
                 employee_absences = employee_absences.filter(employee__id__in=employees)
             if keyword:
@@ -120,8 +123,10 @@ class PlanningQuery(graphene.ObjectType):
                 employee_absences = employee_absences.filter(starting_date_time__gte=starting_date_time)
             if ending_date_time:
                 employee_absences = employee_absences.filter(starting_date_time__lte=ending_date_time)
+            if order_by:
+                the_order_by = order_by
 
-        employee_absences = employee_absences.order_by('-created_at').distinct()
+        employee_absences = employee_absences.order_by(the_order_by).distinct()
         total_count = employee_absences.count()
         if page:
             offset = limit * (page - 1)

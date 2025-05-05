@@ -97,6 +97,7 @@ class UserFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    order_by = graphene.String(required=False)
 
 class DeviceType(DjangoObjectType):
     class Meta:
@@ -165,10 +166,12 @@ class UserQuery(graphene.ObjectType):
         company = user.the_current_company
         total_count = 0
         users = User.objects.filter(company__id=id_company, is_deleted=False) if id_company else User.objects.filter(company=company, is_deleted=False)
+        the_order_by = '-created_at'
         if user_filter:
             keyword = user_filter.get('keyword', '')
             starting_date_time = user_filter.get('starting_date_time')
             ending_date_time = user_filter.get('ending_date_time')
+            order_by = user_filter.get('order_by')
             if keyword:
                 users = users.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(email__icontains=keyword) |
                         Q(employee__first_name__icontains=keyword) | Q(employee__last_name__icontains=keyword) | Q(employee__email__icontains=keyword)
@@ -177,7 +180,9 @@ class UserQuery(graphene.ObjectType):
                 users = users.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 users = users.filter(created_at__lte=ending_date_time)
-        users = users.order_by('-created_at')
+            if order_by:
+                the_order_by = order_by
+        users = users.order_by(the_order_by).distinct()
         total_count = users.count()
         if page:
             offset = limit * (page - 1)
