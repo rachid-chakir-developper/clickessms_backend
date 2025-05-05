@@ -218,6 +218,7 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                             f"Sort le {entry.release_date and entry.release_date.date().strftime('%d/%m/%Y')}" if entry.release_date else ""
                         ]
                     )
+                k=0
                 for k, row in enumerate(main_data, start=next_row + 1):
                     for j, value in enumerate(row, start=1):
                         cell = ws.cell(row=k, column=j, value=value)

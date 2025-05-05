@@ -665,8 +665,11 @@ class BeneficiaryEntry(models.Model):
         monthly_data = defaultdict(lambda: {month: 
             {
             "total_entries": 0,
+            "entry_beneficiary_entries": [],
             "total_releases": 0,
+            "release_beneficiary_entries": [],
             "total_due": 0,
+            "due_beneficiary_entries": [],
             "total_days_present": 0,
             "total_days_present": 0,
             "present_at_end_of_month": 0,
@@ -677,10 +680,13 @@ class BeneficiaryEntry(models.Model):
                 # Ajuster start_date en fonction de entry_date
                 if entry.entry_date and entry.entry_date.year == year:
                     monthly_data[establishment.id][entry.entry_date.month]["total_entries"] += 1
+                    monthly_data[establishment.id][entry.entry_date.month]["entry_beneficiary_entries"].append(entry)
                 if entry.release_date and entry.release_date.year == year:
                     monthly_data[establishment.id][entry.release_date.month]["total_releases"] += 1
+                    monthly_data[establishment.id][entry.entry_date.month]["release_beneficiary_entries"].append(entry)
                 if entry.due_date and entry.due_date.year == year:
                     monthly_data[establishment.id][entry.due_date.month]["total_due"] += 1
+                    monthly_data[establishment.id][entry.entry_date.month]["due_beneficiary_entries"].append(entry)
                 start_date = entry.entry_date if entry.entry_date >= start_of_year else start_of_year
                 
                 # Ajuster end_date en fonction de release_date

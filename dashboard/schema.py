@@ -85,8 +85,11 @@ class ActivityTrackingMonthType(graphene.ObjectType):
     is_current_month = graphene.Boolean()
     is_future_month = graphene.Boolean()
     entries_count = graphene.Float()
+    entry_beneficiary_entries = graphene.List(BeneficiaryEntryType)
     exits_count = graphene.Float()
+    release_beneficiary_entries = graphene.List(BeneficiaryEntryType)
     planned_exits_count = graphene.Float()
+    due_beneficiary_entries = graphene.List(BeneficiaryEntryType)
     presents_month_count = graphene.Float()
     days_count = graphene.Float()
     objective_days_count = graphene.Float()
@@ -300,11 +303,10 @@ def get_item_count(monthly_statistics, establishment_id, month, key):
     month_data = establishment_data.get(month, {})
     value = month_data.get(key, 0)
     return round(value if value else 0, 2)
-def get_item_object(monthly_statistics, establishment_id, month, key):
+def get_item_object(monthly_statistics, establishment_id, month, key, default=[]):
     establishment_data = monthly_statistics.get(establishment_id, {})
     month_data = establishment_data.get(month, {})
-    value = month_data.get(key, 0)
-    return value
+    return month_data.get(key, default)
 class DashboardActivityType(graphene.ObjectType):
     activity_tracking_establishments = graphene.List(ActivityTrackingEstablishmentType)
     activity_beneficiary_establishments = graphene.List(ActivityBeneficiaryEstablishmentType)
@@ -355,22 +357,25 @@ class DashboardActivityType(graphene.ObjectType):
                 objective_valuation = Decimal(capacity)*Decimal(price)
                 valuation = Decimal(days_count)*Decimal(price)
                 item = ActivityTrackingMonthType(
-                month=month,
-                is_current_month=is_current_month,
-                is_future_month=is_future_month,
-                year=year,
-                entries_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_entries'),
-                exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_releases'),
-                planned_exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_due'),
-                presents_month_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'present_at_end_of_month'),
-                objective_days_count=objective_days_count,
-                days_count=days_count,
-                gap_days_count=days_count-objective_days_count,
-                objective_occupancy_rate=objective_occupancy_rate,
-                occupancy_rate=round(((days_count/(days_in_month*capacity))*100 if capacity else 0), 2),
-                valuation=valuation,
-                objective_valuation=objective_valuation,
-                gap_valuation=valuation-objective_valuation,
+                    month=month,
+                    is_current_month=is_current_month,
+                    is_future_month=is_future_month,
+                    year=year,
+                    entries_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_entries'),
+                    entry_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'entry_beneficiary_entries'),
+                    exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_releases'),
+                    release_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'release_beneficiary_entries'),
+                    planned_exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_due'),
+                    due_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'due_beneficiary_entries'),
+                    presents_month_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'present_at_end_of_month'),
+                    objective_days_count=objective_days_count,
+                    days_count=days_count,
+                    gap_days_count=days_count-objective_days_count,
+                    objective_occupancy_rate=objective_occupancy_rate,
+                    occupancy_rate=round(((days_count/(days_in_month*capacity))*100 if capacity else 0), 2),
+                    valuation=valuation,
+                    objective_valuation=objective_valuation,
+                    gap_valuation=valuation-objective_valuation,
                 )  # 'day' utilisé pour le nom du mois
                 activity_tracking_month.append(item)
 
