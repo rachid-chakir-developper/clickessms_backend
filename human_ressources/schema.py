@@ -2013,6 +2013,9 @@ class UpdateBeneficiary(graphene.Mutation):
             beneficiary = Beneficiary.objects.get(pk=id, company=creator.the_current_company)
         except Beneficiary.DoesNotExist:
             raise e
+        if not creator.can_manage_administration() and not creator.can_manage_activity() and not creator.is_manager() and beneficiary.creator!=creator:
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
+
         beneficiary_admission_documents = beneficiary_data.pop("beneficiary_admission_documents", None)
         beneficiary_status_entries = beneficiary_data.pop("beneficiary_status_entries", None)
         beneficiary_entries = beneficiary_data.pop("beneficiary_entries", None)
@@ -2194,6 +2197,8 @@ class UpdateBeneficiaryState(graphene.Mutation):
             beneficiary = Beneficiary.objects.get(pk=id, company=creator.the_current_company)
         except Beneficiary.DoesNotExist:
             raise e
+        if not creator.can_manage_administration() and not creator.can_manage_activity() and not creator.is_manager() and beneficiary.creator!=creator:
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
         done = True
         success = True
         message = ''
@@ -2226,7 +2231,7 @@ class DeleteBeneficiary(graphene.Mutation):
             beneficiary = Beneficiary.objects.get(pk=id, company=current_user.the_current_company)
         except Beneficiary.DoesNotExist:
             raise e
-        if current_user.can_manage_administration() or current_user.is_manager() or (beneficiary.creator == current_user):
+        if current_user.can_manage_administration() or creator.can_manage_activity() or current_user.is_manager() or (beneficiary.creator == current_user):
             # beneficiary = Beneficiary.objects.get(pk=id)
             # beneficiary.delete()
             Beneficiary.objects.filter(pk=id).update(is_deleted=True)

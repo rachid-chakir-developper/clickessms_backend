@@ -168,19 +168,19 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                         i + 1,
                         establishment.name,
                         1,  # Peut-être à remplacer ?
-                        "Hébergement",
+                        establishment.name,
                         beneficiary.last_name,
                         beneficiary.first_name,  # Correction ici
                         beneficiary.birth_date and beneficiary.birth_date.date().strftime('%d/%m/%Y'),
                         int(beneficiary.age_exact),
-                        "",
+                        "x" if int(beneficiary.age_exact) >= 18 else "",
                         f"{beneficiary.get_custom_field_value('IEF')}",
                         entry.entry_date and entry.entry_date.date().strftime('%d/%m/%Y'),
                         entry.due_date and entry.due_date.date().strftime('%d/%m/%Y'),
-                        f"Sort le {entry.release_date and entry.release_date.date().strftime('%d/%m/%Y')}" if entry.release_date else ""
+                        f"Sort le {entry.release_date and entry.release_date.date().strftime('%d/%m/%Y')}" if (entry.release_date and False) else ""
                     ]
                 )
-
+            i=0
             for i, row in enumerate(main_data, start=start_row + 1):
                 for j, value in enumerate(row, start=1):
                     cell = ws.cell(row=i, column=j, value=value)
@@ -204,14 +204,14 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                     main_data.append(
                         [
                             i + 1,
-                            children_establishment.name,
+                            establishment.name,
                             1,  # Peut-être à remplacer ?
-                            "Hébergement",
+                            children_establishment.name,
                             beneficiary.last_name,
                             beneficiary.first_name,  # Correction ici
                             beneficiary.birth_date and beneficiary.birth_date.date().strftime('%d/%m/%Y'),
                             int(beneficiary.age_exact),
-                            "",
+                            "x" if int(beneficiary.age_exact) >= 18 else "",
                             f"{beneficiary.get_custom_field_value('IEF')}",
                             entry.entry_date and entry.entry_date.date().strftime('%d/%m/%Y'),
                             entry.due_date and entry.due_date.date().strftime('%d/%m/%Y'),
