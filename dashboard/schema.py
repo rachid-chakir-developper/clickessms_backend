@@ -358,6 +358,15 @@ class DashboardActivityType(graphene.ObjectType):
                 objective_occupancy_rate = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'occupancy_rate')
                 objective_days_count=round(days_in_month*capacity*objective_occupancy_rate/100)
 
+                days_count=0
+                entries_count=0
+                entry_beneficiary_entries=[]
+                exits_count=0
+                release_beneficiary_entries=[]
+                planned_exits_count=0
+                due_beneficiary_entries=[]
+                presents_month_count=0
+
                 if children_beneficiary_entry_monthly_presence_statistics:
                     for k, children_establishment in enumerate(children_establishments):
                         days_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'total_days_present')
