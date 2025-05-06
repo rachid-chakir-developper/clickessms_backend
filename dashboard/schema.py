@@ -347,6 +347,7 @@ class DashboardActivityType(graphene.ObjectType):
             activity_tracking_month = []
             children_establishments = establishment.get_all_children()
             children_beneficiary_entry_monthly_presence_statistics=None
+            children_document_monthly_statistics=None
             if len(children_establishments)> 0:
                 children_beneficiary_entry_monthly_presence_statistics = BeneficiaryEntry.monthly_presence_statistics(year=year, establishments=children_establishments, company=company)
                 children_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=children_establishments, company=company)
