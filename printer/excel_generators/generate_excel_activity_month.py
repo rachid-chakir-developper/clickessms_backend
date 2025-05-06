@@ -147,6 +147,15 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
 
             # Liste des jeunes (données d'exemple)
             start_row = 9
+            if len(children_establishments)>0:
+                ws[f"A{start_row}"] = f"{establishment.name}"
+                cells_to_ignore_width.append(f"A{start_row}")
+                ws[f"A{start_row}"].font = Font(bold=True)
+                ws[f"A{start_row}"].fill = PatternFill(start_color="e1e1e1", end_color="e1e1e1", fill_type="solid")
+                ws[f"A{start_row}"].border = border
+                ws.merge_cells(f"A{start_row}:M{start_row}")
+                start_row+=1
+
             headers_main = [
                 "Nbre de place", "ETABLISSEMENT", "N°", "UNITE", "NOM", "PRENOM",
                 "DATE DE NAISSANCE", "AGE", "ATJM", "IEF",
