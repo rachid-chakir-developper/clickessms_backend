@@ -86,24 +86,44 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
             ws["D5"] = "Capacité Totale"
             ws["D5"].border = border
 
-            ws["B6"] = f"{establishment.name}"
-            ws["B6"].border = border
+            if len(children_establishments) < 1:
+                ws["B6"] = f"{establishment.name}"
+                ws["B6"].border = border
 
-            ws["C6"] = count_occupied_places
-            ws["D6"] = capacity
-            ws["D6"].font = Font(color="FF0000")
-            ws["D6"].border = border
+                ws["C6"] = count_occupied_places
+                ws["D6"] = capacity
+                ws["D6"].font = Font(color="FF0000")
+                ws["D6"].border = border
 
-            ws["B7"] = "Place disponible"
-            ws["B7"].fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-            ws["B7"].border = border
+            # Liste des jeunes (données d'exemple)
+            start_row = 6
 
-            ws["C7"] = count_available_places
-            ws.merge_cells("C7:D7")
-            ws["C7"].fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-            ws["C7"].alignment = Alignment(horizontal="center")
-            ws["C7"].border = border
-            ws["D7"].border = border
+
+            present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
+            for i, children_establishment in enumerate(children_establishments):
+                children_beneficiary_entries=present_beneficiaries_children.get(children_establishment.id, [])
+                children_capacity = establishment.get_monthly_capacity(year, month)
+                children_count_occupied_places= len(children_beneficiary_entries)
+                children_count_available_places=children_capacity-children_count_occupied_places
+                ws[f"B{start_row}"] = f"{children_establishment.name}"
+                ws[f"B{start_row}"].border = border
+
+                ws[f"C{start_row}"] = children_count_occupied_places
+                ws[f"D{start_row}"] = children_capacity
+                ws[f"D{start_row}"].font = Font(color="FF0000")
+                ws[f"D{start_row}"].border = border
+                start_row+=1
+
+            ws[f"B{start_row}"] = "Place disponible"
+            ws[f"B{start_row}"].fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+            ws[f"B{start_row}"].border = border
+
+            ws[f"C{start_row}"] = count_available_places
+            ws.merge_cells(f"C{start_row}:D{start_row}")
+            ws[f"C{start_row}"].fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+            ws[f"C{start_row}"].alignment = Alignment(horizontal="center")
+            ws[f"C{start_row}"].border = border
+            ws[f"D{start_row}"].border = border
 
             # Titre principal
             ws["D1"] = f"{establishment.name}"
@@ -145,8 +165,8 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                 cell = ws.cell(row=7, column=i, value=value)
                 cell.border = border
 
-            # Liste des jeunes (données d'exemple)
-            start_row = 9
+
+            start_row+= 3
             cells_to_ignore_width = ["A3", "G6"]
             if len(children_establishments)>0:
                 ws[f"A{start_row}"] = f"{establishment.name}"
@@ -197,7 +217,6 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                     cell.alignment = Alignment(horizontal="center")
                     cell.border = border
                 next_row+=1
-            present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
             for i, children_establishment in enumerate(children_establishments):
                 beneficiary_entries=present_beneficiaries_children.get(children_establishment.id, [])
                 ws[f"A{next_row}"] = f"{children_establishment.name}"
