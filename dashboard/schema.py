@@ -342,9 +342,13 @@ class DashboardActivityType(graphene.ObjectType):
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
 
         activity_tracking_establishments = []
-        for i, establishment in enumerate(establishments):
+        for j, establishment in enumerate(establishments):
             # Initialiser les activity_tracking_month par mois
             activity_tracking_month = []
+            children_establishments = establishment.get_all_children()
+            children_beneficiary_entry_monthly_presence_statistics=None
+            if len(children_establishments)> 0:
+                children_beneficiary_entry_monthly_presence_statistics = BeneficiaryEntry.monthly_presence_statistics(year=year, establishments=children_establishments, company=company)
             for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
                 is_current_month = (int(year) == current_year and i+1 == current_month)
                 prev_month_index = i - 1 if i > 0 and is_current_month else prev_month_index
@@ -353,22 +357,44 @@ class DashboardActivityType(graphene.ObjectType):
                 capacity = establishment.get_monthly_capacity(year, i+1)
                 objective_occupancy_rate = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'occupancy_rate')
                 objective_days_count=round(days_in_month*capacity*objective_occupancy_rate/100)
-                days_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_days_present')
+
+                if children_beneficiary_entry_monthly_presence_statistics:
+                    for k, children_establishment in enumerate(children_establishments):
+                        days_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'total_days_present')
+                        entries_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'total_entries')
+                        entry_beneficiary_entries+=get_item_object(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'entry_beneficiary_entries')
+                        exits_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'total_releases')
+                        release_beneficiary_entries+=get_item_object(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'release_beneficiary_entries')
+                        planned_exits_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'total_due')
+                        due_beneficiary_entries+=get_item_object(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'due_beneficiary_entries')
+                        presents_month_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'present_at_end_of_month')
+                else:
+                    days_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_days_present')
+                    entries_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_entries')
+                    entry_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'entry_beneficiary_entries')
+                    exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_releases')
+                    release_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'release_beneficiary_entries')
+                    planned_exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_due')
+                    due_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'due_beneficiary_entries')
+                    presents_month_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'present_at_end_of_month')
+
                 price = establishment.get_monthly_unit_price(year, i+1)
                 objective_valuation = Decimal(capacity)*Decimal(price)
                 valuation = Decimal(days_count)*Decimal(price)
+
+
                 item = ActivityTrackingMonthType(
                     month=month,
                     is_current_month=is_current_month,
                     is_future_month=is_future_month,
                     year=year,
-                    entries_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_entries'),
-                    entry_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'entry_beneficiary_entries'),
-                    exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_releases'),
-                    release_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'release_beneficiary_entries'),
-                    planned_exits_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_due'),
-                    due_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'due_beneficiary_entries'),
-                    presents_month_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'present_at_end_of_month'),
+                    entries_count=entries_count,
+                    entry_beneficiary_entries=entry_beneficiary_entries,
+                    exits_count=exits_count,
+                    release_beneficiary_entries=release_beneficiary_entries,
+                    planned_exits_count=planned_exits_count,
+                    due_beneficiary_entries=due_beneficiary_entries,
+                    presents_month_count=presents_month_count,
                     objective_days_count=objective_days_count,
                     days_count=days_count,
                     gap_days_count=days_count-objective_days_count,

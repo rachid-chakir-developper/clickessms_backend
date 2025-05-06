@@ -99,7 +99,6 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                 ws["D6"].border = border
                 start_row+=1
 
-
             present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
             for i, children_establishment in enumerate(children_establishments):
                 children_beneficiary_entries=present_beneficiaries_children.get(children_establishment.id, [])
