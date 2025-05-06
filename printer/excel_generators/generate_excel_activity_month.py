@@ -86,6 +86,9 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
             ws["D5"] = "Capacité Totale"
             ws["D5"].border = border
 
+            # Liste des jeunes (données d'exemple)
+            start_row = 6
+
             if len(children_establishments) < 1:
                 ws["B6"] = f"{establishment.name}"
                 ws["B6"].border = border
@@ -94,9 +97,7 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                 ws["D6"] = capacity
                 ws["D6"].font = Font(color="FF0000")
                 ws["D6"].border = border
-
-            # Liste des jeunes (données d'exemple)
-            start_row = 6
+                start_row+=1
 
 
             present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
