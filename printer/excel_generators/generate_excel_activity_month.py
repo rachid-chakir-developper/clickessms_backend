@@ -147,6 +147,7 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
 
             # Liste des jeunes (données d'exemple)
             start_row = 9
+            cells_to_ignore_width = ["A3", "G6"]
             if len(children_establishments)>0:
                 ws[f"A{start_row}"] = f"{establishment.name}"
                 cells_to_ignore_width.append(f"A{start_row}")
@@ -196,8 +197,6 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                     cell.alignment = Alignment(horizontal="center")
                     cell.border = border
                 next_row+=1
-            
-            cells_to_ignore_width = ["A3", "G6"]
             present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
             for i, children_establishment in enumerate(children_establishments):
                 beneficiary_entries=present_beneficiaries_children.get(children_establishment.id, [])
