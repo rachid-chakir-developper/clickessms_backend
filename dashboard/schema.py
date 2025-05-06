@@ -354,9 +354,10 @@ class DashboardActivityType(graphene.ObjectType):
                 prev_month_index = i - 1 if i > 0 and is_current_month else prev_month_index
                 is_future_month = (int(year) > current_year) or (int(year) == current_year and i+1 > current_month)
                 days_in_month = monthrange(int(year), i+1)[1]
+
                 capacity = establishment.get_monthly_capacity(year, i+1)
+                price = establishment.get_monthly_unit_price(year, i+1)
                 objective_occupancy_rate = get_item_count(decision_document_monthly_statistics, establishment.id, i+1, 'occupancy_rate')
-                objective_days_count=round(days_in_month*capacity*objective_occupancy_rate/100)
 
                 days_count=0
                 entries_count=0
@@ -368,7 +369,11 @@ class DashboardActivityType(graphene.ObjectType):
                 presents_month_count=0
 
                 if children_beneficiary_entry_monthly_presence_statistics:
+                    capacity_total = 0
                     for k, children_establishment in enumerate(children_establishments):
+                        if not price or price==0:
+                            price = children_establishment.get_monthly_unit_price(year, i+1)
+                        capacity_total+= children_establishment.get_monthly_capacity(year, i+1)
                         days_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'total_days_present')
                         entries_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'total_entries')
                         entry_beneficiary_entries+=get_item_object(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'entry_beneficiary_entries')
@@ -377,6 +382,8 @@ class DashboardActivityType(graphene.ObjectType):
                         planned_exits_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'total_due')
                         due_beneficiary_entries+=get_item_object(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'due_beneficiary_entries')
                         presents_month_count+=get_item_count(children_beneficiary_entry_monthly_presence_statistics, children_establishment.id, i+1, 'present_at_end_of_month')
+                    if not capacity or capacity==0:
+                        capacity = capacity_total
                 else:
                     days_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_days_present')
                     entries_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'total_entries')
@@ -387,7 +394,7 @@ class DashboardActivityType(graphene.ObjectType):
                     due_beneficiary_entries=get_item_object(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'due_beneficiary_entries')
                     presents_month_count=get_item_count(beneficiary_entry_monthly_presence_statistics, establishment.id, i+1, 'present_at_end_of_month')
 
-                price = establishment.get_monthly_unit_price(year, i+1)
+                objective_days_count=round(days_in_month*capacity*objective_occupancy_rate/100)
                 objective_valuation = Decimal(capacity)*Decimal(price)
                 valuation = Decimal(days_count)*Decimal(price)
 
