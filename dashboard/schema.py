@@ -578,14 +578,50 @@ class DashboardActivityType(graphene.ObjectType):
         for i, establishment in enumerate(establishments):
             # Initialiser les activity_tracking_month par mois
             activity_synthesis_month = []
+            children_establishments = establishment.get_all_children()
+            children_beneficiary_admission_monthly_statistics=None
+            children_beneficiary_admission_monthly_admissions=None
+            children_beneficiary_entry_monthly_present_beneficiaries=None
+            if len(children_establishments)> 0: 
+                children_beneficiary_admission_monthly_statistics = BeneficiaryAdmission.monthly_statistics(year=year, establishments=children_establishments, company=company)
+                children_beneficiary_admission_monthly_admissions = BeneficiaryAdmission.monthly_admissions(year=year, establishments=children_establishments, company=company)
+                children_beneficiary_entry_monthly_present_beneficiaries = BeneficiaryEntry.monthly_present_beneficiaries(year=year, establishments=children_establishments, company=company)
             for i, month in enumerate(settings.MONTHS):  # Assurez-vous que `settings.MONTHS` contient les noms des mois
                 days_in_month = monthrange(int(year), i+1)[1]
                 capacity = establishment.get_monthly_capacity(year, i+1)
                 beneficiary_entries = get_item_object(beneficiary_entry_monthly_present_beneficiaries, establishment.id, i+1, 'presences')
+                beneficiary_admissions = get_item_object(beneficiary_admission_monthly_admissions, establishment.id, i+1, 'admissions')
+                if children_beneficiary_entry_monthly_present_beneficiaries:
+                    for k, children_establishment in enumerate(children_establishments):
+                        beneficiary_entries += get_item_object(children_beneficiary_entry_monthly_present_beneficiaries, children_establishment.id, i+1, 'presences')
+                if children_beneficiary_admission_monthly_admissions:
+                    for k, children_establishment in enumerate(children_establishments):
+                        beneficiary_admissions += get_item_object(children_beneficiary_admission_monthly_admissions, children_establishment.id, i+1, 'admissions')
+
+                count_occupied_places_prev_month = 0
+                count_received = 0
+                count_rejected = 0
+                count_approved = 0
+                count_canceled = 0
+
+                if children_beneficiary_admission_monthly_statistics:
+                    capacity_total = 0
+                    for k, children_establishment in enumerate(children_establishments):
+                        count_occupied_places_prev_month += BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[children_establishment.id], company=company)
+                        count_received += get_item_count(beneficiary_admission_monthly_statistics, children_establishment.id, i+1, 'count_received')
+                        count_rejected += get_item_count(beneficiary_admission_monthly_statistics, children_establishment.id, i+1, 'count_rejected')
+                        count_approved += get_item_count(beneficiary_admission_monthly_statistics, children_establishment.id, i+1, 'count_approved')
+                        count_canceled += get_item_count(beneficiary_admission_monthly_statistics, children_establishment.id, i+1, 'count_canceled')
+                    if not capacity or capacity==0:
+                        capacity = capacity_total
+                else:
+                    count_occupied_places_prev_month = BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[establishment.id], company=company)
+                    count_received = get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_received')
+                    count_rejected = get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_rejected')
+                    count_approved = get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_approved')
+                    count_canceled = get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled')
+
                 count_occupied_places= len(beneficiary_entries)
-                count_occupied_places_prev_month = BeneficiaryEntry.count_present_beneficiaries(year=year, month=i, establishments=[establishment.id], company=company)
-                count_received = get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_received')
-                count_rejected = get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_rejected')
                 dashboard_comment = DashboardComment.objects.filter(establishment=establishment, comment_type='SYNTHESIS_ALL', year=str(year), month=str(i+1)).first()
                 dashboard_comments = DashboardComment.objects.filter(establishment=establishment, comment_type='SYNTHESIS', year=str(year), month=str(i+1))
                 count_available_places = capacity-count_occupied_places_prev_month
@@ -594,16 +630,17 @@ class DashboardActivityType(graphene.ObjectType):
                     gap_received=count_available_places
                 gap_received=(gap_received-count_received)*days_in_month
                 gap_rejected=count_rejected*days_in_month
+
                 item = ActivitySynthesisMonthType(
                     month=month,
                     year=year,
                     count_received=count_received,
                     gap_received=gap_received,
-                    count_approved=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_approved'),
+                    count_approved=count_approved,
                     count_rejected=count_rejected,
                     gap_rejected=gap_rejected,
-                    count_canceled=get_item_count(beneficiary_admission_monthly_statistics, establishment.id, i+1, 'count_canceled'),
-                    beneficiary_admissions=get_item_object(beneficiary_admission_monthly_admissions, establishment.id, i+1, 'admissions'),
+                    count_canceled=count_canceled,
+                    beneficiary_admissions=beneficiary_admissions,
                     dashboard_comment=dashboard_comment,
                     dashboard_comments=dashboard_comments,
                     beneficiary_entries=beneficiary_entries,
