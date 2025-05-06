@@ -504,6 +504,12 @@ class DashboardActivityType(graphene.ObjectType):
             # Initialiser les activity_beneficiary_month par mois
             activity_beneficiaries=[]
             activity_beneficiary_entries=monthly_beneficiary_attendance.get(establishment.id, [])
+
+            children_establishments = establishment.get_all_children()
+            if len(children_establishments)> 0:
+                children_monthly_beneficiary_attendance = BeneficiaryEntry.monthly_beneficiary_attendance(year=year, establishments=children_establishments, company=company)
+                for k, children_establishment in enumerate(children_establishments):
+                    activity_beneficiary_entries+=children_monthly_beneficiary_attendance.get(children_establishment.id, [])
             for i, activity_beneficiary_entry in enumerate(activity_beneficiary_entries):
                 beneficiary = activity_beneficiary_entry["beneficiary"]
                 monthly_attendance = activity_beneficiary_entry["monthly_attendance"]
