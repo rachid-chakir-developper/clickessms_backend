@@ -180,12 +180,12 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                         f"Sort le {entry.release_date and entry.release_date.date().strftime('%d/%m/%Y')}" if (entry.release_date and False) else ""
                     ]
                 )
-            for c, row in enumerate(main_data, start=start_row + 1):
+            for i, row in enumerate(main_data, start=start_row + 1):
                 for j, value in enumerate(row, start=1):
-                    cell = ws.cell(row=c, column=j, value=value)
+                    cell = ws.cell(row=i, column=j, value=value)
                     cell.alignment = Alignment(horizontal="center")
                     cell.border = border
-            next_row = c + 1
+            next_row = i + 1
             
             cells_to_ignore_width = ["A3", "G6"]
             present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
