@@ -102,15 +102,18 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
             present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
             for i, children_establishment in enumerate(children_establishments):
                 children_beneficiary_entries=present_beneficiaries_children.get(children_establishment.id, [])
-                children_capacity = establishment.get_monthly_capacity(year, month)
+                children_capacity = children_establishment.get_monthly_capacity(year, month)
                 children_count_occupied_places= len(children_beneficiary_entries)
                 children_count_available_places=children_capacity-children_count_occupied_places
                 ws[f"B{start_row}"] = f"{children_establishment.name}"
                 ws[f"B{start_row}"].border = border
 
                 ws[f"C{start_row}"] = children_count_occupied_places
+                ws[f"C{start_row}"].alignment = Alignment(horizontal="center")
+                ws[f"C{start_row}"].border = border
                 ws[f"D{start_row}"] = children_capacity
                 ws[f"D{start_row}"].font = Font(color="FF0000")
+                ws[f"D{start_row}"].alignment = Alignment(horizontal="center")
                 ws[f"D{start_row}"].border = border
                 start_row+=1
 
