@@ -50,10 +50,26 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
             #     establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
 
         present_beneficiaries = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=establishments, company=company)
-
+        month_beneficiary_admissions = BeneficiaryAdmission.month_beneficiary_admissions(year=year, month=month, establishments=establishments, company=company)
+        beneficiary_admissions = []
+        admissions_waiting_data = []
         for i, establishment in enumerate(establishments):
             children_establishments = establishment.get_all_children()
             beneficiary_entries=present_beneficiaries.get(establishment.id, [])
+            beneficiary_admissions=month_beneficiary_admissions.get(establishment.id, [])
+            for i, beneficiary_admission in enumerate(beneficiary_admissions):
+                beneficiary = beneficiary_admission.beneficiary
+                admissions_waiting_data.append(
+                    [
+                        establishment.name,
+                        beneficiary_admission.last_name,
+                        beneficiary_admission.first_name,  # Correction ici
+                        beneficiary_admission.birth_date and beneficiary_admission.birth_date.date().strftime('%d/%m/%Y'),
+                        f"{beneficiary.get_custom_field_value('IEF')}",
+                        beneficiary_admission.pre_admission_date and beneficiary_admission.pre_admission_date.date().strftime('%d/%m/%Y'),
+                        beneficiary_admission.response_date and beneficiary_admission.response_date.date().strftime('%d/%m/%Y'),
+                    ]
+                )
             capacity = establishment.get_monthly_capacity(year, month)
             count_occupied_places= len(beneficiary_entries)
             count_available_places=capacity-count_occupied_places
@@ -98,10 +114,26 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                 ws["D6"].font = Font(color="FF0000")
                 ws["D6"].border = border
                 start_row+=1
+            else:
+                beneficiary_admissions_children = BeneficiaryAdmission.month_beneficiary_admissions(year=year, month=month, establishments=children_establishments, company=company)
 
             present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
             for i, children_establishment in enumerate(children_establishments):
                 children_beneficiary_entries=present_beneficiaries_children.get(children_establishment.id, [])
+                beneficiary_admissions=beneficiary_admissions_children.get(children_establishment.id, [])
+                for i, beneficiary_admission in enumerate(beneficiary_admissions):
+                    beneficiary = beneficiary_admission.beneficiary
+                    admissions_waiting_data.append(
+                        [
+                            establishment.name,
+                            beneficiary_admission.last_name,
+                            beneficiary_admission.first_name,  # Correction ici
+                            beneficiary_admission.birth_date and beneficiary_admission.birth_date.date().strftime('%d/%m/%Y'),
+                            f"{beneficiary.get_custom_field_value('IEF')}",
+                            beneficiary_admission.pre_admission_date and beneficiary_admission.pre_admission_date.date().strftime('%d/%m/%Y'),
+                            beneficiary_admission.response_date and beneficiary_admission.response_date.date().strftime('%d/%m/%Y'),
+                        ]
+                    )
                 children_capacity = children_establishment.get_monthly_capacity(year, month)
                 children_count_occupied_places= len(children_beneficiary_entries)
                 children_count_available_places=children_capacity-children_count_occupied_places
@@ -161,14 +193,17 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
             ws["G6"].font = Font(color="FF0000")
             ws["G6"].border = border
             ws["M6"].border = border
-
-            # Ligne d'exemple liste d'attente
-            waiting_data = ["SHAMNA", "test", "test", "07/12/2007", "test", "03/04/2025", ""]
-            for i, value in enumerate(waiting_data, start=7):
-                cell = ws.cell(row=7, column=i, value=value)
+            for col in range(7, 14):
+                cell = ws.cell(row=6, column=col)
                 cell.border = border
-
-
+            
+            for i, row in enumerate(admissions_waiting_data, start=7):
+                for j, value in enumerate(row, start=7):
+                    cell = ws.cell(row=i, column=j, value=value)
+                    cell.alignment = Alignment(horizontal="center")
+                    cell.border = border
+            
+            start_row+= len(admissions_waiting_data)
             start_row+= 3
             cells_to_ignore_width = ["A3", "G6"]
             if len(children_establishments)>0:

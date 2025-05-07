@@ -1150,6 +1150,50 @@ class BeneficiaryAdmission(models.Model):
         return dict(stats)
 
     @classmethod
+    def month_beneficiary_admissions(cls, year, month, establishments=None, company=None, statuses=["APPROVED", "REJECTED"]):
+        """
+        Retourne une liste des `BeneficiaryEntry` pour chaque établissement
+        qui sont toujours accompagnés dans un mois donné.
+        """
+        year = int(year)
+        month = int(month)
+
+        # Début et fin du mois spécifié
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+
+        # Filtrer les enregistrements de base
+        queryset = cls.objects.filter(
+            status__in=statuses,
+            is_deleted=False,
+        )
+
+        # Filtrer par société si fourni
+        if company:
+            queryset = queryset.filter(company=company)
+
+        if establishments:
+            # Filtrer uniquement pour les établissements spécifiés
+            queryset = queryset.filter(establishments__in=establishments)
+
+        # Filtrer les admissions toujours présents dans le mois spécifié
+        queryset = queryset.filter(
+            reception_date__gte=start_date,
+            reception_date__lt=end_date,
+        ).order_by('last_name', 'first_name')
+
+        # Regrouper par établissement
+        result = {}
+        for establishment in queryset.values_list('establishments', flat=True).distinct():
+            establishment_queryset = queryset.filter(establishments=establishment)
+            result[establishment] = list(establishment_queryset)
+
+        return result
+
+    @classmethod
     def monthly_admissions(cls, year, establishments=None, company=None):
         """
         Retourne un dictionnaire contenant les admissions par mois et par établissement pour une année donnée.
