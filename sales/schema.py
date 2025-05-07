@@ -614,6 +614,19 @@ class GenerateInvoice(graphene.Mutation):
             elif due_date.weekday() == 6:
                 due_date += timedelta(days=1)
 
+            the_capacity = the_establishment.get_monthly_capacity(year, month)
+            the_unit_price = the_establishment.get_monthly_unit_price(year, month)
+            # Construction de establishment_infos avec des retours à la ligne
+            the_establishment_infos = "\n".join(filter(None, [
+                the_establishment.address,  # Adresse principale
+                the_establishment.additional_address,  # Complément d'adresse (si présent)
+                f"{the_establishment.zip_code} {the_establishment.city}",  # Code postal + ville
+                the_establishment.country,  # Pays
+                f"{the_establishment.fix}" if the_establishment.fix else None,  # Téléphone fixe
+                f"{the_establishment.mobile}" if the_establishment.mobile else None,  # Mobile
+                f"{the_establishment.email}" if the_establishment.email else None,  # Email
+            ]))
+
             company_infos = "\n".join(filter(None, [
                 company.address,  # Adresse principale
                 company.additional_address,  # Complément d'adresse (si présent)
@@ -635,6 +648,26 @@ class GenerateInvoice(graphene.Mutation):
             invoice_fields = {
                 'title': f"Facture du {int(month):02d}/{year}  pour {the_establishment.name}",
                 'description': f"Facture du {int(month):02d}/{year}  pour {the_establishment.name}",
+
+                'establishment_number': the_establishment.number,
+                'establishment_name': the_establishment.name,
+                'establishment_siret': the_establishment.siret,
+                'establishment_finess': the_establishment.finess,
+                'establishment_ape_code': the_establishment.ape_code,
+                'establishment_capacity': the_capacity,
+                'establishment_unit_price': the_unit_price,
+                'establishment_tva_number': '',
+                'establishment_infos': the_establishment_infos,
+                'establishment_address': the_establishment.address,
+                'establishment_city': the_establishment.city,
+                'establishment_country': the_establishment.country,
+                'establishment_zip_code': the_establishment.zip_code,
+                'establishment_mobile': the_establishment.mobile,
+                'establishment_fix': the_establishment.fix,
+                'establishment_email': the_establishment.email,
+                'establishment_iban': the_establishment.iban,
+                'establishment_bic': the_establishment.bic,
+                'establishment_bank_name': the_establishment.bank_name,
 
                 'financier_number': financier.number,
                 'financier_name': financier.name,
@@ -685,95 +718,96 @@ class GenerateInvoice(graphene.Mutation):
             # Save the invoice to update changes
             invoice.save()
             for establishment in establishments:
-                capacity = establishment.get_monthly_capacity(year, month)
-                unit_price = establishment.get_monthly_unit_price(year, month)
-                # Construction de establishment_infos avec des retours à la ligne
-                establishment_infos = "\n".join(filter(None, [
-                    establishment.address,  # Adresse principale
-                    establishment.additional_address,  # Complément d'adresse (si présent)
-                    f"{establishment.zip_code} {establishment.city}",  # Code postal + ville
-                    establishment.country,  # Pays
-                    f"{establishment.fix}" if establishment.fix else None,  # Téléphone fixe
-                    f"{establishment.mobile}" if establishment.mobile else None,  # Mobile
-                    f"{establishment.email}" if establishment.email else None,  # Email
-                ]))
+                if establishment!=the_establishment:
+                    capacity = establishment.get_monthly_capacity(year, month)
+                    unit_price = establishment.get_monthly_unit_price(year, month)
+                    # Construction de establishment_infos avec des retours à la ligne
+                    establishment_infos = "\n".join(filter(None, [
+                        establishment.address,  # Adresse principale
+                        establishment.additional_address,  # Complément d'adresse (si présent)
+                        f"{establishment.zip_code} {establishment.city}",  # Code postal + ville
+                        establishment.country,  # Pays
+                        f"{establishment.fix}" if establishment.fix else None,  # Téléphone fixe
+                        f"{establishment.mobile}" if establishment.mobile else None,  # Mobile
+                        f"{establishment.email}" if establishment.email else None,  # Email
+                    ]))
 
-                invoice_establishment = InvoiceEstablishment(
-                    invoice=invoice,
-                    establishment=establishment,
-                    establishment_number=establishment.number,
-                    establishment_name=establishment.name,
-                    establishment_siret=establishment.siret,
-                    establishment_finess=establishment.finess,
-                    establishment_ape_code=establishment.ape_code,
-                    establishment_capacity=capacity,
-                    establishment_unit_price=unit_price,
-                    establishment_tva_number='',
-                    establishment_infos=establishment_infos,
-                    establishment_address=establishment.address,
-                    establishment_city=establishment.city,
-                    establishment_country=establishment.country,
-                    establishment_zip_code=establishment.zip_code,
-                    establishment_mobile=establishment.mobile,
-                    establishment_fix=establishment.fix,
-                    establishment_email=establishment.email,
-                    establishment_iban=establishment.iban,
-                    establishment_bic=establishment.bic,
-                    establishment_bank_name=establishment.bank_name,
-                    creator=creator
-                )
+                    invoice_establishment = InvoiceEstablishment(
+                        invoice=invoice,
+                        establishment=establishment,
+                        establishment_number=establishment.number,
+                        establishment_name=establishment.name,
+                        establishment_siret=establishment.siret,
+                        establishment_finess=establishment.finess,
+                        establishment_ape_code=establishment.ape_code,
+                        establishment_capacity=capacity,
+                        establishment_unit_price=unit_price,
+                        establishment_tva_number='',
+                        establishment_infos=establishment_infos,
+                        establishment_address=establishment.address,
+                        establishment_city=establishment.city,
+                        establishment_country=establishment.country,
+                        establishment_zip_code=establishment.zip_code,
+                        establishment_mobile=establishment.mobile,
+                        establishment_fix=establishment.fix,
+                        establishment_email=establishment.email,
+                        establishment_iban=establishment.iban,
+                        establishment_bic=establishment.bic,
+                        establishment_bank_name=establishment.bank_name,
+                        creator=creator
+                    )
 
-                # Save the invoice_establishment to update changes
-                invoice_establishment.save()
+                    # Save the invoice_establishment to update changes
+                    invoice_establishment.save()
 
-                for manager in establishment.managers.all():
-                    if manager.employee:
-                        managers.append(manager.employee)
+                    for manager in establishment.managers.all():
+                        if manager.employee:
+                            managers.append(manager.employee)
 
-                present_beneficiaries = establishment.get_present_beneficiaries(year, month)
-                present_beneficiaries = sorted(present_beneficiaries, key=lambda item: (item['beneficiary_entry'].beneficiary.id, item['beneficiary_entry'].beneficiary.first_name, item['beneficiary_entry'].beneficiary.last_name))
-                # Créer les éléments de facture à partir des bénéficiaires présents
-                invoice_items = []
-                for item in present_beneficiaries:
-                    release_date = item['beneficiary_entry'].release_date
-                    if release_date and release_date.year == int(year) and release_date.month == int(month):
-                        release_date = release_date
-                    else:
-                        release_date = None
+                    present_beneficiaries = establishment.get_present_beneficiaries(year, month)
+                    present_beneficiaries = sorted(present_beneficiaries, key=lambda item: (item['beneficiary_entry'].beneficiary.id, item['beneficiary_entry'].beneficiary.first_name, item['beneficiary_entry'].beneficiary.last_name))
+                    # Créer les éléments de facture à partir des bénéficiaires présents
+                    invoice_items = []
+                    for item in present_beneficiaries:
+                        release_date = item['beneficiary_entry'].release_date
+                        if release_date and release_date.year == int(year) and release_date.month == int(month):
+                            release_date = release_date
+                        else:
+                            release_date = None
+                        try:
+                            invoice_item = InvoiceItem.objects.get(invoice=invoice, invoice_establishment__establishment=item['establishment'], entry_date=item['beneficiary_entry'].entry_date)
+                        except InvoiceItem.DoesNotExist:
+                            amount_ht, amount_ttc = calculate_amounts(unit_price=unit_price, quantity=item['days_in_month'], tva=0, discount=0)
+                            invoice_item = InvoiceItem(
+                                    invoice=invoice,
+                                    invoice_establishment=invoice_establishment,
+                                    label=f"Bénéficiaire : {item['beneficiary_entry'].beneficiary.preferred_name}",
+                                    preferred_name=item['beneficiary_entry'].beneficiary.preferred_name,
+                                    first_name=item['beneficiary_entry'].beneficiary.first_name,
+                                    last_name=item['beneficiary_entry'].beneficiary.last_name,
+                                    birth_date=item['beneficiary_entry'].beneficiary.birth_date,
+                                    entry_date=item['beneficiary_entry'].entry_date,
+                                    release_date=release_date,
+                                    description=f"{item['days_in_month']} jour(s) dans le mois {month}/{year}",
+                                    measurement_unit=establishment.measurement_activity_unit,
+                                    unit_price=unit_price,
+                                    quantity=item['days_in_month'],  # Utiliser le nombre de jours comme quantité
+                                    amount_ht=amount_ht,  # Calcul automatique si nécessaire
+                                    amount_ttc=amount_ttc,  # Calcul automatique si nécessaire
+                                    beneficiary=item['beneficiary_entry'].beneficiary,
+                                    creator=creator
+                                )
+                            invoice_items.append(invoice_item)
+                        except Exception as e:
+                            return GenerateInvoice(invoice=None, success=False, message=f"Erreur lors de la création des éléments de facture : {str(e)}")
+
+                    # Bulk creation des éléments de facture
                     try:
-                        invoice_item = InvoiceItem.objects.get(invoice=invoice, invoice_establishment__establishment=item['establishment'], entry_date=item['beneficiary_entry'].entry_date)
-                    except InvoiceItem.DoesNotExist:
-                        amount_ht, amount_ttc = calculate_amounts(unit_price=unit_price, quantity=item['days_in_month'], tva=0, discount=0)
-                        invoice_item = InvoiceItem(
-                                invoice=invoice,
-                                invoice_establishment=invoice_establishment,
-                                label=f"Bénéficiaire : {item['beneficiary_entry'].beneficiary.preferred_name}",
-                                preferred_name=item['beneficiary_entry'].beneficiary.preferred_name,
-                                first_name=item['beneficiary_entry'].beneficiary.first_name,
-                                last_name=item['beneficiary_entry'].beneficiary.last_name,
-                                birth_date=item['beneficiary_entry'].beneficiary.birth_date,
-                                entry_date=item['beneficiary_entry'].entry_date,
-                                release_date=release_date,
-                                description=f"{item['days_in_month']} jour(s) dans le mois {month}/{year}",
-                                measurement_unit=establishment.measurement_activity_unit,
-                                unit_price=unit_price,
-                                quantity=item['days_in_month'],  # Utiliser le nombre de jours comme quantité
-                                amount_ht=amount_ht,  # Calcul automatique si nécessaire
-                                amount_ttc=amount_ttc,  # Calcul automatique si nécessaire
-                                beneficiary=item['beneficiary_entry'].beneficiary,
-                                creator=creator
-                            )
-                        invoice_items.append(invoice_item)
+                        InvoiceItem.objects.bulk_create(invoice_items)
                     except Exception as e:
                         return GenerateInvoice(invoice=None, success=False, message=f"Erreur lors de la création des éléments de facture : {str(e)}")
 
-                # Bulk creation des éléments de facture
-                try:
-                    InvoiceItem.objects.bulk_create(invoice_items)
-                except Exception as e:
-                    return GenerateInvoice(invoice=None, success=False, message=f"Erreur lors de la création des éléments de facture : {str(e)}")
-
-                invoice_establishment.update_totals()
+                    invoice_establishment.update_totals()
 
             # Update invoice totals after adding all items
             if managers:
