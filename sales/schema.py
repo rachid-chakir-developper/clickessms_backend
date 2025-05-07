@@ -575,6 +575,7 @@ class GenerateInvoice(graphene.Mutation):
         )
         invoice = None
         the_establishment=None
+        the_parent_establishment=None
         children_establishments=[]
         managers = []
         try:
@@ -587,6 +588,7 @@ class GenerateInvoice(graphene.Mutation):
                     for i, establishment_parent in enumerate(establishment_parents):
                         children_establishments += establishment_parent.get_all_children()
                     the_establishment=establishment_parents.first()
+                    the_parent_establishment=the_establishment
                 establishments = establishments | Establishment.objects.filter(id__in=[e.id for e in children_establishments])
                 establishments = establishments.distinct()
                 if not the_establishment:
@@ -718,7 +720,7 @@ class GenerateInvoice(graphene.Mutation):
             # Save the invoice to update changes
             invoice.save()
             for establishment in establishments:
-                if establishment!=the_establishment:
+                if establishment!=the_parent_establishment:
                     capacity = establishment.get_monthly_capacity(year, month)
                     unit_price = establishment.get_monthly_unit_price(year, month)
                     # Construction de establishment_infos avec des retours à la ligne
