@@ -303,7 +303,7 @@ class Establishment(models.Model):
         # Retourner la capacité de la dernière autorisation
         return last_decision_document_item.price if last_decision_document_item and last_decision_document_item.price else Decimal(0)
 
-    def get_present_beneficiaries(self, year, month):
+    def get_present_beneficiaries(self, year, month, financiers=[]):
         year = int(year)
         month = int(month)
 
@@ -321,6 +321,12 @@ class Establishment(models.Model):
             Q(entry_date__lt=month_end),
             Q(release_date__isnull=True) | Q(release_date__gte=month_start),
             beneficiary__is_deleted=False
+        )
+        if financiers:
+            queryset = queryset.filter(
+            Q(beneficiary__beneficiary_admission_documents__starting_date__lt=month_end),
+            Q(beneficiary__beneficiary_admission_documents__ending_date__isnull=True) | Q(beneficiary__beneficiary_admission_documents__ending_date__gte=month_start),
+            financier__in=financiers
         )
 
         beneficiaries = []

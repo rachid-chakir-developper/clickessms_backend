@@ -766,7 +766,7 @@ class GenerateInvoice(graphene.Mutation):
                         if manager.employee:
                             managers.append(manager.employee)
 
-                    present_beneficiaries = establishment.get_present_beneficiaries(year, month)
+                    present_beneficiaries = establishment.get_present_beneficiaries(year, month, financiers=[financier])
                     present_beneficiaries = sorted(present_beneficiaries, key=lambda item: (item['beneficiary_entry'].beneficiary.id, item['beneficiary_entry'].beneficiary.first_name, item['beneficiary_entry'].beneficiary.last_name))
                     # Créer les éléments de facture à partir des bénéficiaires présents
                     invoice_items = []
