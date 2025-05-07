@@ -51,9 +51,9 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
 
         present_beneficiaries = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=establishments, company=company)
         month_beneficiary_admissions = BeneficiaryAdmission.month_beneficiary_admissions(year=year, month=month, establishments=establishments, company=company, statuses=["APPROVED"])
-        beneficiary_admissions = []
         
         for i, establishment in enumerate(establishments):
+            beneficiary_admissions = []
             admissions_waiting_data = []
             children_establishments = establishment.get_all_children()
             beneficiary_entries=present_beneficiaries.get(establishment.id, [])
