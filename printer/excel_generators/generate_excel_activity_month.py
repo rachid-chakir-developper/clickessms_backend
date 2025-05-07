@@ -50,7 +50,7 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
             #     establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
 
         present_beneficiaries = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=establishments, company=company)
-        month_beneficiary_admissions = BeneficiaryAdmission.month_beneficiary_admissions(year=year, month=month, establishments=establishments, company=company)
+        month_beneficiary_admissions = BeneficiaryAdmission.month_beneficiary_admissions(year=year, month=month, establishments=establishments, company=company, statuses=["APPROVED"])
         beneficiary_admissions = []
         admissions_waiting_data = []
         for i, establishment in enumerate(establishments):
@@ -115,7 +115,7 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                 ws["D6"].border = border
                 start_row+=1
             else:
-                beneficiary_admissions_children = BeneficiaryAdmission.month_beneficiary_admissions(year=year, month=month, establishments=children_establishments, company=company)
+                beneficiary_admissions_children = BeneficiaryAdmission.month_beneficiary_admissions(year=year, month=month, establishments=children_establishments, company=company, statuses=["APPROVED"])
 
             present_beneficiaries_children = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=children_establishments, company=company)
             for i, children_establishment in enumerate(children_establishments):
