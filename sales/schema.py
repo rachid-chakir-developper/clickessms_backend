@@ -574,13 +574,23 @@ class GenerateInvoice(graphene.Mutation):
             ["year", "month", "financier", "establishments"],
         )
         invoice = None
+        the_establishment=None
+        children_establishments=[]
         managers = []
         try:
             try:
-                establishments = Establishment.objects.filter(id__in=establishment_ids, company=creator.the_current_company)
+                establishments = Establishment.objects.filter(id__in=establishment_ids, company=creator.the_current_company, is_deleted=False)
                 if not establishments:
                     return GenerateInvoice(invoice=invoice, success=False, message="Structures non trouvées.")
-                the_establishment=establishments.first()
+                establishment_parents = establishments.filter(establishment_parent__id=None)
+                if establishment_parents:
+                    for i, establishment_parent in enumerate(establishment_parents):
+                        children_establishments += establishment_parent.get_all_children()
+                    the_establishment=establishment_parents.first()
+                establishments = establishments | Establishment.objects.filter(id__in=[e.id for e in children_establishments])
+                establishments = establishments.distinct()
+                if not the_establishment:
+                    the_establishment=establishments.first()
                 financier = Financier.objects.get(pk=financier_id, company=creator.the_current_company)
             except Financier.DoesNotExist:
                 return GenerateInvoice(invoice=invoice, success=False, message="Financeur non trouvé.")
