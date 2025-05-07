@@ -1127,9 +1127,9 @@ class HumanRessourcesQuery(graphene.ObjectType):
                     Q(name__icontains=keyword)
                 )
             if starting_date_time:
-                beneficiary_admissions = beneficiary_admissions.filter(starting_date__gte=starting_date_time)
+                beneficiary_admissions = beneficiary_admissions.filter(reception_date__date__gte=starting_date_time.date())
             if ending_date_time:
-                beneficiary_admissions = beneficiary_admissions.filter(starting_date__lte=ending_date_time)
+                beneficiary_admissions = beneficiary_admissions.filter(reception_date__date__lte=ending_date_time.date())
             if statuses:
                 beneficiary_admissions = beneficiary_admissions.filter(status__in=statuses)
             if order_by:
