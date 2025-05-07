@@ -326,7 +326,7 @@ class Establishment(models.Model):
             queryset = queryset.filter(
             Q(beneficiary__beneficiary_admission_documents__starting_date__lt=month_end),
             Q(beneficiary__beneficiary_admission_documents__ending_date__isnull=True) | Q(beneficiary__beneficiary_admission_documents__ending_date__gte=month_start),
-            financier__in=financiers
+            beneficiary__beneficiary_admission_documents__financier__in=financiers
         )
 
         beneficiaries = []
