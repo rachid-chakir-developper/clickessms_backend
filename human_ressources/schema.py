@@ -4,6 +4,8 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 
+from django.core.exceptions import PermissionDenied
+
 from human_ressources.models import Employee 
 
 from django.db.models import Q, Subquery, OuterRef, Max, F

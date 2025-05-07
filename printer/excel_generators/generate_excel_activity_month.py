@@ -6,6 +6,8 @@ from openpyxl.utils import get_column_letter
 import datetime
 from io import BytesIO
 
+from django.core.exceptions import PermissionDenied
+
 from django.db.models import Q, Case, When
 from dashboard.utils import get_age_range
 from calendar import monthrange
@@ -18,6 +20,8 @@ from human_ressources.models import BeneficiaryEntry, BeneficiaryAdmission
 def generate_excel_activity_month(info=None, dashboard_activity_filter=None, data=None):
     user = info.context.user
     company = user.the_current_company
+    if not user.can_manage_activity() and not user.is_manager():
+        raise PermissionDenied("Impossible d'exporter : vous n'avez pas les droits nécessaires.")
     try:
         wb = Workbook()
         # Supprimer la feuille par défaut
@@ -37,6 +41,8 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
         end_year = date.replace(month=12, day=31)  # Fin de l'année
 
         establishments = Establishment.objects.filter(company=company, establishment_parent__id=None, is_deleted=False)
+        if user.is_manager() and not user.can_manage_activity():
+            establishments = establishments.filter(managers__employee=user.get_employee_in_company())
         if dashboard_activity_filter:
             the_year = dashboard_activity_filter.get('year', None)
             the_month = dashboard_activity_filter.get('month', None)

@@ -7,6 +7,7 @@ from calendar import monthrange
 from django.conf import settings
 from decimal import Decimal
 from statistics import mean
+from django.core.exceptions import PermissionDenied
 
 from django.db.models import Sum, Count, Q, Case, When
 from django.db.models.functions import TruncDate
@@ -338,6 +339,12 @@ class DashboardActivityType(graphene.ObjectType):
             if establishment_ids:
                 order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
                 establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
+        if user.is_manager() and not user.can_manage_activity():
+            establishments = establishments.filter(
+                Q(managers__employee=user.get_employee_in_company()) | 
+                Q(establishment_parent__managers__employee=user.get_employee_in_company())
+            )
+
         beneficiary_entry_monthly_presence_statistics = BeneficiaryEntry.monthly_presence_statistics(year=year, establishments=establishments, company=company)
         decision_document_monthly_statistics = DecisionDocumentItem.monthly_statistics(year=year, establishments=establishments, company=company)
 
@@ -496,6 +503,11 @@ class DashboardActivityType(graphene.ObjectType):
             if establishment_ids:
                 order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
                 establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
+        if user.is_manager() and not user.can_manage_activity():
+            establishments = establishments.filter(
+                Q(managers__employee=user.get_employee_in_company()) | 
+                Q(establishment_parent__managers__employee=user.get_employee_in_company())
+            )
 
         monthly_beneficiary_attendance = BeneficiaryEntry.monthly_beneficiary_attendance(year=year, establishments=establishments, company=company)
 
@@ -570,6 +582,12 @@ class DashboardActivityType(graphene.ObjectType):
             if establishment_ids:
                 order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
                 establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
+        if user.is_manager() and not user.can_manage_activity():
+            establishments = establishments.filter(
+                Q(managers__employee=user.get_employee_in_company()) | 
+                Q(establishment_parent__managers__employee=user.get_employee_in_company())
+            )
+
         beneficiary_admission_monthly_statistics = BeneficiaryAdmission.monthly_statistics(year=year, establishments=establishments, company=company)
         beneficiary_admission_monthly_admissions = BeneficiaryAdmission.monthly_admissions(year=year, establishments=establishments, company=company)
         beneficiary_entry_monthly_present_beneficiaries = BeneficiaryEntry.monthly_present_beneficiaries(year=year, establishments=establishments, company=company)
@@ -722,6 +740,11 @@ class DashboardActivityType(graphene.ObjectType):
             if establishment_ids:
                 order = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(establishment_ids)])
                 establishments=establishments.filter(id__in=establishment_ids).annotate(ordering=order).order_by('ordering')
+        if user.is_manager() and not user.can_manage_activity():
+            establishments = establishments.filter(
+                Q(managers__employee=user.get_employee_in_company()) | 
+                Q(establishment_parent__managers__employee=user.get_employee_in_company())
+            )
 
         present_beneficiaries = BeneficiaryEntry.present_beneficiaries(year=year, month=month, establishments=establishments, company=company)
 
@@ -761,6 +784,9 @@ class DashboardQuery(graphene.ObjectType):
         return dashboard
     def resolve_dashboard_activity(root, info, dashboard_activity_filter=None):
         # We can easily optimize query count in the resolve method
+        user = info.context.user
+        if not user.can_manage_activity() and not user.is_manager():
+            raise PermissionDenied("Impossible d'exporter : vous n'avez pas les droits nécessaires.")
         info.context.dashboard_activity_filter = dashboard_activity_filter
         dashboard_activity = 0
         return dashboard_activity
