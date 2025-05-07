@@ -129,7 +129,7 @@ def generate_excel_activity_month(info=None, dashboard_activity_filter=None, dat
                             beneficiary_admission.last_name,
                             beneficiary_admission.first_name,  # Correction ici
                             beneficiary_admission.birth_date and beneficiary_admission.birth_date.date().strftime('%d/%m/%Y'),
-                            f"{beneficiary.get_custom_field_value('IEF')}" if beneficiary else "",,
+                            f"{beneficiary.get_custom_field_value('IEF')}" if beneficiary else "",
                             beneficiary_admission.pre_admission_date and beneficiary_admission.pre_admission_date.date().strftime('%d/%m/%Y'),
                             beneficiary_admission.response_date and beneficiary_admission.response_date.date().strftime('%d/%m/%Y'),
                         ]
