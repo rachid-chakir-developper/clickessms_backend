@@ -884,9 +884,9 @@ class BeneficiaryEntry(models.Model):
                 days_count = (min(presence.release_date or end_of_month, end_of_month) - max(presence.entry_date, start_of_month)).days + 1
                 if (
                     presence.release_date is not None 
-                    and presence.release_date <= end_of_month 
+                    and presence.release_date.date() < end_of_month.date() 
                     and presence.release_date.month == end_of_month.month
-                    and presence.release_date.date() != start_of_month.date()
+                    and end_of_month.date() != today.date()
                 ):
                     days_count += 1
                 for establishment in presence.establishments.all():
