@@ -194,6 +194,7 @@ class TaskInput(graphene.InputObjectType):
     vehicles = graphene.List(graphene.Int, required=False)
     materials = graphene.List(graphene.Int, required=False)
     task_checklist = graphene.List(TaskChecklistItemInput, required=False)
+    supplier_id = graphene.Int(name="supplier", required=False)
 
 class TaskFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
@@ -203,6 +204,7 @@ class TaskFilterInput(graphene.InputObjectType):
     establishments = graphene.List(graphene.Int, required=False)
     list_type = graphene.String(required=False)
     order_by = graphene.String(required=False)
+    suppliers = graphene.List(graphene.Int, required=False)
 
 class TaskFieldInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
@@ -255,6 +257,7 @@ class WorksQuery(graphene.ObjectType):
             statuses = task_filter.get('statuses')
             list_type = task_filter.get('list_type') # ALL_TASK_REQUESTS / MY_TASKS / MY_TASK_REQUESTS / ALL
             order_by = task_filter.get('order_by')
+            suppliers = task_filter.get('suppliers')
             if list_type:
                 if list_type != 'ALL':
                     tasks = Task.objects.filter(company=company, is_deleted=False)
@@ -269,6 +272,8 @@ class WorksQuery(graphene.ObjectType):
                 tasks = tasks.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))
             if establishments:
                 tasks = tasks.filter(establishments__establishment__id__in=establishments)
+            if suppliers:
+                tasks = tasks.filter(supplier__id__in=suppliers)
             if starting_date_time:
                 tasks = tasks.filter(starting_date_time__date__gte=starting_date_time.date())
             if ending_date_time:
