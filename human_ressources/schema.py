@@ -1068,15 +1068,14 @@ class HumanRessourcesQuery(graphene.ObjectType):
         if the_list_type == 'OUT':
             # Appliquer les filtres sur le queryset déjà annoté
             beneficiaries = beneficiaries.filter(
-                last_release_date__isnull=False,  # Doit avoir une sortie
-                last_release_date__lt=today  # Dernière sortie avant aujourd’hui
-            ).exclude(
-                last_entry_date__gt=F('last_release_date')  # Pas de nouvelle entrée après la dernière sortie
+                last_release_date__isnull=False,  # A une sortie
+                last_release_date__lt=today,      # Sorti avant aujourd’hui
+                last_release_date__gte=F('last_entry_date')  # Pas de nouvelle entrée après la sortie
             )
         else:
             # Appliquer les filtres sur le queryset déjà annoté
             beneficiaries = beneficiaries.filter(
-                Q(last_release_date__isnull=True) | Q(last_release_date__gt=today)
+                Q(last_release_date__isnull=True) | Q(last_release_date__lt=F('last_entry_date')) | Q(last_release_date__gt=today)
             )
         beneficiaries = beneficiaries.order_by(the_order_by).distinct()
         total_count = beneficiaries.count()
