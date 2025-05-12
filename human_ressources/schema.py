@@ -7,7 +7,6 @@ from graphene_file_upload.scalars import Upload
 from django.core.exceptions import PermissionDenied
 
 from human_ressources.models import Employee 
-import os
 
 from django.db.models import Q, Subquery, OuterRef, Max, F
 import string
@@ -975,35 +974,6 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        # Pour BeneficiaryAdmissionDocument
-        for obj in BeneficiaryAdmissionDocument.objects.select_related('beneficiary', 'document'):
-            if obj.document and obj.beneficiary:
-                doc = obj.document
-                if obj.beneficiary.folder:
-                    doc.folder = obj.beneficiary.folder
-                if doc.file:
-                    doc.name = os.path.basename(doc.file.name)
-                doc.save()
-
-        # Pour BeneficiaryStatusEntry
-        for obj in BeneficiaryStatusEntry.objects.select_related('beneficiary', 'document'):
-            if obj.document and obj.beneficiary:
-                doc = obj.document
-                if obj.beneficiary.folder:
-                    doc.folder = obj.beneficiary.folder
-                if doc.file:
-                    doc.name = os.path.basename(doc.file.name)
-                doc.save()
-
-        # Pour DocumentRecord
-        for obj in DocumentRecord.objects.select_related('beneficiary', 'document'):
-            if obj.document and obj.beneficiary:
-                doc = obj.document
-                if obj.beneficiary.folder:
-                    doc.folder = obj.beneficiary.folder
-                if doc.file:
-                    doc.name = os.path.basename(doc.file.name)
-                doc.save()
         beneficiaries = Beneficiary.objects.filter(company=company, is_deleted=False)
         today = timezone.now().date()
         # Sous-requête pour récupérer la dernière date de sortie
