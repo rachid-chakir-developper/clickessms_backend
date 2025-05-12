@@ -979,7 +979,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
         # Sous-requête pour récupérer la dernière date de sortie
         last_release_date_subquery = (
             BeneficiaryEntry.objects
-            .filter(beneficiary=OuterRef('pk'), release_date__isnull=False)
+            .filter(beneficiary=OuterRef('pk'))
             .order_by('-release_date')
             .values('release_date')[:1]
         )
