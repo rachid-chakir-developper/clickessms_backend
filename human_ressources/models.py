@@ -1,4 +1,5 @@
 from django.db import models
+import os
 from django.utils.timezone import make_aware, is_naive, now
 from datetime import datetime, date, timedelta
 import random
@@ -585,6 +586,13 @@ class BeneficiaryAdmissionDocument(models.Model):
     def __str__(self):
         return self.id
 
+    def save(self, *args, **kwargs):
+        if self.document:
+            if self.document.file:
+                self.document.name = os.path.basename(self.document.file.name)
+                self.document.save()
+        super().save(*args, **kwargs)
+
 # Create your models here.
 class BeneficiaryStatusEntry(models.Model):
     beneficiary = models.ForeignKey(Beneficiary, on_delete=models.SET_NULL, null=True, related_name='beneficiary_status_entries')
@@ -601,6 +609,13 @@ class BeneficiaryStatusEntry(models.Model):
 
     def __str__(self):
         return self.id
+
+    def save(self, *args, **kwargs):
+        if self.document:
+            if self.document.file:
+                self.document.name = os.path.basename(self.document.file.name)
+                self.document.save()
+        super().save(*args, **kwargs)
 
 # Create your models here.
 class BeneficiaryEndowmentEntry(models.Model):

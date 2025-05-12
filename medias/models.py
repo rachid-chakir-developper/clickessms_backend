@@ -66,6 +66,14 @@ class File(models.Model):
 		return self.name if self.name else 'file'
 
 	def save(self, *args, **kwargs):
+		# Définir automatiquement un nom basé sur le fichier uploadé, si aucun nom n'est donné
+		if not self.name:
+			if self.file:
+				self.name = os.path.basename(self.file.name)
+			elif self.image:
+				self.name = os.path.basename(self.image.name)
+			elif self.video:
+				self.name = os.path.basename(self.video.name)
 		if self.video and self.video.file:
 			super().save(*args, **kwargs)
 			# Chemin complet vers le fichier vidéo
@@ -159,6 +167,13 @@ class DocumentRecord(models.Model):
 
 	def __str__(self):
 		return self.name
+
+	def save(self, *args, **kwargs):
+		if self.document:
+			if self.document.file:
+				self.document.name = os.path.basename(self.document.file.name)
+				self.document.save()
+		super().save(*args, **kwargs)
 
 class ContractTemplate(models.Model):
 	CONTRACT_TYPES = [
