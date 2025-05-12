@@ -974,7 +974,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        beneficiaries = Beneficiary.objects.filter(company__id=id_company, is_deleted=False) if id_company else Beneficiary.objects.filter(company=company, is_deleted=False)
+        beneficiaries = Beneficiary.objects.filter(company=company, is_deleted=False)
         today = timezone.now().date()
         # Sous-requête pour récupérer la dernière date de sortie
         last_release_date_subquery = (
@@ -1075,7 +1075,9 @@ class HumanRessourcesQuery(graphene.ObjectType):
             )
         else:
             # Appliquer les filtres sur le queryset déjà annoté
-            beneficiaries = beneficiaries.filter(Q(last_release_date__isnull=True) | Q(last_entry_date__gt=F('last_release_date')))
+            beneficiaries = beneficiaries.filter(
+                Q(last_release_date__isnull=True) | Q(last_release_date__gt=today)
+            )
         beneficiaries = beneficiaries.order_by(the_order_by).distinct()
         total_count = beneficiaries.count()
         if page:
