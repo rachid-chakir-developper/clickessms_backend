@@ -104,8 +104,8 @@ class DocumentRecord(models.Model):
 		("MONTH", "Mois")#
 	]
 	number = models.CharField(max_length=255, editable=False, null=True)
-	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.SET_NULL, related_name='document_records', null=True)
-	job_candidate_information_sheet = models.ForeignKey('recruitment.JobCandidateInformationSheet', on_delete=models.SET_NULL, related_name='document_records', null=True)
+	beneficiary = models.ForeignKey('human_ressources.Beneficiary', on_delete=models.CASCADE, related_name='document_records', null=True)
+	job_candidate_information_sheet = models.ForeignKey('recruitment.JobCandidateInformationSheet', on_delete=models.CASCADE, related_name='document_records', null=True)
 	name = models.CharField(max_length=255)
 	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='document_records', null=True)
 	document_type = models.ForeignKey('data_management.DocumentType', on_delete=models.SET_NULL, related_name='document_records', null=True)
@@ -174,6 +174,11 @@ class DocumentRecord(models.Model):
 				self.document.name = os.path.basename(self.document.file.name)
 				self.document.save()
 		super().save(*args, **kwargs)
+
+	def delete(self, *args, **kwargs):
+		if self.document:
+			self.document.delete()
+		super().delete(*args, **kwargs)
 
 class ContractTemplate(models.Model):
 	CONTRACT_TYPES = [
