@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 import os
 from django.utils.timezone import make_aware, is_naive, now
 from datetime import datetime, date, timedelta
@@ -626,6 +628,12 @@ class BeneficiaryStatusEntry(models.Model):
 		if self.document:
 			self.document.delete()
 		super().delete(*args, **kwargs)
+		
+@receiver(pre_delete, sender=BeneficiaryAdmissionDocument)
+@receiver(pre_delete, sender=BeneficiaryStatusEntry)
+def delete_related_document(sender, instance, **kwargs):
+    if instance.document:
+        instance.document.delete()
 
 # Create your models here.
 class BeneficiaryEndowmentEntry(models.Model):

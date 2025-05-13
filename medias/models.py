@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from moviepy.editor import VideoFileClip
 import os
 from django.conf import settings
@@ -178,7 +180,12 @@ class DocumentRecord(models.Model):
 	def delete(self, *args, **kwargs):
 		if self.document:
 			self.document.delete()
+
 		super().delete(*args, **kwargs)
+@receiver(pre_delete, sender=DocumentRecord)
+def delete_related_document(sender, instance, **kwargs):
+    if instance.document:
+        instance.document.delete()
 
 class ContractTemplate(models.Model):
 	CONTRACT_TYPES = [
