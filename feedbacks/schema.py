@@ -418,8 +418,8 @@ class UpdateFeedback(graphene.Mutation):
     def mutate(root, info, id, image=None, feedback_data=None):
         creator = info.context.user
         try:
-            feedback = Feedback.objects.get(pk=id, creator=creator)
-        except Feedback.DoesNotExist:
+            feedback = Feedback.objects.get(pk=id) if creator.is_superuser else Feedback.objects.get(pk=id, creator=creator)
+        except Feedback.DoesNotExist as e:
             raise e
         Feedback.objects.filter(pk=id).update(**feedback_data)
         feedback.refresh_from_db()
