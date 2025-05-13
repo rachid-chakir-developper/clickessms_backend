@@ -1381,7 +1381,7 @@ class Advance(models.Model):
 	reason = models.TextField(blank=True, null=True)
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
 	comments = models.TextField(blank=True, null=True, help_text="Commentaires de la RH")
-	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.CASCADE, related_name='advances')
+	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.CASCADE, related_name='advances', null=True)
 	validated_by = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='validated_advances', null=True, blank=True)
 	validation_date = models.DateTimeField(null=True, blank=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_advances', null=True)

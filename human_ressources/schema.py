@@ -53,7 +53,7 @@ class AdvanceInput(graphene.InputObjectType):
     reason = graphene.String(required=False)  # Correction: Remplace title et content
     status = graphene.String(required=False, default_value="PENDING")  # Correction: Ajout du champ status
     comments = graphene.String(required=False)  # Correction: Remplace observation
-    employee = graphene.Int(required=True)  # Correction: Ajout d'un champ obligatoire pour l'employé
+    employee_id = graphene.Int(name="employee", required=False)  # Correction: Ajout d'un champ obligatoire pour l'employé
 
 class AdvanceQuery(graphene.ObjectType):
     advances = graphene.Field(
@@ -172,21 +172,14 @@ class CreateAdvance(graphene.Mutation):
     def mutate(root, info, advance_data=None):
         creator = info.context.user
 
-        # Vérifier si l'ID de l'employé est bien fourni
-        employee_id = advance_data.pop("employee", None)
-        if not employee_id:
-            raise ValueError("L'ID de l'employé est obligatoire.")
-
-        try:
-            employee_instance = Employee.objects.get(pk=employee_id)
-        except Employee.DoesNotExist:
-            raise ValueError("L'employé spécifié n'existe pas.")
-
         # Création de l'Advance avec l'instance Employee
-        advance = Advance(**advance_data, employee=employee_instance)
+        advance = Advance(**advance_data)
         advance.creator = creator
         advance.company = creator.the_current_company
         advance.save()
+        if not advance.employee:
+            advance.employee = creator.get_employee_in_company()
+            advance.save()
 
         return CreateAdvance(advance=advance)
 
@@ -200,6 +193,9 @@ class UpdateAdvance(graphene.Mutation):
     def mutate(root, info, id, advance_data=None):
         Advance.objects.filter(pk=id).update(**advance_data)
         advance = Advance.objects.get(pk=id)
+        if not advance.employee:
+            advance.employee = creator.get_employee_in_company()
+            advance.save()
         return UpdateAdvance(advance=advance)
 
 class UpdateAdvanceState(graphene.Mutation):
