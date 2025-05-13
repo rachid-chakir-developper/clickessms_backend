@@ -5,6 +5,7 @@ from graphql_auth import mutations
 
 from accounts.schema import UserQuery, UserMutation, UserSubscription, UserType
 from medias.schema import MediasQuery, MediasMutation
+from workflow.schema import WorkflowQuery, WorkflowMutation
 from the_mailer.schema import TheMailerQuery, TheMailerMutation
 from data_management.schema import DataQuery, DataMutation
 from searching.schema import SearchQuery
@@ -87,7 +88,7 @@ class AuthMutation(graphene.ObjectType):
     # Changement de mot de passe obligatoire (désactive is_must_change_password après exécution)
     first_password_change = CustomPasswordChange.Field()
 
-class Query(MeQuery, UserQuery, MediasQuery, TheMailerQuery, DataQuery, SearchQuery, DashboardQuery,
+class Query(MeQuery, UserQuery, MediasQuery, WorkflowQuery, TheMailerQuery, DataQuery, SearchQuery, DashboardQuery,
     CompanyQuery, HumanRessourcesQuery, RecruitmentQuery, StocksQuery, ComputersQuery,
     VehiclesQuery, PartnershipsQuery, PurchasesQuery, SalesQuery, WorksQuery,
     CommentsQuery, NotificationsQuery, ChatQuery, LoansQuery, ActivitiesQuery,
@@ -96,7 +97,7 @@ class Query(MeQuery, UserQuery, MediasQuery, TheMailerQuery, DataQuery, SearchQu
     graphene.ObjectType):
     pass
 
-class Mutation(AuthMutation, UserMutation, MediasMutation, TheMailerMutation, DataMutation, DashboardMutation,
+class Mutation(AuthMutation, UserMutation, MediasMutation, WorkflowMutation, TheMailerMutation, DataMutation, DashboardMutation,
     CompanyMutation, HumanRessourcesMutation, RecruitmentMutation, StocksMutation, ComputersMutation,
     VehiclesMutation, PartnershipsMutation, PurchasesMutation, SalesMutation, WorksMutation,
     CommentsMutation, NotificationsMutation, ChatMutation, LoansMutation, ActivitiesMutation,

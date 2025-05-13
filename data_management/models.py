@@ -226,6 +226,10 @@ class VehicleModel(DataModel):
 	def __str__(self):
 		return str(self.id)
 
+class EmployeePosition(DataModel):
+	def __str__(self):
+		return str(self.id)
+
 class EmployeeMission(DataModel):
 	def __str__(self):
 		return str(self.id)

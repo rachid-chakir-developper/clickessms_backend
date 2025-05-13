@@ -65,7 +65,7 @@ class Employee(models.Model):
 	establishments = models.ManyToManyField('companies.Establishment', related_name='employees')
 	is_active = models.BooleanField(default=True, null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
-	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_employees', null=True)
+	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='employees', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='employee_former', null=True)
 	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -129,6 +129,14 @@ class Employee(models.Model):
 		if contracts.exists():
 			return contracts.latest('starting_date')
 		return None
+
+	def is_on_leave(self):
+		today = now().date()
+		return self.employee_absences.filter(
+			status='APPROVED',
+			starting_date_time___date__lte=today,
+			ending_date_time__date__gte=today
+		).exists()
 
 	def __str__(self):
 		return self.email
@@ -632,8 +640,8 @@ class BeneficiaryStatusEntry(models.Model):
 @receiver(pre_delete, sender=BeneficiaryAdmissionDocument)
 @receiver(pre_delete, sender=BeneficiaryStatusEntry)
 def delete_related_document(sender, instance, **kwargs):
-    if instance.document:
-        instance.document.delete()
+	if instance.document:
+		instance.document.delete()
 
 # Create your models here.
 class BeneficiaryEndowmentEntry(models.Model):
