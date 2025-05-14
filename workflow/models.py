@@ -10,7 +10,8 @@ class ValidationWorkflow(models.Model):
 
 	# Type de demande concernée (congé, note de frais, etc.)
 	request_type = models.CharField(max_length=50, choices=WORKFLOW_TYPE_CHOICES)
-
+	observation = models.TextField(default='', null=True)
+	description = models.TextField(default='', null=True)
 	# Entreprise à laquelle le workflow est rattaché
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='validation_workflows', null=True)
 
@@ -38,32 +39,53 @@ class ValidationStep(models.Model):
 	]
 
 	# Lien vers le workflow parent
-	workflow = models.ForeignKey('ValidationWorkflow', on_delete=models.CASCADE, related_name='steps')
+	workflow = models.ForeignKey(
+		ValidationWorkflow,
+		on_delete=models.CASCADE,
+		related_name='validation_steps',
+		null=True
+	)
 
 	# Ordre d'exécution de l'étape
-	step_order = models.PositiveIntegerField()
+	order = models.PositiveIntegerField()
 
 	# Conditions pour activer l'étape : rôle ou service du demandeur
-	role_condition = models.CharField(max_length=100, blank=True, null=True)
-	service_condition = models.CharField(max_length=100, blank=True, null=True)
+	role_conditions = models.JSONField(null=True, blank=True)  # plusieurs rôles
+	service_conditions = models.JSONField(null=True, blank=True)  # plusieurs services
 
-	# Type de validateur choisi (rôle, poste ou manager)
+	# Type de validateur choisi
 	validator_type = models.CharField(max_length=20, choices=VALIDATOR_TYPE_CHOICES)
 
-	# Rôle utilisé comme validateur (si applicable)
-	role = models.ForeignKey('accounts.Role', null=True, blank=True, on_delete=models.SET_NULL)
+	# Plusieurs rôles comme validateurs
+	roles = models.JSONField(null=True, blank=True)
 
-	# Poste utilisé comme validateur (si applicable)
-	position = models.ForeignKey('data_management.EmployeePosition', null=True, blank=True, on_delete=models.SET_NULL)
+	# Plusieurs postes comme validateurs
+	positions = models.ManyToManyField(
+		'data_management.EmployeePosition',
+		blank=True,
+		related_name='validation_steps'
+	)
+
+	# Plusieurs employés validateurs spécifiques (optionnel)
+	employees = models.ManyToManyField(
+		'human_ressources.Employee',
+		blank=True,
+		related_name='validation_steps'
+	)
 
 	# Nombre de validations requises pour valider l'étape
 	required_approval_count = models.PositiveIntegerField(default=1)
 
-	# Condition d'expression logique pour évaluer dynamiquement l'étape (optionnel)
+	# Condition d'expression logique (optionnel)
 	condition_expression = models.TextField(blank=True, null=True)
 
 	# Utilisateur ayant créé cette étape
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, related_name='validation_steps')
+	creator = models.ForeignKey(
+		'accounts.User',
+		on_delete=models.SET_NULL,
+		null=True,
+		related_name='validation_steps'
+	)
 
 	# Suppression logique
 	is_deleted = models.BooleanField(default=False)
@@ -73,14 +95,66 @@ class ValidationStep(models.Model):
 	updated_at = models.DateTimeField(auto_now=True)
 
 	class Meta:
-		ordering = ['step_order']
+		ordering = ['order']
 
 	def __str__(self):
 		return f"{self.workflow} - Étape {self.step_order}"
 
 
-class FallbackRule(models.Model):
 
+# Règle personnalisée de validation (par rôle, service, ou utilisateur)
+class ValidationRule(models.Model):
+	validation_step = models.ForeignKey(
+		ValidationStep,
+		on_delete=models.CASCADE,
+		related_name="validation_rules"
+	)
+
+	# Cibles (demandeurs)
+	target_employees = models.ManyToManyField(
+		"human_ressources.Employee",
+		blank=True,
+		related_name="rules_as_target_employee"
+	)
+	target_roles = models.JSONField(
+		null=True, blank=True,
+		help_text="Liste des rôles des demandeurs concernés (format JSON)"
+	)
+	target_services = models.JSONField(
+		null=True, blank=True,
+		help_text="Liste des services des demandeurs concernés (format JSON)"
+	)
+
+	# Validateurs
+	validator_employees = models.ManyToManyField(
+		"human_ressources.Employee",
+		blank=True,
+		related_name="rules_as_validator_employee"
+	)
+	validator_roles = models.JSONField(
+		null=True, blank=True,
+		help_text="Liste des rôles des validateurs (format JSON)"
+	)
+	validator_positions = models.ManyToManyField(
+		"data_management.EmployeePosition",
+		blank=True,
+		related_name="rules_as_validator_position"
+	)
+
+	comment = models.TextField(null=True, blank=True)
+
+	is_active = models.BooleanField(default=True)
+	is_deleted = models.BooleanField(default=False)
+
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+
+	def __str__(self):
+		return f"Règle étape {self.validation_step.step_order}"
+
+
+
+class FallbackRule(models.Model):
 	# Types de fallback possibles
 	FALLBACK_TYPE_CHOICES = [
 		("REPLACEMENT", "Remplaçant déclaré"),
@@ -89,22 +163,43 @@ class FallbackRule(models.Model):
 	]
 
 	# Étape concernée par cette règle de fallback
-	step = models.ForeignKey('ValidationStep', related_name="fallbacks", on_delete=models.CASCADE)
+	validation_step = models.ForeignKey(
+		ValidationStep,
+		on_delete=models.CASCADE,
+		related_name="fallback_rules",
+		null=True
+	)
 
 	# Type de fallback (remplaçant, hiérarchie, admin)
 	fallback_type = models.CharField(max_length=50, choices=FALLBACK_TYPE_CHOICES)
 
-	# Rôle de secours (optionnel)
-	fallback_role = models.ForeignKey('accounts.Role', null=True, blank=True, on_delete=models.SET_NULL)
+	# Plusieurs rôles de secours possibles
+	fallback_roles = models.JSONField(null=True, blank=True)
 
-	# Poste de secours (optionnel)
-	fallback_position = models.ForeignKey('data_management.EmployeePosition', null=True, blank=True, on_delete=models.SET_NULL)
+	# Plusieurs employés de secours possibles
+	fallback_employees = models.ManyToManyField(
+		'human_ressources.Employee',
+		blank=True,
+		related_name='fallback_rules'
+	)
+
+	# Plusieurs postes de secours possibles
+	fallback_positions = models.ManyToManyField(
+		'data_management.EmployeePosition',
+		blank=True,
+		related_name='fallback_rules'
+	)
 
 	# Ordre d'évaluation des fallbacks
 	order = models.PositiveIntegerField()
 
 	# Créateur de cette règle
-	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, related_name='fallback_rules')
+	creator = models.ForeignKey(
+		'accounts.User',
+		on_delete=models.SET_NULL,
+		null=True,
+		related_name='fallback_rules'
+	)
 
 	# Suppression logique
 	is_deleted = models.BooleanField(default=False)
@@ -117,6 +212,7 @@ class FallbackRule(models.Model):
 		ordering = ["order"]
 
 	def __str__(self):
-		return f"Fallback #{self.order} pour étape {self.step.step_order}"
+		return f"Fallback #{self.order} pour étape {self.validation_step.step_order if self.validation_step else 'N/A'}"
+
 
 

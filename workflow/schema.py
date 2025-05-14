@@ -5,19 +5,28 @@ from graphql_jwt.decorators import login_required
 
 from django.db.models import Q
 
-from workflow.models import ValidationWorkflow
+from workflow.models import ValidationWorkflow, ValidationStep, ValidationRule, FallbackRule
+
+class ValidationStepType(DjangoObjectType):
+    class Meta:
+        model = ValidationStep
+        fields = "__all__"
+
+class ValidationRuleType(DjangoObjectType):
+    class Meta:
+        model = ValidationRule
+        fields = "__all__"
+
+
+class FallbackRuleType(DjangoObjectType):
+    class Meta:
+        model = FallbackRule
+        fields = "__all__"
 
 class ValidationWorkflowType(DjangoObjectType):
     class Meta:
         model = ValidationWorkflow
         fields = "__all__"
-
-    image = graphene.String()
-
-    def resolve_image(instance, info, **kwargs):
-        return instance.image and info.context.build_absolute_uri(
-            instance.image.image.url
-        )
 
 class ValidationWorkflowNodeType(graphene.ObjectType):
     nodes = graphene.List(ValidationWorkflowType)
@@ -30,7 +39,8 @@ class ValidationWorkflowFilterInput(graphene.InputObjectType):
 
 class ValidationWorkflowInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
-    request_type = graphene.String(required=False)
+    request_type = graphene.String(required=True)
+    description = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
 
 class WorkflowQuery(graphene.ObjectType):
@@ -80,7 +90,7 @@ class CreateValidationWorkflow(graphene.Mutation):
 
     def mutate(root, info, validation_workflow_data=None):
         creator = info.context.user
-        if not creator.is_admin():
+        if not creator.is_admin() and not creator.is_superuser:
             raise ValueError("Vous n'avez pas les droits nécessairespour effectuer cette action.")
         validation_workflow = ValidationWorkflow(**validation_workflow_data)
         validation_workflow.creator = creator
@@ -99,9 +109,9 @@ class UpdateValidationWorkflow(graphene.Mutation):
         creator = info.context.user
         try:
             validation_workflow = ValidationWorkflow.objects.get(pk=id, company=creator.the_current_company)
-        except ValidationWorkflow.DoesNotExist:
+        except ValidationWorkflow.DoesNotExist as e:
             raise e
-        if not creator.is_admin():
+        if not creator.is_admin() and not creator.is_superuser:
             raise ValueError("Vous n'avez pas les droits nécessairespour effectuer cette action.")
         ValidationWorkflow.objects.filter(pk=id).update(**validation_workflow_data)
         validation_workflow.refresh_from_db()
