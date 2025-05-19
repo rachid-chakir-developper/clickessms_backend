@@ -12,7 +12,7 @@ from django.db.models import Q, Subquery, OuterRef, Max, F
 import string
 import random
 
-from human_ressources.models import CareerEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem, Advance
+from human_ressources.models import CareerEntry, Employee, EmployeeGroup, EmployeeGroupItem, EmployeeGroupManager, EmployeeContract,EmployeeContractMission, EmployeeContractEstablishment, EmployeeContractReplacedEmployee, Beneficiary, BeneficiaryAdmissionDocument, BeneficiaryStatusEntry, BeneficiaryEndowmentEntry, BeneficiaryEntry, BeneficiaryAdmission, BeneficiaryGroup, BeneficiaryGroupItem, Advance
 from medias.models import Folder, File, DocumentRecord
 from data_management.models import EmployeeMission, AddressBookEntry
 from companies.models import Establishment
@@ -422,6 +422,11 @@ class EmployeeGroupItemType(DjangoObjectType):
         model = EmployeeGroupItem
         fields = "__all__"
 
+class EmployeeGroupManagerType(DjangoObjectType):
+    class Meta:
+        model = EmployeeGroupManager
+        fields = "__all__"
+
 class EmployeeGroupType(DjangoObjectType):
     class Meta:
         model = EmployeeGroup
@@ -441,6 +446,7 @@ class EmployeeGroupFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
+    order_by = graphene.String(required=False)
 
 class BeneficiaryAdmissionDocumentType(DjangoObjectType):
     class Meta:
@@ -624,6 +630,7 @@ class EmployeeGroupInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    managers = graphene.List(graphene.Int, required=False)
     employees = graphene.List(graphene.Int, required=False)
 
 class EmployeeContractReplacedEmployeeInput(graphene.InputObjectType):
@@ -937,17 +944,21 @@ class HumanRessourcesQuery(graphene.ObjectType):
         company = user.the_current_company
         total_count = 0
         employee_groups = EmployeeGroup.objects.filter(company=company, is_deleted=False)
+        the_order_by = '-created_at'
         if employee_group_filter:
             keyword = employee_group_filter.get('keyword', '')
             starting_date_time = employee_group_filter.get('starting_date_time')
             ending_date_time = employee_group_filter.get('ending_date_time')
+            order_by = employee_group_filter.get('order_by')
             if keyword:
-                employee_groups = employee_groups.filter(Q(title__icontains=keyword))
+                employee_groups = employee_groups.filter(Q(name__icontains=keyword))
             if starting_date_time:
                 employee_groups = employee_groups.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 employee_groups = employee_groups.filter(created_at__lte=ending_date_time)
-        employee_groups = employee_groups.order_by('-created_at').distinct()
+            if order_by:
+                the_order_by = order_by
+        employee_groups = employee_groups.order_by(the_order_by).distinct()
         total_count = employee_groups.count()
         if page:
             offset = limit * (page - 1)
@@ -1749,7 +1760,8 @@ class CreateEmployeeGroup(graphene.Mutation):
 
     def mutate(root, info, image=None, employee_group_data=None):
         creator = info.context.user
-        employee_ids = employee_group_data.pop("employees")
+        employee_ids = employee_group_data.pop("employees", None)
+        managers_ids = employee_group_data.pop("managers", None)
         employee_group = EmployeeGroup(**employee_group_data)
         employee_group.creator = creator
         employee_group.company = creator.the_current_company
@@ -1764,6 +1776,18 @@ class CreateEmployeeGroup(graphene.Mutation):
                 image_file.save()
                 employee_group.image = image_file
         employee_group.save()
+
+        employees = Employee.objects.filter(id__in=managers_ids)
+        for employee in employees:
+            try:
+                employee_group_manager = EmployeeGroupManager.objects.get(employee__id=employee.id, employee_group__id=employee_group.id)
+            except EmployeeGroupManager.DoesNotExist:
+                EmployeeGroupManager.objects.create(
+                        employee_group=employee_group,
+                        employee=employee,
+                        creator=creator
+                    )
+
         folder = Folder.objects.create(name=str(employee_group.id)+'_'+employee_group.name,creator=creator)
         employee_group.folder = folder
         employees = Employee.objects.filter(id__in=employee_ids)
@@ -1793,7 +1817,8 @@ class UpdateEmployeeGroup(graphene.Mutation):
             employee_group = EmployeeGroup.objects.get(pk=id, company=creator.the_current_company)
         except EmployeeGroup.DoesNotExist:
             raise e
-        employee_ids = employee_group_data.pop("employees")
+        employee_ids = employee_group_data.pop("employees", None)
+        managers_ids = employee_group_data.pop("managers", None)
         EmployeeGroup.objects.filter(pk=id).update(**employee_group_data)
         employee_group.refresh_from_db()
         if not employee_group.folder or employee_group.folder is None:
@@ -1813,6 +1838,19 @@ class UpdateEmployeeGroup(graphene.Mutation):
                 image_file.save()
                 employee_group.image = image_file
             employee_group.save()
+
+        EmployeeGroupManager.objects.filter(employee_group=employee_group).exclude(employee__id__in=managers_ids).delete()
+        employees = Employee.objects.filter(id__in=managers_ids)
+        for employee in employees:
+            try:
+                employee_group_manager = EmployeeGroupManager.objects.get(employee__id=employee.id, employee_group__id=employee_group.id)
+            except EmployeeGroupManager.DoesNotExist:
+                EmployeeGroupManager.objects.create(
+                        employee_group=employee_group,
+                        employee=employee,
+                        creator=creator
+                    )
+
         EmployeeGroupItem.objects.filter(employee_group=employee_group).exclude(employee__id__in=employee_ids).delete()
         employees = Employee.objects.filter(id__in=employee_ids)
         for employee in employees:

@@ -152,6 +152,7 @@ class EmployeeGroup(models.Model):
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_employee_groups', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='employee_group_former', null=True)
+	is_deleted = models.BooleanField(default=False, null=True)
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -166,7 +167,17 @@ class EmployeeGroupItem(models.Model):
 	created_at = models.DateTimeField(auto_now_add=True, null=True)
 	updated_at = models.DateTimeField(auto_now=True, null=True)
 
-	# Create your models here.
+# Create your models here.
+class EmployeeGroupManager(models.Model):
+    employee_group = models.ForeignKey(EmployeeGroup, on_delete=models.SET_NULL, null=True, related_name='managers')
+    employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_group_manager', null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='employee_group_manager_former', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return str(self.id)
+
 class EmployeeContract(models.Model):
 
 	CONTRACT_TYPES = [

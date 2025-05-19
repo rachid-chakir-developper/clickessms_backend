@@ -31,12 +31,6 @@ class ValidationWorkflow(models.Model):
 		return f"{self.company.name} - {self.get_request_type_display()}"
 
 class ValidationStep(models.Model):
-	# Types de validateurs autorisés
-	VALIDATOR_TYPE_CHOICES = [
-		("ROLE", "Rôle"),
-		("POSITION", "Poste spécifique"),
-		("MANAGER", "Manager du demandeur"),
-	]
 
 	# Lien vers le workflow parent
 	workflow = models.ForeignKey(
@@ -49,35 +43,7 @@ class ValidationStep(models.Model):
 	# Ordre d'exécution de l'étape
 	order = models.PositiveIntegerField()
 
-	# Conditions pour activer l'étape : rôle ou service du demandeur
-	role_conditions = models.JSONField(null=True, blank=True)  # plusieurs rôles
-	service_conditions = models.JSONField(null=True, blank=True)  # plusieurs services
-
-	# Type de validateur choisi
-	validator_type = models.CharField(max_length=20, choices=VALIDATOR_TYPE_CHOICES)
-
-	# Plusieurs rôles comme validateurs
-	roles = models.JSONField(null=True, blank=True)
-
-	# Plusieurs postes comme validateurs
-	positions = models.ManyToManyField(
-		'data_management.EmployeePosition',
-		blank=True,
-		related_name='validation_steps'
-	)
-
-	# Plusieurs employés validateurs spécifiques (optionnel)
-	employees = models.ManyToManyField(
-		'human_ressources.Employee',
-		blank=True,
-		related_name='validation_steps'
-	)
-
-	# Nombre de validations requises pour valider l'étape
-	required_approval_count = models.PositiveIntegerField(default=1)
-
-	# Condition d'expression logique (optionnel)
-	condition_expression = models.TextField(blank=True, null=True)
+	comment = models.TextField(null=True, blank=True)
 
 	# Utilisateur ayant créé cette étape
 	creator = models.ForeignKey(
@@ -98,12 +64,18 @@ class ValidationStep(models.Model):
 		ordering = ['order']
 
 	def __str__(self):
-		return f"{self.workflow} - Étape {self.step_order}"
+		return f"{self.workflow} - Étape {self.order}"
 
 
 
 # Règle personnalisée de validation (par rôle, service, ou utilisateur)
 class ValidationRule(models.Model):
+	# Types de validateurs autorisés
+	VALIDATOR_TYPE_CHOICES = [
+		("ROLE", "Rôle"),
+		("POSITION", "Poste spécifique"),
+		("MANAGER", "Manager du demandeur"),
+	]
 	validation_step = models.ForeignKey(
 		ValidationStep,
 		on_delete=models.CASCADE,
@@ -111,6 +83,12 @@ class ValidationRule(models.Model):
 	)
 
 	# Cibles (demandeurs)
+	target_employee_groups = models.ManyToManyField(
+		"human_ressources.EmployeeGroup",
+		blank=True,
+		related_name="rules_as_target_employee_group"
+	)
+
 	target_employees = models.ManyToManyField(
 		"human_ressources.Employee",
 		blank=True,
@@ -120,12 +98,15 @@ class ValidationRule(models.Model):
 		null=True, blank=True,
 		help_text="Liste des rôles des demandeurs concernés (format JSON)"
 	)
-	target_services = models.JSONField(
-		null=True, blank=True,
-		help_text="Liste des services des demandeurs concernés (format JSON)"
+	target_positions = models.ManyToManyField(
+		"data_management.EmployeePosition",
+		blank=True,
+		related_name="rules_as_target_position"
 	)
 
 	# Validateurs
+	validator_type = models.CharField(max_length=20, choices=VALIDATOR_TYPE_CHOICES, default="ROLE")
+
 	validator_employees = models.ManyToManyField(
 		"human_ressources.Employee",
 		blank=True,
@@ -141,6 +122,9 @@ class ValidationRule(models.Model):
 		related_name="rules_as_validator_position"
 	)
 
+	# Condition d'expression logique (optionnel)
+	condition_expression = models.TextField(blank=True, null=True)
+
 	comment = models.TextField(null=True, blank=True)
 
 	is_active = models.BooleanField(default=True)
@@ -150,7 +134,7 @@ class ValidationRule(models.Model):
 	updated_at = models.DateTimeField(auto_now=True)
 
 	def __str__(self):
-		return f"Règle étape {self.validation_step.step_order}"
+		return f"Règle étape {self.validation_step.order}"
 
 
 
@@ -212,7 +196,7 @@ class FallbackRule(models.Model):
 		ordering = ["order"]
 
 	def __str__(self):
-		return f"Fallback #{self.order} pour étape {self.validation_step.step_order if self.validation_step else 'N/A'}"
+		return f"Fallback #{self.order} pour étape {self.validation_step.order if self.validation_step else 'N/A'}"
 
 
 
