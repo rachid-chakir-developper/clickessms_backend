@@ -207,6 +207,3 @@ class FallbackRule(models.Model):
 
 	def __str__(self):
 		return f"Fallback #{self.order} pour étape {self.validation_step.order if self.validation_step else 'N/A'}"
-
-
-
