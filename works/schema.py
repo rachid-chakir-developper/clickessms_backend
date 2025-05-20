@@ -994,7 +994,7 @@ class UpdateTicket(graphene.Mutation):
         efc_reports = ticket_data.pop("efc_reports")
         Ticket.objects.filter(pk=id).update(**ticket_data)
         ticket = Ticket.objects.get(pk=id)
-        if establishment_ids and establishment_ids is not None:
+        if establishment_ids is not None:
             ticket.establishments.set(establishment_ids)
         if not ticket.folder or ticket.folder is None:
             folder = Folder.objects.create(name=str(ticket.id)+'_'+ticket.title,creator=creator)
@@ -1026,7 +1026,7 @@ class UpdateTicket(graphene.Mutation):
                 document_file.save()
                 efc_report.document = document_file
                 efc_report.save()
-            if employees_ids and employees_ids is not None:
+            if employees_ids is not None:
                 efc_report.employees.set(employees_ids)
         task_action_ids = [item.id for item in task_actions if item.id is not None]
         TaskAction.objects.filter(ticket=ticket).exclude(id__in=task_action_ids).delete()
@@ -1041,7 +1041,7 @@ class UpdateTicket(graphene.Mutation):
                 task_action.creator = creator
                 task_action.company = ticket.company
                 task_action.save()
-            if employees_ids and employees_ids is not None:
+            if employees_ids is not None:
                 task_action.employees.set(employees_ids)
                 for employee in task_action.employees.all():
                     employee_user = employee.user

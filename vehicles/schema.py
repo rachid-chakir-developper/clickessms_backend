@@ -701,7 +701,7 @@ class UpdateVehicleInspection(graphene.Mutation):
         controller_employees_ids = vehicle_inspection_data.pop("controller_employees") if 'controller_employees' in vehicle_inspection_data else []
         VehicleInspection.objects.filter(pk=id).update(**vehicle_inspection_data)
         vehicle_inspection.refresh_from_db()
-        if controller_employees_ids and controller_employees_ids is not None:
+        if controller_employees_ids is not None:
             vehicle_inspection.controller_employees.set(controller_employees_ids)
         if not images:
             images = []

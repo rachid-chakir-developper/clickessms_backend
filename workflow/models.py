@@ -33,7 +33,7 @@ class ValidationWorkflow(models.Model):
 class ValidationStep(models.Model):
 
 	# Lien vers le workflow parent
-	workflow = models.ForeignKey(
+	validation_workflow = models.ForeignKey(
 		ValidationWorkflow,
 		on_delete=models.CASCADE,
 		related_name='validation_steps',
@@ -75,6 +75,7 @@ class ValidationRule(models.Model):
 		("ROLE", "Rôle"),
 		("POSITION", "Poste spécifique"),
 		("MANAGER", "Manager du demandeur"),
+		("CUSTOM", "Sélection personnalisée"),
 	]
 	validation_step = models.ForeignKey(
 		ValidationStep,
@@ -128,6 +129,15 @@ class ValidationRule(models.Model):
 	comment = models.TextField(null=True, blank=True)
 
 	is_active = models.BooleanField(default=True)
+
+	# Créateur de cette règle
+	creator = models.ForeignKey(
+		'accounts.User',
+		on_delete=models.SET_NULL,
+		null=True,
+		related_name='validation_rules'
+	)
+	
 	is_deleted = models.BooleanField(default=False)
 
 	created_at = models.DateTimeField(auto_now_add=True)

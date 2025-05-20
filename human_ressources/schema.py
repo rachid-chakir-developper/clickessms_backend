@@ -2351,7 +2351,7 @@ class UpdateBeneficiaryAdmission(graphene.Mutation):
         establishment_ids = beneficiary_admission_data.pop("establishments", None)
         BeneficiaryAdmission.objects.filter(pk=id).update(**beneficiary_admission_data)
         beneficiary_admission.refresh_from_db()
-        if establishment_ids and establishment_ids is not None:
+        if establishment_ids is not None:
             beneficiary_admission.establishments.set(establishment_ids)
         if not beneficiary_admission.folder or beneficiary_admission.folder is None:
             folder = Folder.objects.create(name=str(beneficiary_admission.id)+'_'+beneficiary_admission.first_name+'-'+beneficiary_admission.last_name,creator=creator)

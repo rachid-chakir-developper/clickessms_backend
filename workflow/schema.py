@@ -37,11 +37,35 @@ class ValidationWorkflowFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
 
+class ValidationRuleInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    validator_type = graphene.String(required=True)
+    target_employee_groups = graphene.List(graphene.Int, required=False)
+    target_employees = graphene.List(graphene.Int, required=False)
+    target_roles = graphene.List(graphene.String, required=False)
+    target_positions = graphene.List(graphene.Int, required=False)
+    validator_employees = graphene.List(graphene.Int, required=False)
+    validator_roles = graphene.List(graphene.String, required=False)
+    validator_positions = graphene.List(graphene.Int, required=False)
+
+class FallbackRuleInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    fallback_type = graphene.String(required=True)
+    order = graphene.Int(required=True)
+
+class ValidationStepInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    comment = graphene.String(required=True)
+    order = graphene.Int(required=True)
+    validation_rules= graphene.List(ValidationRuleInput, required=False)
+    fallback_rules= graphene.List(FallbackRuleInput, required=False)
+
 class ValidationWorkflowInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     request_type = graphene.String(required=True)
     description = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
+    validation_steps= graphene.List(ValidationStepInput, required=False)
 
 class WorkflowQuery(graphene.ObjectType):
     validation_workflows = graphene.Field(ValidationWorkflowNodeType, validation_workflow_filter= ValidationWorkflowFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -92,10 +116,43 @@ class CreateValidationWorkflow(graphene.Mutation):
         creator = info.context.user
         if not creator.is_admin() and not creator.is_superuser:
             raise ValueError("Vous n'avez pas les droits nécessairespour effectuer cette action.")
+        validation_steps = validation_workflow_data.pop("validation_steps", None)
         validation_workflow = ValidationWorkflow(**validation_workflow_data)
         validation_workflow.creator = creator
         validation_workflow.company = creator.the_current_company
         validation_workflow.save()
+        if validation_steps is not None:
+            for item in validation_steps:
+                validation_rules = item.pop("validation_rules", None)
+                fallback_rules = item.pop("fallback_rules", None)
+                validation_step = ValidationStep.objects.create(
+                    **item, validation_workflow=validation_workflow, creator=creator
+                )
+                if validation_rules is not None:
+                    for vr_item in validation_rules:
+                        target_employee_group_ids = vr_item.pop("target_employee_groups", None)
+                        target_employee_ids = vr_item.pop("target_employees", None)
+                        target_position_ids = vr_item.pop("target_positions", None)
+                        validator_employee_ids = vr_item.pop("validator_employees", None)
+                        validator_position_ids = vr_item.pop("validator_positions", None)
+                        validation_rule = ValidationRule.objects.create(
+                            **vr_item, validation_step=validation_step, creator=creator
+                        )
+                        if target_employee_group_ids and target_employee_group_ids is not None:
+                            validation_rule.target_employee_groups.set(target_employee_group_ids)
+                        if target_employee_ids and target_employee_ids is not None:
+                            validation_rule.target_employees.set(target_employee_ids)
+                        if target_position_ids and target_position_ids is not None:
+                            validation_rule.target_positions.set(target_position_ids)
+                        if validator_employee_ids and validator_employee_ids is not None:
+                            validation_rule.validator_employees.set(validator_employee_ids)
+                        if validator_position_ids and validator_position_ids is not None:
+                            validation_rule.validator_positions.set(validator_position_ids)
+                if fallback_rules is not None:
+                    for fr_item in fallback_rules:
+                        fallback_rule = FallbackRule.objects.create(
+                            **fr_item, validation_step=validation_step, creator=creator
+                        )
         return CreateValidationWorkflow(validation_workflow=validation_workflow)
 
 class UpdateValidationWorkflow(graphene.Mutation):
@@ -113,8 +170,65 @@ class UpdateValidationWorkflow(graphene.Mutation):
             raise e
         if not creator.is_admin() and not creator.is_superuser:
             raise ValueError("Vous n'avez pas les droits nécessairespour effectuer cette action.")
+        validation_steps = validation_workflow_data.pop("validation_steps", None)
         ValidationWorkflow.objects.filter(pk=id).update(**validation_workflow_data)
         validation_workflow.refresh_from_db()
+        if validation_steps is not None:
+            validation_step_ids = [
+                item["id"] for item in validation_steps if "id" in item and item["id"] is not None
+            ]
+            ValidationStep.objects.filter(validation_workflow=validation_workflow).exclude(id__in=validation_step_ids).delete()
+            for item in validation_steps:
+                validation_rules = item.pop("validation_rules", None)
+                fallback_rules = item.pop("fallback_rules", None)
+                if "id" in item and item["id"] is not None:
+                    ValidationStep.objects.filter(pk=item["id"]).update(**item)
+                    validation_step = ValidationStep.objects.get(pk=item["id"])
+                else:
+                    validation_step = ValidationStep.objects.create(
+                        **item, validation_workflow=validation_workflow, creator=creator
+                    )
+                if validation_rules is not None:
+                    validation_rule_ids = [
+                        vr_item["id"] for vr_item in validation_rules if "id" in vr_item and vr_item["id"] is not None
+                    ]
+                    ValidationRule.objects.filter(validation_step=validation_step).exclude(id__in=validation_rule_ids).delete()
+                    for vr_item in validation_rules:
+                        target_employee_group_ids = vr_item.pop("target_employee_groups", None)
+                        target_employee_ids = vr_item.pop("target_employees", None)
+                        target_position_ids = vr_item.pop("target_positions", None)
+                        validator_employee_ids = vr_item.pop("validator_employees", None)
+                        validator_position_ids = vr_item.pop("validator_positions", None)
+                        if "id" in vr_item and vr_item["id"] is not None:
+                            ValidationRule.objects.filter(pk=vr_item["id"]).update(**vr_item)
+                            validation_rule = ValidationRule.objects.get(pk=vr_item["id"])
+                        else:
+                            validation_rule = ValidationRule.objects.create(
+                                **vr_item, validation_step=validation_step, creator=creator
+                            )
+                        if target_employee_group_ids is not None:
+                            validation_rule.target_employee_groups.set(target_employee_group_ids)
+                        if target_employee_ids is not None:
+                            validation_rule.target_employees.set(target_employee_ids)
+                        if target_position_ids is not None:
+                            validation_rule.target_positions.set(target_position_ids)
+                        if validator_employee_ids is not None:
+                            validation_rule.validator_employees.set(validator_employee_ids)
+                        if validator_position_ids is not None:
+                            validation_rule.validator_positions.set(validator_position_ids)
+                if fallback_rules is not None:
+                    fallback_rule_ids = [
+                        fr_item["id"] for fr_item in fallback_rules if "id" in fr_item and fr_item["id"] is not None
+                    ]
+                    FallbackRule.objects.filter(validation_step=validation_step).exclude(id__in=fallback_rule_ids).delete()
+                    for fr_item in fallback_rules:
+                        if "id" in fr_item and fr_item["id"] is not None:
+                            FallbackRule.objects.filter(pk=fr_item["id"]).update(**fr_item)
+                            fallback_rule = FallbackRule.objects.get(pk=fr_item["id"])
+                        else:
+                            fallback_rule = FallbackRule.objects.create(
+                                **fr_item, validation_step=validation_step, creator=creator
+                            )
         return UpdateValidationWorkflow(validation_workflow=validation_workflow)
 
 class DeleteValidationWorkflow(graphene.Mutation):

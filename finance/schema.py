@@ -1648,7 +1648,7 @@ class UpdateBudgetAccountingNature(graphene.Mutation):
                 creator=creator,
                 **budget_accounting_nature_data
             )
-        if managers_ids and managers_ids is not None:
+        if managers_ids is not None:
             budget_accounting_nature.managers.set(managers_ids)
 
         return UpdateBudgetAccountingNature(budget_accounting_nature=budget_accounting_nature)

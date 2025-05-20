@@ -898,8 +898,7 @@ class CreateMeeting(graphene.Mutation):
             meeting.absent_participants.set(absent_participants_ids)
 
         if meeting_type_ids and meeting_type_ids is not None:
-            meeting_types = TypeMeeting.objects.filter(id__in=meeting_type_ids)
-            meeting.meeting_types.set(meeting_types)
+            meeting.meeting_types.set(meeting_type_ids)
         
         if establishment_ids is not None:
             establishments = Establishment.objects.filter(id__in=establishment_ids)
@@ -991,16 +990,14 @@ class UpdateMeeting(graphene.Mutation):
         if not meeting.employee:
             meeting.employee = creator.get_employee_in_company()
             meeting.save()
-        if absent_participants_ids and absent_participants_ids is not None:
+        if absent_participants_ids is not None:
             meeting.absent_participants.set(absent_participants_ids)
             
-        if reason_ids and reason_ids is not None:
-            reasons = MeetingReason.objects.filter(id__in=reason_ids)
-            meeting.reasons.set(reasons)
+        if reason_ids is not None:
+            meeting.reasons.set(reason_ids)
             
-        if meeting_type_ids and meeting_type_ids is not None:
-            meeting_types = TypeMeeting.objects.filter(id__in=meeting_type_ids)
-            meeting.meeting_types.set(meeting_types)
+        if meeting_type_ids is not None:
+            meeting.meeting_types.set(meeting_type_ids)
 
         if establishment_ids is not None:
             MeetingEstablishment.objects.filter(meeting=meeting).exclude(establishment__id__in=establishment_ids).delete()
@@ -1055,16 +1052,16 @@ class UpdateMeeting(graphene.Mutation):
                     meeting_decision = MeetingDecision(**item)
                     meeting_decision.meeting = meeting
                     meeting_decision.save()
-                if employees_ids and employees_ids is not None:
+                if employees_ids is not None:
                     meeting_decision.employees.set(employees_ids)
                     meeting_decision.save()
                     for employee in meeting_decision.employees.all():
                         employee_user = employee.user
                         if employee_user:
                             notify_employee_meeting_decision(sender=creator, recipient=employee_user, meeting_decision=meeting_decision)
-                if for_voters_ids and for_voters_ids is not None:
+                if for_voters_ids is not None:
                     meeting_decision.for_voters.set(for_voters_ids)
-                if against_voters_ids and against_voters_ids is not None:
+                if against_voters_ids is not None:
                     meeting_decision.against_voters.set(against_voters_ids)
 
         if meeting_review_points is not None:
@@ -1163,7 +1160,7 @@ class UpdateFrameDocument(graphene.Mutation):
         establishment_ids = frame_document_data.pop("establishments", None)
         FrameDocument.objects.filter(pk=id).update(**frame_document_data)
         frame_document = FrameDocument.objects.get(pk=id)
-        if establishment_ids and establishment_ids is not None:
+        if establishment_ids is not None:
             frame_document.establishments.set(establishment_ids)
         if not document and frame_document.document:
             document_file = frame_document.document

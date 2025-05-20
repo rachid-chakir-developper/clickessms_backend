@@ -369,7 +369,7 @@ class UpdateUndesirableEvent(graphene.Mutation):
         serious_type_ids = undesirable_event_data.pop("serious_types")
         is_draft = True if undesirable_event.status == 'DRAFT' else False
         UndesirableEvent.objects.filter(pk=id).update(**undesirable_event_data)
-        if declarant_ids and declarant_ids is not None:
+        if declarant_ids is not None:
             undesirable_event.declarants.set(declarant_ids)
         undesirable_event.refresh_from_db()
         if not undesirable_event.folder or undesirable_event.folder is None:
@@ -412,10 +412,10 @@ class UpdateUndesirableEvent(graphene.Mutation):
             undesirable_event.employee = creator.get_employee_in_company()
             undesirable_event.save()
 
-        if normal_type_ids and normal_type_ids is not None:
+        if normal_type_ids is not None:
             undesirable_event.normal_types.set(normal_type_ids)
 
-        if serious_type_ids and serious_type_ids is not None:
+        if serious_type_ids is not None:
             undesirable_event.serious_types.set(serious_type_ids)
 
         UndesirableEventEstablishment.objects.filter(undesirable_event=undesirable_event).exclude(establishment__id__in=establishment_ids).delete()

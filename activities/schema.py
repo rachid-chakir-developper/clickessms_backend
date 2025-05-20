@@ -498,8 +498,7 @@ class CreateBeneficiaryAbsence(graphene.Mutation):
         if not beneficiary_absence.employee:
             beneficiary_absence.employee = creator.get_employee_in_company()
         if reason_ids and reason_ids is not None:
-            reasons = AbsenceReason.objects.filter(id__in=reason_ids)
-            beneficiary_absence.reasons.set(reasons)
+            beneficiary_absence.reasons.set(reason_ids)
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)
         for beneficiary in beneficiaries:
             try:
@@ -537,9 +536,8 @@ class UpdateBeneficiaryAbsence(graphene.Mutation):
             beneficiary_absence.employee = creator.get_employee_in_company()
             beneficiary_absence.save()
 
-        if reason_ids and reason_ids is not None:
-            reasons = AbsenceReason.objects.filter(id__in=reason_ids)
-            beneficiary_absence.reasons.set(reasons)
+        if reason_ids is not None:
+            beneficiary_absence.reasons.set(reason_ids)
 
         BeneficiaryAbsenceItem.objects.filter(beneficiary_absence=beneficiary_absence).exclude(beneficiary__id__in=beneficiary_ids).delete()
         beneficiaries = Beneficiary.objects.filter(id__in=beneficiary_ids)

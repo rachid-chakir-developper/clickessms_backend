@@ -280,9 +280,8 @@ class UpdateEmployeeAbsence(graphene.Mutation):
             employee_absence.employee = creator.get_employee_in_company()
             employee_absence.save()
 
-        if reason_ids and reason_ids is not None:
-            reasons = AbsenceReason.objects.filter(id__in=reason_ids)
-            employee_absence.reasons.set(reasons)
+        if reason_ids is not None:
+            employee_absence.reasons.set(reason_ids)
 
         EmployeeAbsenceItem.objects.filter(employee_absence=employee_absence).exclude(employee__id__in=employee_ids).delete()
         employees = Employee.objects.filter(id__in=employee_ids) if employee_ids else [creator.get_employee_in_company()]
