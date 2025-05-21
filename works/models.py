@@ -64,6 +64,7 @@ class Task(models.Model):
 	status = models.CharField(max_length=50, choices=STATUS, default= "NEW")
 	employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_tasks', null=True)
 	folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
+	supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='tasks', null=True)
 	company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='tasks', null=True)
 	creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
 	is_deleted = models.BooleanField(default=False, null=True)
