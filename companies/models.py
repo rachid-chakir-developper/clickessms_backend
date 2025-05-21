@@ -106,6 +106,16 @@ class Company(models.Model):
         except Exception as e:
             print(f"company_admin Exception: {e}")
             return None
+            
+    @property
+    def company_admins(self):
+        try:
+            user_companies = self.company_users.filter(roles__name="ADMIN").select_related('user')
+            return [uc.user for uc in user_companies if uc.user]
+        except Exception as e:
+            print(f"company_admins Exception: {e}")
+            return []
+
     
     def save(self, *args, **kwargs):
         # Générer le numéro unique lors de la sauvegarde si ce n'est pas déjà défini

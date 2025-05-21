@@ -14,6 +14,7 @@ from medias.models import Folder, File
 from human_ressources.models import Employee
 
 from notifications.notificator import notify_employee_absence
+from workflow.utils import get_target_employees_for_request_type
 
 class EmployeeAbsenceItemType(DjangoObjectType):
     class Meta:
@@ -101,13 +102,19 @@ class PlanningQuery(graphene.ObjectType):
         # We can easily optimize query count in the resolve method
         user = info.context.user
         company = user.the_current_company
+        employee = user.get_employee_in_company()
         total_count = 0
+        target_employees = get_target_employees_for_request_type(requester=employee, request_type='LEAVE')
         employee_absences = EmployeeAbsence.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_human_ressources():
             if user.is_manager():
-                employee_absences = employee_absences.filter(Q(employees__employee__employee_contracts__establishments__establishment__managers__employee=user.get_employee_in_company()) | Q(creator=user))
+                employee_absences = employee_absences.filter(
+                    Q(employees__employee__employee_contracts__establishments__establishment__managers__employee=employee) |
+                    Q(creator=user)  | Q(employees__employee__in=target_employees)
+                )
             else:
-                employee_absences = employee_absences.filter(creator=user)
+                employee_absences = employee_absences.filter(Q(creator=user) | Q(employees__employee__in=target_employees))
+
         the_order_by = '-created_at'
         if employee_absence_filter:
             keyword = employee_absence_filter.get('keyword', '')
@@ -128,6 +135,7 @@ class PlanningQuery(graphene.ObjectType):
 
         employee_absences = employee_absences.order_by(the_order_by).distinct()
         total_count = employee_absences.count()
+
         if page:
             offset = limit * (page - 1)
         if offset is not None and limit is not None:

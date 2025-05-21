@@ -1,5 +1,6 @@
 from django.db.models import Q
 from django.utils import timezone
+from workflow.models import ValidationWorkflow
 
 def is_available(employee):
     return (
@@ -8,11 +9,20 @@ def is_available(employee):
         and not employee.is_deleted
         and not getattr(employee, "is_on_leave", lambda: False)()
     )
-def get_just_availables(employees):
+def get_available_employees(employees):
     if not employees:
         return []
 
     return [e for e in employees if is_available(e)]
+
+def get_employees_from_roles(requester, roles=[]):
+    employees = requester.company.employees.filter(
+        managed_companies__roles__name__in=roles,
+        is_active=True,
+        is_deleted=False
+    ).distinct()
+    return get_available_employees(employees) if employees else []
+
 
 def get_group_managers(requester):
     if not requester:
@@ -21,7 +31,7 @@ def get_group_managers(requester):
     employee_items = requester.employee_items.select_related('employee_group').filter(
         employee_group__is_deleted=False,
         employee_group__is_active=True,
-    ).prefetch_related('employee_group__managers__employee')
+    ).prefetch_related('employee_group__managers__employee').distinct()
 
     managers = []
 
@@ -34,36 +44,35 @@ def get_group_managers(requester):
 
     # Éliminer les doublons par ID
     unique_managers = list({m.id: m for m in managers}.values())
-    return get_just_availables(unique_managers)
+    return get_available_employees(unique_managers)
 
 def get_employees_from_positions(requester, positions=[]):
     """
     Retourne les employés disponibles (actifs, non supprimés, même entreprise que le requester)
     à partir d'une liste de positions.
     """
-    employees = []
     current_time = timezone.now()
 
-    for position in positions:
-        employee_contracts = position.employee_contracts.filter(
-            Q(ending_date__isnull=True) | Q(ending_date__gte=current_time),
-            starting_date__lte=current_time,
-            is_active=True, is_deleted=False, company=requester.company
-        )
-        for employee_contract in employee_contracts:
-            if employee_contract.employee:
-                employees.append(employee_contract.employee)
+    employees = requester.company.employees.filter(
+        Q(employee_contracts__ending_date__isnull=True) | Q(employee_contracts__ending_date__gte=current_time),
+        employee_contracts__starting_date__lte=current_time,
+        employee_contracts__position__in=positions,
+        employee_contracts__is_active=True,
+        employee_contracts__is_deleted=False,
+        is_active=True,
+        is_deleted=False
+    ).distinct()
 
-    return get_just_availables(employees)
+    return get_available_employees(employees) if employees else []
 
-def is_have_some_roles(target_roles, requester):
+def is_have_any_roles(target_roles, requester):
     if not target_roles or not requester:
         return False
     requester_user = requester.user
     requester_roles = requester_user.get_roles_in_company()
     if not requester_roles:
         return False
-    return any(role in target_roles for role in target_roles)
+    return any(role in requester_roles for role in target_roles)
 
 def is_in_groups(target_employee_groups, requester):
     if not requester or not target_employee_groups:
@@ -74,12 +83,12 @@ def is_in_groups(target_employee_groups, requester):
         employee_group__is_deleted=False
     ).exists()
 
-def is_in_employees(target_employees, requester):
+def is_in_list_employees(target_employees, requester):
     if not target_employees or not requester:
         return False
     return requester in target_employees
 
-def is_have_some_positions(target_positions, requester):
+def is_have_any_positions(target_positions, requester):
     if not target_positions or not requester:
         return False
 
@@ -89,14 +98,15 @@ def is_have_some_positions(target_positions, requester):
 
     return employee_position in target_positions
 
-def resolve_validator(validation_step, requester):
+def resolve_validators(validation_step, requester):
     # Étape 1 : vérifier s’il existe une règle personnalisée applicable
     for validation_rule in validation_step.validation_rules.filter(is_active=True, is_deleted=False):
-        if validation_rule.target_user and validation_rule.target_user != requester:
-            continue
-        if validation_rule.target_roles and getattr(requester, "role", None) != validation_rule.target_role:
-            continue
-        if validation_rule.target_service and getattr(requester, "service", None) != validation_rule.target_service:
+        if (
+            is_have_any_roles(validation_rule.target_roles, requester)
+            or is_in_groups(validation_rule.target_employee_groups, requester)
+            or is_in_list_employees(validation_rule.target_employees, requester)
+            or is_have_any_positions(validation_rule.target_positions, requester)
+        ):
             continue
 
         # Règle applicable : retour du validateur défini
@@ -108,51 +118,48 @@ def resolve_validator(validation_step, requester):
             return employees
 
         elif validation_rule.validator_type == "ROLE":
-            validator_roles = validation_rule.validator_roles:
-            employees = requester.company.employees.filter(
-                managed_companies__roles__name__in=validator_roles,
-                is_active=True, is_deleted=False
-            )
+            employees = get_employees_from_roles(requester, roles=validation_rule.validator_roles)
             return employees
 
         if validation_rule.target_employees.exists():
-            return validation_rule.target_employees.filter(is_active=True, is_deleted=False)
+            return validation_rule.target_employees.filter(is_active=True, is_deleted=False).distinct()
 
     return None
-
 
 def resolve_fallbacks(validation_step, requester):
     for fallback_rule in validation_step.fallback_rules.filter(is_deleted=False).order_by("order"):
         if fallback_rule.fallback_type == "REPLACEMENT":
             replacements = getattr(requester, "replacements", None)
-            if get_just_availables(replacements):
+            if get_available_employees(replacements):
                 return replacements
 
         elif fallback_rule.fallback_type == "HIERARCHY":
             managers = get_group_managers(requester)
-            if get_just_availables(managers):
+            if get_available_employees(managers):
                 return managers
 
         elif fallback_rule.fallback_type == "ADMIN":
-            notify_admin_of_missing_validator(validation_step, requester)
+            return requester.company.company_admins
+            # notify_admin_of_missing_validator(validation_step, requester)
             # Notification uniquement, pas de retour
 
     return None
 
 
-def get_validators_for(request_type, requester, company):
+def get_validators_for(request_type, requester):
+    company = requester.company
     validators = []
-    workflow = ValidationWorkflow.objects.filter(
+    validation_workflow = ValidationWorkflow.objects.filter(
         company=company,
         request_type=request_type,
         is_deleted=False,
         is_active=True
     ).first()
 
-    if not workflow:
+    if not validation_workflow:
         return []
 
-    for validation_step in workflow.validation_steps.filter(is_deleted=False).order_by("order"):
+    for validation_step in validation_workflow.validation_steps.filter(is_deleted=False).order_by("order"):
         if validation_step.condition_expression:
             try:
                 if not eval(validation_step.condition_expression, {}, {"employee": requester}):
@@ -160,12 +167,61 @@ def get_validators_for(request_type, requester, company):
             except Exception:
                 continue
 
-        validator = resolve_validator(validation_step, requester)
-        if not validator or not is_available(validator):
+        list_validators = resolve_validators(validation_step, requester)
+        available_validators = get_available_employees(list_validators)
+        if not available_validators:
             fallbacks = resolve_fallbacks(validation_step, requester)
             if fallbacks:
-                validators.extend(fallback)
+                validators.extend(fallbacks)
         else:
-            validators.append(validator)
+            validators.extend(available_validators)
 
     return validators
+
+def get_target_employees_for_request_type(requester, request_type):
+    company = requester.company
+    validation_workflow = ValidationWorkflow.objects.filter(
+        request_type=request_type,
+        company=company,
+        is_active=True,
+        is_deleted=False
+    ).first()
+    
+    if not validation_workflow:
+        return company.employees.none()
+
+    validation_steps = validation_workflow.validation_steps.filter(is_deleted=False)
+    all_employees = company.employees.filter(is_deleted=False)
+
+    targets = all_employees.none()
+
+    for validation_step in validation_steps:
+        for validation_rule in validation_step.validation_rules.filter(is_active=True, is_deleted=False):
+            is_validator = False
+
+            if is_have_any_roles(validation_rule.validator_roles, requester):
+                is_validator = True
+            elif is_in_list_employees(validation_rule.validator_employees.filter(company=company, is_active=True, is_deleted=False), requester):
+                is_validator = True
+            elif is_have_any_positions(validation_rule.validator_positions.all(), requester):
+                is_validator = True
+            elif validation_rule.validator_type == "MANAGER":
+                managed_employees = all_employees.filter(employee_groups__managers=requester)
+                targets |= managed_employees
+                continue
+
+            if is_validator:
+                rule_targets = all_employees.none()
+
+                if validation_rule.target_employees.exists():
+                    rule_targets |= validation_rule.target_employees.filter(company=company, is_active=True, is_deleted=False)
+                if validation_rule.target_roles:
+                    rule_targets |= get_employees_from_roles(requester, roles=validation_rule.target_roles)
+                if validation_rule.target_employee_groups.exists():
+                    rule_targets |= all_employees.filter(employee_groups__in=validation_rule.target_employee_groups.filter(is_active=True, is_deleted=False), is_active=True, is_deleted=False)
+                if validation_rule.target_positions.exists():
+                    rule_targets |= get_employees_from_positions(requester, positions=validation_rule.target_positions.all())
+
+                targets |= rule_targets
+    return targets
+

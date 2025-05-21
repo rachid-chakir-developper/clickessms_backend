@@ -134,7 +134,7 @@ class Employee(models.Model):
 		today = now().date()
 		return self.employee_absences.filter(
 			status='APPROVED',
-			starting_date_time___date__lte=today,
+			starting_date_time__date__lte=today,
 			ending_date_time__date__gte=today
 		).exists()
 
