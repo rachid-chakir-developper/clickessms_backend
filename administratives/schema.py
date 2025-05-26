@@ -161,6 +161,7 @@ class FrameDocumentFilterInput(graphene.InputObjectType):
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     establishments = graphene.List(graphene.Int, required=False)
+    document_scope = graphene.String(required=False)
     order_by = graphene.String(required=False)
     
 class MeetingFilterInput(graphene.InputObjectType):
@@ -268,6 +269,7 @@ class FrameDocumentInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     name = graphene.String(required=False)
+    document_scope = graphene.String(required=False)
     description = graphene.String(required=False)
     is_active = graphene.Boolean(required=False)
     establishments = graphene.List(graphene.Int, required=False)
@@ -437,7 +439,7 @@ class AdministrativesQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        frame_documents = FrameDocument.objects.filter(company=company, is_deleted=False)
+        frame_documents = FrameDocument.objects.filter(company=company, document_scope='NORMAL', is_deleted=False)
         if not user.can_manage_administration():
             if user.is_manager():
                 frame_documents = frame_documents.filter(Q(establishments__managers__employee=user.get_employee_in_company()) | Q(creator=user))
@@ -450,6 +452,14 @@ class AdministrativesQuery(graphene.ObjectType):
             ending_date_time = frame_document_filter.get("ending_date_time")
             establishments = frame_document_filter.get('establishments')
             order_by = frame_document_filter.get('order_by')
+            document_scope = frame_document_filter.get('document_scope', 'NORMAL')
+            if document_scope:
+                if document_scope=='GOVERNANCE':
+                    if user.can_manage_governance():
+                        frame_documents = FrameDocument.objects.filter(company=company, is_deleted=False)
+                    else:
+                        frame_documents = frame_documents.filter(creator=user)
+                frame_documents = frame_documents.filter(document_scope=document_scope if document_scope else 'NORMAL')
             if keyword:
                 frame_documents = frame_documents.filter(
                     Q(name__icontains=keyword)

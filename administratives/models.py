@@ -444,8 +444,13 @@ class MeetingBeneficiary(models.Model):
 
 # Create your models here.
 class FrameDocument(models.Model):
+	DOCUMENT_SCOPE_CHOICES = [
+		("NORMAL", "Normal"),
+		("GOVERNANCE", "Gouvernance"),
+	]
 	number = models.CharField(max_length=255, editable=False, null=True)
 	name = models.CharField(max_length=255)
+	document_scope = models.CharField(max_length=50, choices=DOCUMENT_SCOPE_CHOICES, default= "NORMAL")
 	document = models.ForeignKey('medias.File', on_delete=models.SET_NULL, related_name='frame_documents', null=True)
 	document_type = models.ForeignKey('data_management.DocumentType', on_delete=models.SET_NULL, related_name='frame_documents', null=True)
 	description = models.TextField(default='', null=True)
