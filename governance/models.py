@@ -1,6 +1,16 @@
 from django.db import models
 from datetime import datetime
+from django.utils.timezone import now
 import random
+
+ROLE_CHOICES = [
+    ('PRESIDENT', 'Président'),
+    ('TREASURER', 'Trésorier'),
+    ('ASSISTANT_TREASURER', 'Trésorier Adjoint'),
+    ('SECRETARY', 'Secrétaire'),
+    ('ASSISTANT_SECRETARY', 'Secrétaire Adjoint'),
+    ('MEMBER', 'Membre'),
+]
 
 # Create your models here.
 class GovernanceMember(models.Model):
@@ -35,6 +45,7 @@ class GovernanceMember(models.Model):
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
     is_active = models.BooleanField(default=True, null=True)
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default= "MEMBER")
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_governance_members', null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='governance_member_former', null=True)
@@ -76,5 +87,32 @@ class GovernanceMember(models.Model):
         self.archived = False
         self.save()
 
+    @property
+    def current_role(self):
+        """
+        Retourne le rôle actuel du membre de la gouvernance en fonction de la date actuelle.
+        Si aucun rôle en cours n'est trouvé, retourne 'MEMBER' par défaut.
+        """
+        today = now()
+        current = self.governance_member_roles.filter(
+            starting_date_time__lte=today,
+        ).filter(
+            models.Q(ending_date_time__gte=today) | models.Q(ending_date_time__isnull=True)
+        ).order_by('-starting_date_time').first()
+        return current.role if current else "MEMBER"
+
     def __str__(self):
         return self.email
+
+class GovernanceMemberRole(models.Model):
+    governance_member = models.ForeignKey(GovernanceMember, on_delete=models.SET_NULL, null=True, related_name='governance_member_roles')
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default= "MEMBER")
+    starting_date_time = models.DateTimeField(null=True)
+    ending_date_time = models.DateTimeField(null=True)
+    is_active = models.BooleanField(default=True, null=True)
+    creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='governance_member_roles', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return str(self.id)

@@ -6,8 +6,13 @@ from graphene_file_upload.scalars import Upload
 
 from django.db.models import Q
 
-from governance.models import GovernanceMember
+from governance.models import GovernanceMember, GovernanceMemberRole
 from medias.models import Folder, File
+
+class GovernanceMemberRoleType(DjangoObjectType):
+    class Meta:
+        model = GovernanceMemberRole
+        fields = "__all__"
 
 class GovernanceMemberType(DjangoObjectType):
     class Meta:
@@ -15,10 +20,13 @@ class GovernanceMemberType(DjangoObjectType):
         fields = "__all__"
     photo = graphene.String()
     cover_image = graphene.String()
+    role = graphene.String()
     def resolve_photo( instance, info, **kwargs ):
         return instance.photo and info.context.build_absolute_uri(instance.photo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
         return instance.cover_image and info.context.build_absolute_uri(instance.cover_image.image.url)
+    def resolve_role( instance, info, **kwargs ):
+        return instance.current_role
 
 class GovernanceMemberNodeType(graphene.ObjectType):
     nodes = graphene.List(GovernanceMemberType)
@@ -31,12 +39,21 @@ class GovernanceMemberFilterInput(graphene.InputObjectType):
     list_type = graphene.String(required=False)
     order_by = graphene.String(required=False)
 
+class GovernanceMemberRoleInput(graphene.InputObjectType):
+    id = graphene.ID(required=False)
+    role = graphene.String(required=False)
+    starting_date_time = graphene.DateTime(required=False)
+    ending_date_time = graphene.DateTime(required=False)
+    is_active = graphene.Boolean(required=False)
+    governance_member_id = graphene.Int(name="governanceMember", required=False)
+
 class GovernanceMemberInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
     first_name = graphene.String(required=False)
     last_name = graphene.String(required=False)
     email = graphene.String(required=False)
+    role = graphene.String(required=False)
     birth_date = graphene.DateTime(required=False)
     hiring_date = graphene.DateTime(required=False)
     probation_end_date = graphene.DateTime(required=False)
@@ -62,6 +79,7 @@ class GovernanceMemberInput(graphene.InputObjectType):
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
     is_archived = graphene.Boolean(required=False)
+    governance_member_roles = graphene.List(GovernanceMemberRoleInput, required=False)
 
 class GovernanceQuery(graphene.ObjectType):
     governance_members = graphene.Field(GovernanceMemberNodeType, governance_member_filter= GovernanceMemberFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -122,6 +140,7 @@ class CreateGovernanceMember(graphene.Mutation):
 
     def mutate(root, info, photo=None, cover_image=None,  governance_member_data=None):
         creator = info.context.user
+        governance_member_roles = governance_member_data.pop("governance_member_roles", None)
         governance_member = GovernanceMember(**governance_member_data)
         governance_member.creator = creator
         governance_member.company = creator.current_company if creator.current_company is not None else creator.company
@@ -148,6 +167,12 @@ class CreateGovernanceMember(graphene.Mutation):
         folder = Folder.objects.create(name=str(governance_member.id)+'_'+governance_member.first_name+'-'+governance_member.last_name,creator=creator)
         governance_member.folder = folder
         governance_member.save()
+        if governance_member_roles is not None:
+            for item in governance_member_roles:
+                GovernanceMemberRole.objects.create(
+                    governance_member=governance_member,
+                    **item
+                )
         return CreateGovernanceMember(governance_member=governance_member)
 
 class UpdateGovernanceMember(graphene.Mutation):
@@ -165,6 +190,7 @@ class UpdateGovernanceMember(graphene.Mutation):
             governance_member = GovernanceMember.objects.get(pk=id, company=creator.the_current_company)
         except GovernanceMember.DoesNotExist:
             raise e
+        governance_member_roles = governance_member_data.pop("governance_member_roles", None)
         GovernanceMember.objects.filter(pk=id).update(**governance_member_data)
         governance_member.refresh_from_db()
         if not governance_member.folder or governance_member.folder is None:
@@ -196,7 +222,18 @@ class UpdateGovernanceMember(graphene.Mutation):
                 cover_image_file.save()
                 governance_member.cover_image = cover_image_file
             governance_member.save()
-        governance_member = GovernanceMember.objects.get(pk=id)
+        if governance_member_roles is not None:
+            governance_member_role_ids = [item.id for item in governance_member_roles if item.id is not None]
+            GovernanceMemberRole.objects.filter(governance_member=governance_member).exclude(id__in=governance_member_role_ids).delete()
+            for item in governance_member_roles:
+                if id in item or 'id' in item:
+                    GovernanceMemberRole.objects.filter(pk=item.id).update(**item)
+                else:
+                    GovernanceMemberRole.objects.create(
+                        governance_member=governance_member,
+                        **item
+                    )
+        governance_member.refresh_from_db()
         return UpdateGovernanceMember(governance_member=governance_member)
 
 class UpdateGovernanceMemberState(graphene.Mutation):
