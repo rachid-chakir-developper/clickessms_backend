@@ -42,6 +42,7 @@ class GovernanceMemberFilterInput(graphene.InputObjectType):
 class GovernanceMemberRoleInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     role = graphene.String(required=False)
+    other_role = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
     is_active = graphene.Boolean(required=False)

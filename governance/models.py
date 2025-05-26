@@ -3,15 +3,6 @@ from datetime import datetime
 from django.utils.timezone import now
 import random
 
-ROLE_CHOICES = [
-    ('PRESIDENT', 'Président'),
-    ('TREASURER', 'Trésorier'),
-    ('ASSISTANT_TREASURER', 'Trésorier Adjoint'),
-    ('SECRETARY', 'Secrétaire'),
-    ('ASSISTANT_SECRETARY', 'Secrétaire Adjoint'),
-    ('MEMBER', 'Membre'),
-]
-
 # Create your models here.
 class GovernanceMember(models.Model):
     number = models.CharField(max_length=255, editable=False, null=True)
@@ -45,7 +36,7 @@ class GovernanceMember(models.Model):
     description = models.TextField(default='', null=True)
     observation = models.TextField(default='', null=True)
     is_active = models.BooleanField(default=True, null=True)
-    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default= "MEMBER")
+    role = models.CharField(max_length=255, blank=True, null=True)
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_governance_members', null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='governance_member_former', null=True)
@@ -99,14 +90,25 @@ class GovernanceMember(models.Model):
         ).filter(
             models.Q(ending_date_time__gte=today) | models.Q(ending_date_time__isnull=True)
         ).order_by('-starting_date_time').first()
-        return current.role if current else "MEMBER"
+        current_role=current.role if current else "MEMBER"
+        return current_role if current_role!="OTHER" else current.other_role
 
     def __str__(self):
         return self.email
 
 class GovernanceMemberRole(models.Model):
+    ROLE_CHOICES = [
+        ('PRESIDENT', 'Président'),
+        ('TREASURER', 'Trésorier'),
+        ('ASSISTANT_TREASURER', 'Trésorier Adjoint'),
+        ('SECRETARY', 'Secrétaire'),
+        ('ASSISTANT_SECRETARY', 'Secrétaire Adjoint'),
+        ('MEMBER', 'Membre'),
+        ('OTHER', 'Autre'),
+    ]
     governance_member = models.ForeignKey(GovernanceMember, on_delete=models.SET_NULL, null=True, related_name='governance_member_roles')
     role = models.CharField(max_length=50, choices=ROLE_CHOICES, default= "MEMBER")
+    other_role = models.CharField(max_length=255, blank=True, null=True)
     starting_date_time = models.DateTimeField(null=True)
     ending_date_time = models.DateTimeField(null=True)
     is_active = models.BooleanField(default=True, null=True)
