@@ -38,6 +38,7 @@ class GovernanceMember(models.Model):
     folder = models.ForeignKey('medias.Folder', on_delete=models.SET_NULL, null=True)
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_governance_members', null=True)
     creator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, related_name='governance_member_former', null=True)
+    is_archived = models.BooleanField(default=False, null=True)
     is_deleted = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
@@ -67,6 +68,13 @@ class GovernanceMember(models.Model):
             number = f'{number_prefix}{number_suffix}'
 
         return number
+
+    def archive(self):
+        self.archived = True
+        self.save()
+    def unarchive(self):
+        self.archived = False
+        self.save()
 
     def __str__(self):
         return self.email

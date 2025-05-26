@@ -28,19 +28,20 @@ class GovernanceMemberFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
     starting_date_time = graphene.DateTime(required=False)
     ending_date_time = graphene.DateTime(required=False)
-
+    list_type = graphene.String(required=False)
+    order_by = graphene.String(required=False)
 
 class GovernanceMemberInput(graphene.InputObjectType):
     id = graphene.ID(required=False)
     number = graphene.String(required=False)
-    first_name = graphene.String(required=True)
-    last_name = graphene.String(required=True)
-    email = graphene.String(required=True)
+    first_name = graphene.String(required=False)
+    last_name = graphene.String(required=False)
+    email = graphene.String(required=False)
     birth_date = graphene.DateTime(required=False)
     hiring_date = graphene.DateTime(required=False)
     probation_end_date = graphene.DateTime(required=False)
     work_end_date = graphene.DateTime(required=False)
-    starting_salary = graphene.Float(required=True)
+    starting_salary = graphene.Float(required=False)
     latitude = graphene.String(required=False)
     longitude = graphene.String(required=False)
     city = graphene.String(required=False)
@@ -60,6 +61,7 @@ class GovernanceMemberInput(graphene.InputObjectType):
     is_active = graphene.Boolean(required=False)
     description = graphene.String(required=False)
     observation = graphene.String(required=False)
+    is_archived = graphene.Boolean(required=False)
 
 class GovernanceQuery(graphene.ObjectType):
     governance_members = graphene.Field(GovernanceMemberNodeType, governance_member_filter= GovernanceMemberFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
@@ -69,18 +71,30 @@ class GovernanceQuery(graphene.ObjectType):
         user = info.context.user
         company = user.the_current_company
         total_count = 0
-        governance_members = GovernanceMember.objects.filter(company__id=id_company, is_deleted=False) if id_company else GovernanceMember.objects.filter(company=company, is_deleted=False)
+        governance_members = GovernanceMember.objects.filter(company=company, is_deleted=False)
+        the_order_by = '-created_at'
+        is_archived=False
         if governance_member_filter:
             keyword = governance_member_filter.get('keyword', '')
             starting_date_time = governance_member_filter.get('starting_date_time')
             ending_date_time = governance_member_filter.get('ending_date_time')
+            list_type = governance_member_filter.get('list_type') # ALL / GOVERNANCE_MEMBER_ACTIONS / GOVERNANCE_MEMBER_ARCHIVED
+            order_by = governance_member_filter.get('order_by')
+            if list_type:
+                if list_type == 'GOVERNANCE_MEMBER_ARCHIVED':
+                    is_archived=True
+                elif list_type == 'ALL':
+                    pass
             if keyword:
                 governance_members = governance_members.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(email__icontains=keyword))
             if starting_date_time:
                 governance_members = governance_members.filter(created_at__gte=starting_date_time)
             if ending_date_time:
                 governance_members = governance_members.filter(created_at__lte=ending_date_time)
-        governance_members = governance_members.order_by('-created_at')
+            if order_by:
+                the_order_by = order_by
+        governance_members = governance_members.filter(is_archived=is_archived)
+        governance_members = governance_members.order_by(the_order_by).distinct()
         total_count = governance_members.count()
         if page:
             offset = limit * (page - 1)
@@ -213,6 +227,35 @@ class UpdateGovernanceMemberState(graphene.Mutation):
             message = "Une erreur s'est produite."
         return UpdateGovernanceMemberState(done=done, success=success, message=message,governance_member=governance_member)
 
+class UpdateGovernanceMemberFields(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        governance_member_data = GovernanceMemberInput(required=True)
+
+    governance_member = graphene.Field(GovernanceMemberType)
+    done = graphene.Boolean()
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(root, info, id, governance_member_data=None):
+        creator = info.context.user
+        try:
+            governance_member = GovernanceMember.objects.get(pk=id, company=creator.the_current_company)
+        except GovernanceMember.DoesNotExist:
+            raise e
+        done = True
+        success = True
+        message = ''
+        try:
+            GovernanceMember.objects.filter(pk=id).update(**governance_member_data)
+            governance_member.refresh_from_db()
+        except Exception as e:
+            done = False
+            success = False
+            governance_member=None
+            message = "Une erreur s'est produite."
+        return UpdateGovernanceMemberFields(done=done, success=success, message=message, governance_member=governance_member)
+
 class DeleteGovernanceMember(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -249,5 +292,5 @@ class GovernanceMutation(graphene.ObjectType):
     create_governance_member = CreateGovernanceMember.Field()
     update_governance_member = UpdateGovernanceMember.Field()
     update_governance_member_state = UpdateGovernanceMemberState.Field()
+    update_governance_member_fields = UpdateGovernanceMemberFields.Field()
     delete_governance_member = DeleteGovernanceMember.Field()
-    
