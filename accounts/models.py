@@ -12,6 +12,7 @@ class Role(models.Model):
         ('ADMIN', 'Admin'),
         ('MANAGER', 'Employé'),
         ('SCE_MANAGER', 'Responsable CSE'),
+        ('GOVERNANCE_MANAGER', 'Responsable Gouvernance'),
         ('QUALITY_MANAGER', 'Responsable Qualité'),
         ('ACTIVITY_MANAGER', 'Responsable Activité'),
         ('SUPPORT_WORKER', 'Accompagnant'),
@@ -247,6 +248,12 @@ class User(AbstractUser):
         employe = user.get_employee_in_company() if user else self.get_employee_in_company()
         
         return employe and employe.is_member_of_sce()
+    def can_manage_governance(self, user=None):
+        if self.is_superuser:
+            return True
+
+        # Rôles autorisés pour gérer la gouvernance
+        roles = ['SUPER_ADMIN', 'ADMIN', 'GOVERNANCE_MANAGER']
     def can_manage_quality(self, user=None):
         if self.is_superuser:
             return True

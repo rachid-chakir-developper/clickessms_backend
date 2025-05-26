@@ -3,6 +3,7 @@ from graphene_django import DjangoObjectType
 from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
+from django.core.exceptions import PermissionDenied
 
 from django.db.models import Q
 
@@ -141,6 +142,8 @@ class CreateGovernanceMember(graphene.Mutation):
 
     def mutate(root, info, photo=None, cover_image=None,  governance_member_data=None):
         creator = info.context.user
+        if not creator.can_manage_governance():
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
         governance_member_roles = governance_member_data.pop("governance_member_roles", None)
         governance_member = GovernanceMember(**governance_member_data)
         governance_member.creator = creator
@@ -187,6 +190,8 @@ class UpdateGovernanceMember(graphene.Mutation):
 
     def mutate(root, info, id, photo=None, cover_image=None,  governance_member_data=None):
         creator = info.context.user
+        if not creator.can_manage_governance():
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
         try:
             governance_member = GovernanceMember.objects.get(pk=id, company=creator.the_current_company)
         except GovernanceMember.DoesNotExist:
@@ -248,6 +253,8 @@ class UpdateGovernanceMemberState(graphene.Mutation):
 
     def mutate(root, info, id, governance_member_fields=None):
         creator = info.context.user
+        if not creator.can_manage_governance():
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
         try:
             governance_member = GovernanceMember.objects.get(pk=id, company=creator.the_current_company)
         except GovernanceMember.DoesNotExist:
@@ -277,6 +284,8 @@ class UpdateGovernanceMemberFields(graphene.Mutation):
 
     def mutate(root, info, id, governance_member_data=None):
         creator = info.context.user
+        if not creator.can_manage_governance():
+            raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires.")
         try:
             governance_member = GovernanceMember.objects.get(pk=id, company=creator.the_current_company)
         except GovernanceMember.DoesNotExist:
@@ -313,7 +322,7 @@ class DeleteGovernanceMember(graphene.Mutation):
             governance_member = GovernanceMember.objects.get(pk=id, company=current_user.the_current_company)
         except GovernanceMember.DoesNotExist:
             raise e
-        if current_user.is_superuser or governance_member.creator==current_user:
+        if current_user.is_superuser or current_user.can_manage_governance() or governance_member.creator==current_user:
             governance_member = GovernanceMember.objects.get(pk=id)
             governance_member.delete()
             deleted = True
