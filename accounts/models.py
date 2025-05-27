@@ -254,6 +254,7 @@ class User(AbstractUser):
 
         # Rôles autorisés pour gérer la gouvernance
         roles = ['SUPER_ADMIN', 'ADMIN', 'GOVERNANCE_MANAGER']
+        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
     def can_manage_quality(self, user=None):
         if self.is_superuser:
             return True
