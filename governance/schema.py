@@ -7,6 +7,9 @@ from django.core.exceptions import PermissionDenied
 
 from django.db.models import Q
 
+from graphene.types.generic import GenericScalar
+from governance.utils import build_governance_organization_tree
+
 from governance.models import GovernanceMember, GovernanceMemberRole
 from medias.models import Folder, File
 
@@ -86,6 +89,7 @@ class GovernanceMemberInput(graphene.InputObjectType):
 class GovernanceQuery(graphene.ObjectType):
     governance_members = graphene.Field(GovernanceMemberNodeType, governance_member_filter= GovernanceMemberFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
     governance_member = graphene.Field(GovernanceMemberType, id = graphene.ID())
+    governance_organization = GenericScalar()
     def resolve_governance_members(root, info, governance_member_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -131,6 +135,8 @@ class GovernanceQuery(graphene.ObjectType):
         except GovernanceMember.DoesNotExist:
             governance_member = None
         return governance_member
+    def resolve_governance_organization(root, info):
+        return build_governance_organization_tree(info)
 
 class CreateGovernanceMember(graphene.Mutation):
     class Arguments:
