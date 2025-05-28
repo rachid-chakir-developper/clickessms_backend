@@ -41,7 +41,13 @@ def create_node(member_data):
 def build_governance_organization_tree(info):
     user = info.context.user
     company = user.the_current_company
-    members = GovernanceMember.objects.filter(is_active=True, is_archived=False, is_deleted=False, company=company)
+    today = now()
+    members = GovernanceMember.objects.filter(
+        governance_member_roles__starting_date_time__lte=today,
+        is_active=True, is_archived=False, is_deleted=False, company=company
+        ).filter(
+            Q(governance_member_roles__ending_date_time__gte=today) | Q(governance_member_roles__ending_date_time__isnull=True)
+        )
     role_label_map = dict(GovernanceMemberRole.ROLE_CHOICES)
 
     member_data = []
