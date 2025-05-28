@@ -102,7 +102,7 @@ class GovernanceMemberInput(graphene.InputObjectType):
 
 class GovernanceQuery(graphene.ObjectType):
     governance_members = graphene.Field(GovernanceMemberNodeType, governance_member_filter= GovernanceMemberFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
-    governance_member = graphene.Field(OrganizationInfosType, id = graphene.ID())
+    governance_member = graphene.Field(GovernanceMemberType, id = graphene.ID())
     governance_organization = graphene.Field(OrganizationInfosType)
     def resolve_governance_members(root, info, governance_member_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
