@@ -10,6 +10,9 @@ from works.models import Task
 from human_ressources.schema import EmployeeNodeType
 from human_ressources.models import Employee
 
+from governance.schema import GovernanceMemberNodeType
+from governance.models import GovernanceMember
+
 from human_ressources.schema import BeneficiaryNodeType
 from human_ressources.models import Beneficiary
 
@@ -31,6 +34,7 @@ from data_management.models import PhoneNumber
 class SearchResultType(graphene.ObjectType):
     tasks = graphene.Field(TaskNodeType)
     employees = graphene.Field(EmployeeNodeType)
+    governance_members = graphene.Field(GovernanceMemberNodeType)
     clients = graphene.Field(ClientNodeType)
     suppliers = graphene.Field(SupplierNodeType)
     partners = graphene.Field(PartnerNodeType)
@@ -56,6 +60,7 @@ class SearchQuery(graphene.ObjectType):
         company = user.the_current_company
         tasks = Task.objects.filter(company=company, is_deleted=False)
         employees = Employee.objects.filter(company=company, is_deleted=False)
+        governance_members = GovernanceMember.objects.filter(company=company, is_deleted=False)
         clients = Client.objects.filter(company=company, is_deleted=False)
         suppliers = Supplier.objects.filter(company=company, is_deleted=False)
         beneficiaries = Beneficiary.objects.filter(company=company, is_deleted=False)
@@ -66,7 +71,8 @@ class SearchQuery(graphene.ObjectType):
             keyword = search_filter.keyword.lower()
             tasks = tasks.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))  # Assuming 'name' is a field in Task model
             employees = employees.filter(Q(number__icontains=keyword) | Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(email__icontains=keyword))  # Assuming 'name' is a field in Employee model
-            beneficiaries = beneficiaries.filter(Q(number__icontains=keyword) | Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(email__icontains=keyword))  # Assuming 'name' is a field in Employee model
+            governance_members = governance_members.filter(Q(number__icontains=keyword) | Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(email__icontains=keyword))
+            beneficiaries = beneficiaries.filter(Q(number__icontains=keyword) | Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(email__icontains=keyword))
             clients = clients.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))
             suppliers = suppliers.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))
             establishments = establishments.filter(Q(number__icontains=keyword) | Q(name__icontains=keyword))
@@ -75,6 +81,7 @@ class SearchQuery(graphene.ObjectType):
         if search_filter and search_filter.starting_date_time and search_filter.ending_date_time:
             tasks = tasks.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
             employees = employees.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
+            governance_members = governance_members.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
             beneficiaries = beneficiaries.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
             clients = clients.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
             suppliers = suppliers.filter(created_at__range=(search_filter.starting_date_time, search_filter.ending_date_time))
@@ -88,6 +95,7 @@ class SearchQuery(graphene.ObjectType):
             end_index = offset + limit
             tasks = tasks[start_index:end_index]
             employees = employees[start_index:end_index]
+            governance_members = governance_members[start_index:end_index]
             beneficiaries = beneficiaries[start_index:end_index]
             clients = clients[start_index:end_index]
             suppliers = suppliers[start_index:end_index]
@@ -97,6 +105,7 @@ class SearchQuery(graphene.ObjectType):
             "results": {
                 "tasks": {'total_count': len(tasks), 'nodes' : tasks},
                 "employees": {'total_count': len(employees), 'nodes' : employees},
+                "governance_members": {'total_count': len(governance_members), 'nodes' : governance_members},
                 "beneficiaries": {'total_count': len(beneficiaries), 'nodes' : beneficiaries},
                 "clients": {'total_count': len(clients), 'nodes' : clients},
                 "suppliers": {'total_count': len(suppliers), 'nodes' : suppliers},
