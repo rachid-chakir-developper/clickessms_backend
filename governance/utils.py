@@ -43,11 +43,21 @@ def build_governance_organization_tree(info):
     company = user.the_current_company
     today = now()
     members = GovernanceMember.objects.filter(
-        governance_member_roles__starting_date_time__lte=today,
-        is_active=True, is_archived=False, is_deleted=False, company=company
-        ).filter(
-            Q(governance_member_roles__ending_date_time__gte=today) | Q(governance_member_roles__ending_date_time__isnull=True)
+        is_active=True,
+        is_archived=False,
+        is_deleted=False,
+        company=company
+    ).filter(
+        Q(
+            governance_member_roles__starting_date_time__lte=today,
+            governance_member_roles__ending_date_time__gte=today
         )
+        | Q(
+            governance_member_roles__starting_date_time__lte=today,
+            governance_member_roles__ending_date_time__isnull=True
+        )
+        | Q(governance_member_roles__isnull=True)  # <- inclure ceux sans aucun rôle
+    ).distinct()
     role_label_map = dict(GovernanceMemberRole.ROLE_CHOICES)
 
     member_data = []
