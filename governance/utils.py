@@ -4,9 +4,9 @@ from django.db.models import Q
 from governance.models import GovernanceMember, GovernanceMemberRole
 
 ROLE_HIERARCHY = {
-    "PRESIDENT": ["TREASURER", "SECRETARY", "ASSISTANT_TREASURER", "ASSISTANT_SECRETARY", "MEMBER", "OTHER"],
-    "TREASURER": [],
-    "SECRETARY": [],
+    "PRESIDENT": ["TREASURER", "SECRETARY", "MEMBER", "OTHER"],
+    "TREASURER": ["ASSISTANT_TREASURER"],
+    "SECRETARY": ["ASSISTANT_SECRETARY"],
     "ASSISTANT_TREASURER": [],
     "ASSISTANT_SECRETARY": [],
     "MEMBER": [],
@@ -30,6 +30,7 @@ def create_node(member_data):
             "firstName": member_data["first_name"],
             "lastName": member_data["last_name"],
             "email": member_data["email"],
+            "role_code": member_data["role_code"],
             "role": member_data["role_label"],
             "photo": member_data["photo"],
         },
@@ -90,5 +91,4 @@ def build_governance_organization_tree(info):
                 add_children(role, child_node)
 
     add_children("PRESIDENT", tree)
-    print(tree)
     return tree

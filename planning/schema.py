@@ -104,7 +104,7 @@ class PlanningQuery(graphene.ObjectType):
         company = user.the_current_company
         employee = user.get_employee_in_company()
         total_count = 0
-        target_employees = get_target_employees_for_request_type(requester=employee, request_type='LEAVE')
+        target_employees = get_target_employees_for_request_type(current_employee=employee, request_type='LEAVE')
         employee_absences = EmployeeAbsence.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_human_ressources():
             if user.is_manager():

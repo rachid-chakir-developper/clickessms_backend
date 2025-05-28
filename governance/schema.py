@@ -4,6 +4,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
 from graphql_jwt.decorators import login_required
 from graphene_file_upload.scalars import Upload
 from django.core.exceptions import PermissionDenied
+import datetime
 
 from django.db.models import Q
 
@@ -12,6 +13,7 @@ from governance.utils import build_governance_organization_tree
 
 from governance.models import GovernanceMember, GovernanceMemberRole
 from medias.models import Folder, File
+from companies.schema import CompanyType
 
 class GovernanceMemberRoleType(DjangoObjectType):
     class Meta:
@@ -35,6 +37,18 @@ class GovernanceMemberType(DjangoObjectType):
 class GovernanceMemberNodeType(graphene.ObjectType):
     nodes = graphene.List(GovernanceMemberType)
     total_count = graphene.Int()
+
+class OrganizationInfosType(graphene.ObjectType):
+    organization_tree = GenericScalar()
+    current_date = graphene.DateTime(required=False)
+    company = graphene.Field(CompanyType)
+    def resolve_organization_tree( instance, info, **kwargs ):
+        return build_governance_organization_tree(info)
+    def resolve_current_date( instance, info, **kwargs ):
+        return datetime.datetime.now()
+    def resolve_company( instance, info, **kwargs ):
+        user = info.context.user
+        return user.the_current_company if user else None
 
 class GovernanceMemberFilterInput(graphene.InputObjectType):
     keyword = graphene.String(required=False)
@@ -88,8 +102,8 @@ class GovernanceMemberInput(graphene.InputObjectType):
 
 class GovernanceQuery(graphene.ObjectType):
     governance_members = graphene.Field(GovernanceMemberNodeType, governance_member_filter= GovernanceMemberFilterInput(required=False), id_company = graphene.ID(required=False), offset = graphene.Int(required=False), limit = graphene.Int(required=False), page = graphene.Int(required=False))
-    governance_member = graphene.Field(GovernanceMemberType, id = graphene.ID())
-    governance_organization = GenericScalar()
+    governance_member = graphene.Field(OrganizationInfosType, id = graphene.ID())
+    governance_organization = graphene.Field(OrganizationInfosType)
     def resolve_governance_members(root, info, governance_member_filter=None, id_company=None, offset=None, limit=None, page=None):
         # We can easily optimize query count in the resolve method
         user = info.context.user
@@ -135,8 +149,12 @@ class GovernanceQuery(graphene.ObjectType):
         except GovernanceMember.DoesNotExist:
             governance_member = None
         return governance_member
+
     def resolve_governance_organization(root, info):
-        return build_governance_organization_tree(info)
+        # Logique pour récupérer l'organisation
+        user = info.context.user
+        company = user.the_current_company
+        return OrganizationInfosType()
 
 class CreateGovernanceMember(graphene.Mutation):
     class Arguments:
