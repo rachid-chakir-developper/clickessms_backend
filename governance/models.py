@@ -127,5 +127,8 @@ class GovernanceMemberRole(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
+    class Meta:
+        ordering = ['starting_date_time']
+
     def __str__(self):
         return str(self.id)
