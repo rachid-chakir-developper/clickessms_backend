@@ -115,7 +115,8 @@ class GovernanceMember(models.Model):
     def last_governance_member_role(self):
         current = self.current_governance_member_role
         last_role = self.governance_member_roles.all().first()
-        last_role.is_active = False
+        if last_role:
+            last_role.is_active = False
         return current if current else last_role
 
     def can_manage_governance(self):
