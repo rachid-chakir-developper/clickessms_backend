@@ -28,6 +28,7 @@ class GovernanceMemberType(DjangoObjectType):
     cover_image = graphene.String()
     governance_roles = graphene.List(graphene.String)
     role = graphene.String()
+    last_governance_member_role = graphene.Field(GovernanceMemberRoleType)
     def resolve_photo( instance, info, **kwargs ):
         return instance.photo and info.context.build_absolute_uri(instance.photo.image.url)
     def resolve_cover_image( instance, info, **kwargs ):
@@ -36,6 +37,8 @@ class GovernanceMemberType(DjangoObjectType):
         return instance.governance_roles
     def resolve_role( instance, info, **kwargs ):
         return instance.current_role
+    def resolve_last_governance_member_role( instance, info, **kwargs ):
+        return instance.last_governance_member_role
 
 class GovernanceMemberNodeType(graphene.ObjectType):
     nodes = graphene.List(GovernanceMemberType)

@@ -86,19 +86,37 @@ class GovernanceMember(models.Model):
         return roles
 
     @property
+    def current_governance_member_role(self):
+        """
+        Retourne le rôle actuel du membre de la gouvernance en fonction de la date actuelle.
+        Si aucun rôle en cours n'est trouvé, retourne 'MEMBER' par défaut.
+        """
+        today = now()
+        governance_member_role = self.governance_member_roles.filter(
+            starting_date_time__lte=today,
+        ).filter(
+            models.Q(ending_date_time__gte=today) | models.Q(ending_date_time__isnull=True)
+        ).order_by('-starting_date_time').first()
+
+        return governance_member_role
+
+    @property
     def current_role(self):
         """
         Retourne le rôle actuel du membre de la gouvernance en fonction de la date actuelle.
         Si aucun rôle en cours n'est trouvé, retourne 'MEMBER' par défaut.
         """
         today = now()
-        current = self.governance_member_roles.filter(
-            starting_date_time__lte=today,
-        ).filter(
-            models.Q(ending_date_time__gte=today) | models.Q(ending_date_time__isnull=True)
-        ).order_by('-starting_date_time').first()
+        current = self.current_governance_member_role
         current_role=current.role if current else "MEMBER"
         return current_role if current_role!="OTHER" else current.other_role
+
+    @property
+    def last_governance_member_role(self):
+        current = self.current_governance_member_role
+        last_role = self.governance_member_roles.all().first()
+        last_role.is_active = False
+        return current if current else last_role
 
     def can_manage_governance(self):
         roles_autorises = ['PRESIDENT']
