@@ -21,6 +21,7 @@ from medias.models import File
 
 from human_ressources.schema import EmployeeType
 from human_ressources.models import Employee
+from governance.schema import GovernanceMemberType
 from partnerships.schema import PartnerType, FinancierType
 from purchases.schema import SupplierType
 
@@ -51,6 +52,7 @@ class UserType(DjangoObjectType):
     secondary_email = graphene.String()
     roles = graphene.List(graphene.String)
     employee = graphene.Field(EmployeeType)
+    governance_member = graphene.Field(GovernanceMemberType)
     partner = graphene.Field(PartnerType)
     financier = graphene.Field(FinancierType)
     supplier = graphene.Field(SupplierType)
@@ -77,6 +79,9 @@ class UserType(DjangoObjectType):
     def resolve_employee(instance, info):
         user = info.context.user
         return instance.get_employee_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.employee
+    def resolve_governance_member(instance, info):
+        user = info.context.user
+        return instance.get_governance_member_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.governance_member
     def resolve_partner(instance, info):
         user = info.context.user
         return instance.get_partner_in_company(company=user.current_company or user.company) if user.is_authenticated else instance.partner
@@ -134,6 +139,7 @@ class UserInput(graphene.InputObjectType):
     is_cgu_accepted = graphene.Boolean(required=False)
     roles = graphene.List(graphene.String, required=False)
     employee_id = graphene.Int(name="employee", required=False)
+    governance_member_id = graphene.Int(name="governanceMember", required=False)
     partner_id = graphene.Int(name="partner", required=False)
     financier_id = graphene.Int(name="financier", required=False)
     supplier_id = graphene.Int(name="supplier", required=False)
@@ -278,12 +284,13 @@ class CreateUser(graphene.Mutation):
 
     def mutate(root, info, photo=None, cover_image=None, user_groups=None, user_permissions=None,  user_data=None):
         creator = info.context.user
-        roles = user_data.pop("roles") if ('roles' in user_data) else None
-        employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
-        partner_id = user_data.pop("partner_id") if ('partner_id' in user_data) else None
-        financier_id = user_data.pop("financier_id") if ('financier_id' in user_data) else None
-        supplier_id = user_data.pop("supplier_id") if ('supplier_id' in user_data) else None
-        # company_id = user_data.pop("company_id")
+        roles = user_data.pop("roles", None)
+        employee_id = user_data.pop("employee_id", None)
+        governance_member_id = user_data.pop("governance_member_id", None)
+        partner_id = user_data.pop("partner_id", None)
+        financier_id = user_data.pop("financier_id", None)
+        supplier_id = user_data.pop("supplier_id", None)
+        # company_id = user_data.pop("company_id", None)
 
         password1 = user_data.pop("password1") if 'password1' in user_data and user_data.password1!='' else 'password1'
         password2 = user_data.pop("password2") if 'password2' in user_data and user_data.password2!='' else 'password2'
@@ -298,6 +305,8 @@ class CreateUser(graphene.Mutation):
             user.set_roles_in_company(roles_names=roles)
         if employee_id:
             user.set_employee_for_company(employee_id=employee_id)
+        if partner_id:
+            user.set_governance_member_for_company(governance_member_id=governance_member_id)
         if partner_id:
             user.set_partner_for_company(partner_id=partner_id)
         if financier_id:
@@ -353,12 +362,13 @@ class UpdateUser(graphene.Mutation):
             user = User.objects.get(pk=id, company=creator.the_current_company)
         except User.DoesNotExist:
             raise e
-        roles = user_data.pop("roles") if ('roles' in user_data) else None
-        employee_id = user_data.pop("employee_id") if ('employee_id' in user_data) else None
-        partner_id = user_data.pop("partner_id") if ('partner_id' in user_data) else None
-        financier_id = user_data.pop("financier_id") if ('financier_id' in user_data) else None
-        supplier_id = user_data.pop("supplier_id") if ('supplier_id' in user_data) else None
-        # company_id = user_data.pop("company_id")
+        roles = user_data.pop("roles", None)
+        employee_id = user_data.pop("employee_id", None)
+        governance_member_id = user_data.pop("governance_member_id", None)
+        partner_id = user_data.pop("partner_id", None)
+        financier_id = user_data.pop("financier_id", None)
+        supplier_id = user_data.pop("supplier_id", None)
+        # company_id = user_data.pop("company_id", None)
 
         password1 = user_data.pop("password1") if 'password1' in user_data and user_data.password1!='' else None
         password2 = user_data.pop("password2")if 'password2' in user_data and user_data.password2!='' else None
@@ -369,6 +379,7 @@ class UpdateUser(graphene.Mutation):
         user.refresh_from_db()
         user.set_roles_in_company(roles_names=roles)
         user.set_employee_for_company(employee_id=employee_id)
+        user.set_governance_member_for_company(governance_member_id=governance_member_id)
         user.set_partner_for_company(partner_id=partner_id)
         user.set_financier_for_company(financier_id=financier_id)
         user.set_supplier_for_company(supplier_id=supplier_id)

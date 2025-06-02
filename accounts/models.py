@@ -50,6 +50,7 @@ class User(AbstractUser):
     company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='company_admins', null=True)
     current_company = models.ForeignKey('companies.Company', on_delete=models.SET_NULL, related_name='current_company_users', null=True)
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, related_name='employee_user', null=True)
+    governance_member = models.ForeignKey('governance.GovernanceMember', on_delete=models.SET_NULL, related_name='governance_member_user', null=True)
     partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, related_name='partner_user', null=True)
     financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, related_name='financier_user', null=True)
     supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, related_name='supplier_user', null=True)
@@ -98,6 +99,22 @@ class User(AbstractUser):
             employee = None
         user_company, created = self.managed_companies.get_or_create(company=company)
         user_company.employee = employee
+        user_company.save()
+
+    def get_governance_member_in_company(self, company=None):
+        company = company or self.current_company or self.company
+        user_company = self.managed_companies.filter(company=company).first()
+        return user_company.governance_member if user_company and user_company.governance_member else self.governance_member
+
+    def set_governance_member_for_company(self, governance_member_id, company=None):
+        from governance.models import GovernanceMember
+        company = company or self.current_company or self.company
+        try:
+            governance_member = GovernanceMember.objects.get(id=governance_member_id)
+        except GovernanceMember.DoesNotExist:
+            governance_member = None
+        user_company, created = self.managed_companies.get_or_create(company=company)
+        user_company.governance_member = governance_member
         user_company.save()
 
     def get_partner_in_company(self, company=None):
@@ -254,7 +271,11 @@ class User(AbstractUser):
 
         # Rôles autorisés pour gérer la gouvernance
         roles = ['SUPER_ADMIN', 'ADMIN', 'GOVERNANCE_MANAGER']
-        return user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles)
+        governance_member = user.get_governance_member_in_company() if user else self.get_governance_member_in_company()
+        can_manage_roles = (user.has_roles_in_company(roles) if user else self.has_roles_in_company(roles))
+        can_manage_governance = governance_member and governance_member.can_manage_governance() if governance_member else False
+        return can_manage_roles or can_manage_governance
+
     def can_manage_quality(self, user=None):
         if self.is_superuser:
             return True
@@ -376,6 +397,7 @@ class UserCompany(models.Model):
     roles = models.ManyToManyField(Role, related_name='managed_companies', blank=True)
 
     employee = models.ForeignKey('human_ressources.Employee', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
+    governance_member = models.ForeignKey('governance.GovernanceMember', on_delete=models.SET_NULL, related_name='managed_companies', null=True)
     partner = models.ForeignKey('partnerships.Partner', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
     financier = models.ForeignKey('partnerships.Financier', on_delete=models.SET_NULL, null=True, related_name='managed_companies')
     supplier = models.ForeignKey('purchases.Supplier', on_delete=models.SET_NULL, null=True, related_name='managed_companies')

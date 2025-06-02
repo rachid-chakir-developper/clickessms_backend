@@ -79,6 +79,13 @@ class GovernanceMember(models.Model):
         self.save()
 
     @property
+    def governance_roles(self):
+        roles = [f"{self.current_role}_IN_GOVERNANCE"] if self.current_role else []
+        if roles and 'MEMBER_IN_GOVERNANCE' not in roles:
+            roles.insert(0, 'MEMBER_IN_GOVERNANCE')
+        return roles
+
+    @property
     def current_role(self):
         """
         Retourne le rôle actuel du membre de la gouvernance en fonction de la date actuelle.
@@ -92,6 +99,10 @@ class GovernanceMember(models.Model):
         ).order_by('-starting_date_time').first()
         current_role=current.role if current else "MEMBER"
         return current_role if current_role!="OTHER" else current.other_role
+
+    def can_manage_governance(self):
+        roles_autorises = ['PRESIDENT']
+        return self.current_role in roles_autorises or True
 
     def __str__(self):
         return self.email

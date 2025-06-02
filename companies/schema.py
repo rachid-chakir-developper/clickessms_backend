@@ -11,7 +11,6 @@ from companies.models import CompanyMedia, Company, Establishment, Establishment
 from medias.models import File, Folder
 from human_ressources.models import Employee
 from accounts.models import User
-from accounts.schema import UserType
 
 class CompanyMediaType(DjangoObjectType):
     class Meta:
@@ -41,7 +40,7 @@ class CompanyType(DjangoObjectType):
     cover_image = graphene.String()
     collective_agreement = graphene.String()
     company_agreement = graphene.String()
-    company_admin = graphene.Field(UserType)
+    company_admin =  graphene.Field("accounts.schema.UserType")
     company_hidden_modules = graphene.List(graphene.String)
     def resolve_logo( instance, info, **kwargs ):
         return instance.logo and info.context.build_absolute_uri(instance.logo.image.url)

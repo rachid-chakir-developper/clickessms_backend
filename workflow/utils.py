@@ -268,17 +268,15 @@ def get_employees_following_fallback_due_to_invalid_validators(current_employee,
 
             # --- Validateurs ---
             validators = set()
-
+            validators.update(validation_rule.validator_employees.all())
             if validation_rule.validator_type == "CUSTOM":
-                validators.update(validation_rule.validator_employees.all())
-
                 if validation_rule.validator_positions.exists():
                     validators.update(get_employees_from_positions(company=company, roles=validation_rule.validator_positions.all()))
 
                 if validation_rule.validator_roles:
                     validators.update(get_employees_from_roles(company=company, roles=validation_rule.validator_roles))
 
-            elif validation_rule.validator_type == "MANAGER":
+            elif validation_rule.validator_type == "MANAGER": # il faut penser aux target_employees qui ont pas des managers
                 managers_of_targets = all_employees.filter(
                     employee_group_manager__employee_group__employee_items__employee__in=target_employees,
                     employee_group_manager__employee_group__is_active=True,
@@ -309,7 +307,6 @@ def get_employees_following_fallback_due_to_invalid_validators(current_employee,
 
                 elif fallback_type == "HIERARCHY" and not fallback_candidates and not validators:
                     target_employees = target_employees.filter(employee_groups__managers=current_employee)
-                    targets |= managed_employees
 
                 elif fallback_type == "ADMIN":
                     fallback_candidates.update([
