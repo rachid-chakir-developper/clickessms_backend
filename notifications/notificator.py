@@ -73,18 +73,31 @@ def notify_employee_absence(sender, recipient, employee_absence, action=None):
 	if sender==recipient:
 		return 0
 	if action:
-		notification_type = "EMPLOYEE_ABSENCE_ADDED"
-		title = "Nouvelle demande de congé ajoutée."
-		message = "Une nouvelle demande de congé a été soumise."
 		if action == 'UPDATED':
-			notification_type = "EMPLOYEE_ABSENCE_UPDATED"
-			title = "Demande de congé mise à jour."
-			message = "Votre demande de congé a été mise à jour."
+		    notification_type = "EMPLOYEE_ABSENCE_UPDATED"
+		    if employee_absence.entry_type == "LEAVE":
+		        title = "Demande de congé mise à jour."
+		        message = "Votre demande de congé a été mise à jour."
+		    elif employee_absence.entry_type == "ABSENCE":
+		        title = "Déclaration d'absence mise à jour."
+		        message = "Votre déclaration d'absence a été mise à jour."
+		else:
+		    notification_type = "EMPLOYEE_ABSENCE_ADDED"
+		    if employee_absence.entry_type == "LEAVE":
+		        title = "Nouvelle demande de congé ajoutée."
+		        message = "Une nouvelle demande de congé a été soumise."
+		    elif employee_absence.entry_type == "ABSENCE":
+		        title = "Nouvelle déclaration d'absence ajoutée."
+		        message = "Une nouvelle déclaration d'absence a été soumise."
 	else:
 		if employee_absence.status == 'PENDING':
-			notification_type = "EMPLOYEE_ABSENCE_PENDING"
-			title = "Demande de congé en attente de décision."
-			message = "Votre demande de congé est en attente de décision."
+		    notification_type = "EMPLOYEE_ABSENCE_PENDING"
+		    if employee_absence.entry_type == "LEAVE":
+		        title = "Demande de congé en attente de décision."
+		        message = "Votre demande de congé est en attente de décision."
+		    elif employee_absence.entry_type == "ABSENCE":
+		        title = "Déclaration d'absence en attente de décision."
+		        message = "Votre déclaration d'absence est en attente de décision."
 		elif employee_absence.status == 'APPROVED':
 			notification_type = "EMPLOYEE_ABSENCE_APPROVED"
 			title = "Demande de congé approuvée."

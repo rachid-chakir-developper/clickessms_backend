@@ -14,7 +14,7 @@ from medias.models import Folder, File
 from human_ressources.models import Employee
 
 from notifications.notificator import notify_employee_absence
-from workflow.utils import get_target_employees_for_request_type
+from workflow.utils import get_target_employees_for_request_type, get_validators_for
 
 class EmployeeAbsenceItemType(DjangoObjectType):
     class Meta:
@@ -208,8 +208,9 @@ class CreateEmployeeAbsence(graphene.Mutation):
 
     def mutate(root, info, document=None, employee_absence_data=None):
         creator = info.context.user
-        employee_ids = employee_absence_data.pop("employees")
-        reason_ids = employee_absence_data.pop("reasons")
+        current_employee = creator.get_employee_in_company()
+        employee_ids = employee_absence_data.pop("employees", None)
+        reason_ids = employee_absence_data.pop("reasons", None)
         employee_absence = EmployeeAbsence(**employee_absence_data)
         employee_absence.creator = creator
         employee_absence.company = creator.the_current_company
@@ -226,14 +227,14 @@ class CreateEmployeeAbsence(graphene.Mutation):
                 employee_absence.document = document_file
         employee_absence.save()
         if not employee_absence.employee:
-            employee_absence.employee = creator.get_employee_in_company()
+            employee_absence.employee = current_employee
         if reason_ids and reason_ids is not None:
             reasons = AbsenceReason.objects.filter(id__in=reason_ids)
             employee_absence.reasons.set(reasons)
         if not creator.can_manage_human_ressources():
-            employees = [creator.get_employee_in_company()]
+            employees = [current_employee]
         else:
-            employees = Employee.objects.filter(id__in=employee_ids) if employee_ids else [creator.get_employee_in_company()]
+            employees = Employee.objects.filter(id__in=employee_ids) if employee_ids else [current_employee]
         for employee in employees:
             try:
                 employee_absence_items = EmployeeAbsenceItem.objects.get(employee__id=employee.id, employee_absence__id=employee_absence.id)
@@ -248,6 +249,11 @@ class CreateEmployeeAbsence(graphene.Mutation):
         folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.label,creator=creator)
         employee_absence.folder = folder
         employee_absence.save()
+        validators = get_validators_for(request_type='LEAVE', requester=current_employee)
+        for employee in validators:
+            employee_user = employee.user
+            if employee_user:
+                notify_employee_absence(sender=creator, recipient=employee_user, employee_absence=employee_absence, action="ADDED")
         return CreateEmployeeAbsence(employee_absence=employee_absence)
 
 class UpdateEmployeeAbsence(graphene.Mutation):
@@ -264,8 +270,9 @@ class UpdateEmployeeAbsence(graphene.Mutation):
             employee_absence = EmployeeAbsence.objects.get(pk=id, company=creator.the_current_company)
         except EmployeeAbsence.DoesNotExist:
             raise e
-        employee_ids = employee_absence_data.pop("employees")
-        reason_ids = employee_absence_data.pop("reasons")
+        current_employee = creator.get_employee_in_company()
+        employee_ids = employee_absence_data.pop("employees", None)
+        reason_ids = employee_absence_data.pop("reasons", None)
         if not creator.can_manage_human_ressources() and employee_absence.status != 'PENDING':
             raise PermissionDenied("Impossible de modifier : vous n'avez pas les droits nécessaires ou l'absence n'est pas en attente.")
         EmployeeAbsence.objects.filter(pk=id).update(**employee_absence_data)
@@ -285,14 +292,14 @@ class UpdateEmployeeAbsence(graphene.Mutation):
                 employee_absence.document = document_file
             employee_absence.save()
         if not employee_absence.employee:
-            employee_absence.employee = creator.get_employee_in_company()
+            employee_absence.employee = current_employee
             employee_absence.save()
 
         if reason_ids is not None:
             employee_absence.reasons.set(reason_ids)
 
         EmployeeAbsenceItem.objects.filter(employee_absence=employee_absence).exclude(employee__id__in=employee_ids).delete()
-        employees = Employee.objects.filter(id__in=employee_ids) if employee_ids else [creator.get_employee_in_company()]
+        employees = Employee.objects.filter(id__in=employee_ids) if employee_ids else [current_employee]
         for employee in employees:
             try:
                 employee_absence_items = EmployeeAbsenceItem.objects.get(employee__id=employee.id, employee_absence__id=employee_absence.id)
@@ -307,6 +314,7 @@ class UpdateEmployeeAbsence(graphene.Mutation):
         if not employee_absence.folder or employee_absence.folder is None:
             folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.label,creator=creator)
             EmployeeAbsence.objects.filter(pk=id).update(folder=folder)
+        notify_employee_absence(sender=creator, recipient=employee_absence.creator, employee_absence=employee_absence, action='UPDATED')
         return UpdateEmployeeAbsence(employee_absence=employee_absence)
 
 class UpdateEmployeeAbsenceFields(graphene.Mutation):
@@ -347,7 +355,6 @@ class UpdateEmployeeAbsenceFields(graphene.Mutation):
                         notify_employee_absence(sender=creator, recipient=employee_user, employee_absence=employee_absence)
             employee_absence.refresh_from_db()
         except Exception as e:
-            print(e)
             done = False
             success = False
             employee_absence=None
