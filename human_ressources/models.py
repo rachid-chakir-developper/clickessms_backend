@@ -1258,7 +1258,7 @@ class BeneficiaryAdmission(models.Model):
 		queryset = cls.objects.filter(
 			reception_date__gte=start_of_year,
 			reception_date__lte=end_of_year,
-			status__in=["APPROVED", "REJECTED"],
+			status__in=["PENDING", "APPROVED", "REJECTED", "CANCELED"],
 			is_deleted=False,
 		)
 
@@ -1287,7 +1287,7 @@ class BeneficiaryAdmission(models.Model):
 			admissions = queryset.filter(
 				reception_date__gte=start_of_month,
 				reception_date__lte=end_of_month
-			)
+			).distinct()
 
 			# Grouper les admissions par établissement
 			for admission in admissions:

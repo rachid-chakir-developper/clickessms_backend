@@ -611,10 +611,12 @@ class DashboardActivityType(graphene.ObjectType):
                 beneficiary_admissions = get_item_object(beneficiary_admission_monthly_admissions, establishment.id, i+1, 'admissions')
                 if children_beneficiary_entry_monthly_present_beneficiaries:
                     for k, children_establishment in enumerate(children_establishments):
-                        beneficiary_entries += get_item_object(children_beneficiary_entry_monthly_present_beneficiaries, children_establishment.id, i+1, 'presences')
+                        if not establishment==children_establishment:
+                            beneficiary_entries += get_item_object(children_beneficiary_entry_monthly_present_beneficiaries, children_establishment.id, i+1, 'presences')
                 if children_beneficiary_admission_monthly_admissions:
                     for k, children_establishment in enumerate(children_establishments):
-                        beneficiary_admissions += get_item_object(children_beneficiary_admission_monthly_admissions, children_establishment.id, i+1, 'admissions')
+                        if not establishment==children_establishment:
+                            beneficiary_admissions += get_item_object(children_beneficiary_admission_monthly_admissions, children_establishment.id, i+1, 'admissions')
 
                 count_occupied_places_prev_month = 0
                 count_received = 0
