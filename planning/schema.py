@@ -104,7 +104,8 @@ class PlanningQuery(graphene.ObjectType):
         company = user.the_current_company
         employee = user.get_employee_in_company()
         total_count = 0
-        target_employees = get_target_employees_for_request_type(current_employee=employee, request_type='LEAVE')
+        # target_employees = get_target_employees_for_request_type(current_employee=employee, request_type='LEAVE')
+        target_employees = []
         employee_absences = EmployeeAbsence.objects.filter(company=company, is_deleted=False)
         if not user.can_manage_human_ressources():
             if user.is_manager():
@@ -249,11 +250,11 @@ class CreateEmployeeAbsence(graphene.Mutation):
         folder = Folder.objects.create(name=str(employee_absence.id)+'_'+employee_absence.label,creator=creator)
         employee_absence.folder = folder
         employee_absence.save()
-        validators = get_validators_for(request_type='LEAVE', requester=current_employee)
-        for employee in validators:
-            employee_user = employee.user
-            if employee_user:
-                notify_employee_absence(sender=creator, recipient=employee_user, employee_absence=employee_absence, action="ADDED")
+        # validators = get_validators_for(request_type='LEAVE', requester=current_employee)
+        # for employee in validators:
+        #     employee_user = employee.user
+        #     if employee_user:
+        #         notify_employee_absence(sender=creator, recipient=employee_user, employee_absence=employee_absence, action="ADDED")
         return CreateEmployeeAbsence(employee_absence=employee_absence)
 
 class UpdateEmployeeAbsence(graphene.Mutation):
