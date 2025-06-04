@@ -1124,7 +1124,7 @@ class HumanRessourcesQuery(graphene.ObjectType):
             list_type = beneficiary_admission_filter.get('list_type') # ALL_BENEFICIARY_ADMISSION_REQUESTS / MY_BENEFICIARY_ADMISSIONS / MY_BENEFICIARY_ADMISSION_REQUESTS / ALL
             order_by = beneficiary_admission_filter.get('order_by')
             if establishments:
-                beneficiary_admissions = beneficiary_admissions.filter(establishment__id__in=establishments)
+                beneficiary_admissions = beneficiary_admissions.filter(establishments__id__in=establishments)
             if list_type:
                 if list_type == 'MY_BENEFICIARY_ADMISSIONS':
                     beneficiary_admissions = beneficiary_admissions.filter(creator=user)
